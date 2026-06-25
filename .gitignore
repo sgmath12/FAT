@@ -1,0 +1,25 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data
+data/
+
+# Checkpoints / model weights
+CIFAR10/checkpoint/
+*.pkl
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.tar.gz
+
+# Logs / results
+results/
+*.log
+
+# Claude / editor
+.claude/
+.vscode/
+.idea/

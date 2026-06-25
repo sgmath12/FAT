@@ -1,0 +1,43 @@
+method : cure
+dataset : CIFAR10
+arch: ResNet18
+
+# ===== CURE training recipe (paper / README best_params_cifar) =====
+optim : SGD
+lr : 0.1
+weight_decay : 0.0007
+epochs : 120
+cyclic : False           # CURE scheduler='None' -> manual multistep decay below
+epoch_step : [100, 150]  # CURE epoch_step (lr drop milestones)
+lr_decay_ratio : 0.1     # CURE lr_decay_ratio
+
+# ===== CURE method hyperparameters =====
+alpha : 0.1            # Eq.6 RGP nat/adv prominence balance (w_nat); README alpha
+percentile : 0.3      # Eq.6 fraction of low-prominence weights frozen each step; README percent=30
+gamma : 1.0           # L_CR (consistency) weight; README aux_loss_wt
+beta : 5.0            # robust KL weight in L_adv (Eq.5); CURE trades_beta default
+revision_decay : 0.999    # Eq.7 d ; README ema_alpha
+revision_rate : 0.2       # Eq.7 r ; README ema_update_freq
+
+# fields only read by main.py logging (d2) — kept for compatibility
+lamda : 0.0
+tau : 0.0
+kappa : 0.999
+
+# ===== attack setting (CURE: PGD-10, eps=8/255, step=0.007) =====
+eps : 8/255
+steps : 10
+step_size : 7/1000/1
+batch_size : 128
+
+# ===== our (FAT) side: natural checkpoint + evaluation =====
+interval : 1
+log : True
+load : True            # load OUR natural model as teacher (origin_model)
+finetune : True        # start student from OUR natural model
+evaluate : True        # final FAT-style eval: clean/FGSM/PGD20/PGD10/PGD50/CW
+reformation : False     # clean_last.pkl trained with reformation:False -> standard ResNet18
+weight_avg : True
+aug : none
+checkpoint : CIFAR10/checkpoint/clean/clean_last.pkl
+data_root : ./data

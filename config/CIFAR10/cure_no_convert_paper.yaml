@@ -1,0 +1,44 @@
+method : cure
+dataset : CIFAR10
+arch: ResNet18
+
+# ===== CURE training recipe — PAPER values (Table 9, Eq.5) =====
+optim : SGD
+lr : 0.1
+weight_decay : 0.005     # paper Table 9: 5e-3  (GitHub uses 0.0007)
+epochs : 200             # paper Table 9: 200    (GitHub uses 120)
+cyclic : False
+epoch_step : [100, 150]  # lr drop milestones (both fire within 200 ep)
+lr_decay_ratio : 0.1
+
+# ===== CURE method hyperparameters (Table 9: ResNet18-CIFAR10) =====
+alpha : 0.1            # Eq.6 RGP nat/adv balance (paper α)
+percentile : 0.3      # Eq.6 freeze fraction (paper p=30)
+gamma : 1.0           # L_CR weight (paper γ)
+beta : 1.0            # robust KL weight in L_adv: paper Eq.5 has NO coefficient (=1)
+revision_decay : 0.999    # Eq.7 d
+revision_rate : 0.2       # Eq.7 r
+
+# fields only read by main.py logging (d2)
+lamda : 0.0
+tau : 0.0
+kappa : 0.999
+
+# ===== attack setting (PGD-10, eps=8/255, step=0.007) =====
+eps : 8/255
+steps : 10
+step_size : 7/1000/1
+batch_size : 128
+
+# ===== our (FAT) side: natural checkpoint + eval, CURE-matched [0,1] =====
+interval : 1
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+convert : False         # raw [0,1], no normalization -> matches CURE (norm_std=False)
+weight_avg : True
+aug : none
+checkpoint : CIFAR10/checkpoint/clean_no_convert/clean_last.pkl
+data_root : ./data
