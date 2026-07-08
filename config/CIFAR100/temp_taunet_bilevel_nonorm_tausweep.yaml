@@ -1,0 +1,46 @@
+# Option A (student normalization removed, user's idea 2026-07-06): student_norm: True -> False, so the
+#   student uses plain ResNet18 (no feature L2-normalization before the head) and is free to grow
+#   overconfident/sharp logits under AT -- tau_net (bilevel-learned) becomes the ONLY suppressor of that
+#   sharpness, instead of sharing the job with the hard L2-projection. This is a genuinely untested cell:
+#   prior "student RAW" failures (DPFAT_adatemp/DPFAT_chansel, see dpfat-reformation-isolation memory) all
+#   used a FIXED hand-designed formula temperature (T=alpha*clamp(signal/mean,...)), never a learned MLP,
+#   let alone one trained via the bilevel meta-gradient. Everything else identical to
+#   temp_taunet_bilevel_tausweep.yaml except student_norm/reformation.
+#   Results -> results/CIFAR100/temp_taunet_bilevel_nonorm_tausweep/output.log. Sweep tau via --tau (12, 6, 4).
+method : temperature_taunet_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 12
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+tau_adapt : True
+tau_hidden : 64
+tau_depth : 2
+tau_bn : True
+val : True
+bilevel_start : 0
+bilevel_end : 10
+tau_meta_lr : 100
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

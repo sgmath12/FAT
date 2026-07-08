@@ -1,0 +1,58 @@
+# CENTERED variant (2026-07-06): base pilot learned ONE global direction (alignment 1.0000) and
+# tied the fair 45k baseline exactly (H 40.56 vs 40.55). delta_center_batch subtracts the batch-mean
+# delta vector -> only RELATIVE per-sample edits representable. Survives = real per-sample signal;
+# collapses to 0 = direction axis provably inert (uniqueness pillar #5). Everything else identical.
+# Bilevel direction-only DeltaNet (user's idea, 2026-07-06).
+#   method train_temperature_deltanet_bilevel: learns a per-sample VECTOR edit of the teacher target
+#   (delta = DeltaNet(teacher_logits/tau), logits-only input, zero-init) via the taunet_bilevel meta
+#   machinery. Rationale: every per-sample SCALAR is a temperature reparametrization and provably
+#   inert at T=16 (softmax washout); the one unexplored axis is target DIRECTION. Constraints that
+#   make it collapse-proof: residual+zero-init (step 0 == plain baseline), mean-centering, per-sample
+#   norm cap (delta_r), and per-sample ENTROPY MATCHING back to the tau-baseline target -- the
+#   estimator's confirmed sharpness cheat (killed globaltau) is outside delta's reachable set.
+#   Window 0-10 per the taunet_bilevel v2 finding (later windows sit on OneCycleLR's peak lr and
+#   wreck the backbone -- halfwindow/fullwindow ablations both confirmed worse).
+#   Watch in output.log per epoch: dnorm_* (does delta develop real structure or stay ~0), sat_frac
+#   (cap saturation -> raise/lower delta_r), beta_* (how hard entropy matching corrects; ~1 is calm),
+#   dtrue_wrong vs dtrue_right (swap-rediscovery probe: positive gap = delta pushes mass toward the
+#   true class precisely where the teacher errs -- labels used for logging only).
+#   CIFAR run = pilot ("does structure emerge without collapse"); the headroom bet is Tiny-ImageNet.
+method : temperature_deltanet_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+delta_adapt : True
+delta_hidden : 128
+delta_depth : 1
+delta_bn : False
+delta_center_batch : True
+delta_r : 0.3
+delta_meta_lr : 100
+val : True
+bilevel_start : 0
+bilevel_end : 10
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

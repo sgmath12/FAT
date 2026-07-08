@@ -1,0 +1,38 @@
+# INTERPRETABLE LEARNED per-sample teacher temperature (user's idea, priority #3, 2026-07-04).
+#   method train_temperature_taunet: target = teacher_logits / tau(x).
+#   tau(x) = tau * exp(r_centered), stats = [norm, margin, entropy] of the raw teacher logits ONLY
+#   (no raw feature vector -- unlike temp_tadapt.yaml's T_head, which reads the teacher's 512-d feature).
+#   Batch log-centering (same as temp_tadapt) pins geomean(tau(x))==tau every step -- blocks the
+#   "inflate tau for everyone to cheapen nn.KLDivLoss's target-entropy term" collapse mode.
+#   TauNet final layer zero-init -> tau(x)==tau for every sample at step 0 (fair start).
+#   Direct A/B against temp_studentNorm_teacherRaw.yaml / temp_tadapt.yaml (same tau=16, isolated: lamda=0, weight_avg=False).
+#   Per-epoch tau(x) mean/std/p5/p50/p95 logged -> results/CIFAR100/temp_taunet/output.log.
+method : temperature_taunet
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_adapt : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

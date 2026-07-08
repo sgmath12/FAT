@@ -1,0 +1,34 @@
+# IDEA #2 (input-dependent, GRADIENT-level): per-sample KD loss reweight by TEACHER instability
+#   under the student's adversary: w = exp(-gamma * KL(t(x)||t(x_adv)) / mean), renorm to mean 1.
+#   gamma=0 == temp_studentNorm_teacherRaw baseline exactly. Sweep via --gamma.
+#   Base = tau=16 best cell, isolated (lamda=0, weight_avg=False).
+#   Results -> results/CIFAR100/temp_reweight/output.log (parse by gamma).
+method : temperature_reweight
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+gamma : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

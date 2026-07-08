@@ -1,0 +1,38 @@
+# CE-mix on the NATURAL-teacher distillation loop (user's idea, 2026-07-07):
+#   loss = KL(student(x_adv) || teacher(x)/tau) + beta * CE(student(x_adv), y)
+#   RSLAD's "pure KD wins" verdict assumed a robust teacher; with a NATURAL teacher the true label
+#   may supply the robust signal the teacher lacks. NOT dualkd (that added a CLEAN KD term, lost
+#   monotonically) -- this is the classic AT objective on x_adv. beta=0 == plain temperature baseline
+#   exactly. Sweep beta via --beta into results/CIFAR100/temp_cemix/output.log (parse by beta).
+#   Fair bar: 50k baseline tau16 seed0 H 41.77 (63.04/31.23).
+method : temperature_cemix
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+beta : 0.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+val : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

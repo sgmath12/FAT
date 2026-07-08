@@ -1,0 +1,54 @@
+# Bilevel/meta-learning TauNet (user's idea, 2026-07-04, fully discussed/agreed design).
+#   method train_temperature_taunet_bilevel: fixes the DEEPER collapse mode of plain taunet (tau_net's
+#   gradient could reward curve-fitting to the CURRENT student's mismatch rather than a genuinely
+#   transferable per-sample signal) by learning tau_net via a Ren-et-al-2018-style bilevel objective:
+#   one REAL differentiable backbone step, then L_after = adversarial CE (true labels) on a held-out
+#   META batch (config.val=True) using the JUST-updated backbone -- tau_net can only improve by making
+#   a REAL held-out robustness gain, not by softening its own training batch's target.
+#   bilevel_start/bilevel_end: expensive 2nd-order+meta-batch phase runs only for this epoch window;
+#   tau_net is frozen (zero grad) outside it. v1 (window 15-25) collapsed clean acc badly (H=39.57,
+#   vs 41.77 baseline) -- likely the manual raw-SGD backbone step during the window is too disruptive
+#   at that point in training (OneCycleLR is near its PEAK lr around epoch 15-25 for pct_start=0.5).
+#   v2 (this file): window moved to epoch 0-10, where OneCycleLR is still in its low-lr warmup, so the
+#   manual SGD step should be much gentler on the backbone. Also: student is finetune-loaded from the
+#   clean teacher checkpoint at epoch 0 already (not random init), so "student too undertrained" is a
+#   weaker concern than originally assumed -- per user's observation.
+#   v2 TauNet architecture (BN + hidden64/depth2) reused since it was the best plain-taunet cell.
+#   3-step (fast AT) first pass -- steps=10 version to follow if this shows signal.
+method : temperature_taunet_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_adapt : True
+tau_hidden : 64
+tau_depth : 2
+tau_bn : True
+val : True
+bilevel_start : 0
+bilevel_end : 10
+tau_meta_lr : 100
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

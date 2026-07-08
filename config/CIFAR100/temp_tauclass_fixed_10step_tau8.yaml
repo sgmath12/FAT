@@ -1,0 +1,39 @@
+# FIXED per-class temperature (NO learning) -- heuristic counterpart of temp_tauclass_bilevel.
+#   method train_temperature_tauclass_fixed: tau_c = tau * exp(gamma * centered log s_c),
+#   s_c = per-class teacher stat (tauclass_stat, default gnorm) from diag_perclass_teacher.npz.
+#   geomean(tau_c) == tau for any gamma; gamma=0 == plain temperature baseline exactly.
+#   Trains on the FULL 50k (val False) -> fair bar = temp_studentNorm_teacherRaw tau16 H 41.77 (seed0).
+#   10-STEP version (heavy AT); fair bar = baseline_10step H 42.18. Sweep gamma into temp_tauclass_fixed_10step/output.log (parse by gamma).
+method : temperature_tauclass_fixed
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 8
+gamma : 0.0
+tauclass_stat : gnorm
+tauclass_stats : results/CIFAR100/diag_perclass_teacher.npz
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+val : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

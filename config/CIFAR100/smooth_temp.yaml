@@ -1,0 +1,36 @@
+# eps-ball SMOOTHED teacher + global temperature (golden-logit). method train_smooth_temp.
+#   target = mean_{K}( teacher(x+delta) ) / T ,  delta ~ Uniform L_inf eps-ball.  Diagnostic: ~4x flatter
+#   (lower local KL) than plain temperature at matched softness -> more robust-shaped target.
+#   student L2-norm (student_norm=True), teacher raw (teacher_norm=False), NO /13. steps=3.
+#   knobs: temperature=T (softness), smooth_k=K (ball samples; K=1 == plain temperature). Sweep T via --temperature.
+# Results -> results/CIFAR100/smooth_temp/output.log. Compare vs global temp 41.62 / swap-baseline 42.17.
+method : smooth_temp
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 1
+temperature : 16
+smooth_k : 8
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

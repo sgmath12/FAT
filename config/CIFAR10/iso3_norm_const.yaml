@@ -1,0 +1,32 @@
+# ISOLATED 2x2 cell C: normalization ON + CONST temperature
+# reformation=True (directional logits W^T z_hat), tau=0 (T=alpha const), isolated: lamda=0, weight_avg=False
+# Sweep alpha (~0.5 scale) via CLI. Output -> results/CIFAR10/iso3_norm_const/
+method : DPFAT_adaptive
+dataset : CIFAR10
+arch: ResNet18
+
+optim : AdamW
+lr : 0.021
+alpha : 0.5
+lamda : 0.0          # ISOLATED: no consistency loss
+tau : 0.0            # CONST: temperature = alpha
+kappa : 0.999
+aug : none
+# attack Setting
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+cyclic : True
+weight_avg : False   # ISOLATED: no SWA
+checkpoint : CIFAR10/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean/clean_last.pkl
+data_root : ./data

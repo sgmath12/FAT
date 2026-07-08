@@ -1,0 +1,35 @@
+# taunet + swap combo (user's idea, 2026-07-04): stack the two independently-validated levers.
+#   method train_temperature_taunet_swap: target = rectify_swap(teacher_logits, y) / tau(x).
+#   tau(x) from the SAME 3-stat TauNet as temp_taunet.yaml (norm/margin/entropy of the raw teacher
+#   logits), batch log-centered so geomean(tau(x))==tau every step.
+#   Baselines: swap alone = 42.17 H; taunet alone (temp_taunet.yaml) = 41.51 H (real non-degenerate
+#   per-sample structure, but no win). This tests whether the two levers stack.
+method : temperature_taunet_swap
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_adapt : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

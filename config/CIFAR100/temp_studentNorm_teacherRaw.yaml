@@ -1,0 +1,31 @@
+# Temperature study cell: student_norm=True, teacher_norm=False. FAST (steps=3).
+# method=temperature -> target = teacher_logits / tau. tau swept via --tau (1,4,...) INSIDE this one folder:
+#   results/CIFAR100/temp_studentNorm_teacherRaw/output.log  (append; parse by tau). tau=1 == raw teacher when teacher_norm=False.
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 1
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

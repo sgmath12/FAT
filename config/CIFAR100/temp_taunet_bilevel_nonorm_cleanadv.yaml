@@ -1,0 +1,43 @@
+# Option A (student_norm=False) x meta_loss=cleanadv (user's idea, 2026-07-06): does diversifying the
+#   meta-objective help once the student is UNNORMALIZED and tau_net is the only thing reining in its
+#   logit sharpness? Success bar: beat the student_norm=True baseline (H=42.12), or failing that, beat
+#   the raw-student NON-adaptive ceiling (iso1, see dpfat-reformation-isolation memory, H~40.8).
+#   Otherwise identical to temp_taunet_bilevel_cleanadv.yaml except student_norm/reformation=False.
+method : temperature_taunet_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+tau_adapt : True
+tau_hidden : 64
+tau_depth : 2
+tau_bn : True
+val : True
+bilevel_start : 0
+bilevel_end : 10
+tau_meta_lr : 100
+bilevel_meta_loss : cleanadv
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

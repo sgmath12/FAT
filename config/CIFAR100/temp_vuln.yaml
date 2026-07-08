@@ -1,0 +1,36 @@
+# Per-sample VULNERABILITY-modulated temperature + swap. method train_temperature_vuln.
+#   T(x) = tau * exp(gamma * zscore(vuln)),  vuln = KL(teacher(x) || teacher(x_adv)) (2-step teacher PGD).
+#   gamma>0 = vulnerable SOFTER, gamma<0 = vulnerable SHARPER. vuln_swap=True -> true label to top.
+#   gamma=0 & swap on == swap-baseline 42.17 (control). student L2-norm, teacher raw. steps=3.
+#   knobs: tau=T0, gamma (signed, via --gamma), vuln_swap. Results -> results/CIFAR100/temp_vuln/output.log
+#   (cells by gamma). Vulnerability is diagnostic-greenlit: orthogonal to confidence (Spearman 0.13).
+method : temperature_vuln
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+gamma : 0.3
+vuln_swap : True
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

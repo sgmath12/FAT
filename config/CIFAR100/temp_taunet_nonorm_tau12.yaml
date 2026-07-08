@@ -1,0 +1,38 @@
+# Diagnostic (user's idea, 2026-07-06): plain (non-bilevel) taunet with student_norm=False, tau=12.
+#   Isolates whether the catastrophic collapse seen in temp_taunet_bilevel_nonorm_tausweep (H dropping to
+#   ~30-37, far below the raw+raw non-adaptive baseline) is caused by (a) any adaptive tau_net on an
+#   unbounded/raw student logit scale, or (b) specifically the bilevel proxy-step/2nd-order machinery.
+#   This variant has NO bilevel machinery at all -- tau_net trained directly off the ordinary KD loss
+#   gradient, same as temp_taunet.yaml, just with student_norm/reformation flipped to False.
+#   If this also collapses -> (a). If this trains normally (~matches temp_studentRaw_teacherRaw tau=12ish
+#   non-adaptive point) -> (b), pointing the blame at the bilevel mechanism specifically.
+method : temperature_taunet
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 12
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+tau_adapt : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

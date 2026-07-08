@@ -56,8 +56,9 @@ class Bottleneck(nn.Module):
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10):
+    def __init__(self, block, num_blocks, num_classes=10, scale=1.0):
         super(ResNet, self).__init__()
+        self.scale = scale   # fixed feature scale for the cosine head (1.0 = original behavior)
         self.in_planes = 64
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
@@ -90,9 +91,9 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
         original_out = out.view(out.size(0), -1)
-        out = original_out/original_out.norm(dim = 1).reshape([-1,1]) #add
+        out = self.scale * original_out/original_out.norm(dim = 1).reshape([-1,1]) #add
 
-        if feat : 
+        if feat :
             return original_out, self.linear(out)
         return self.linear(out)
 
@@ -105,7 +106,7 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         feat = F.avg_pool2d(out, 4)
         feat = feat.view(feat.size(0), -1)
-        feat = feat/feat.norm(dim = 1).reshape([-1,1]) #add
+        feat = self.scale * feat/feat.norm(dim = 1).reshape([-1,1]) #add
         out = self.linear(feat)
         if only_feature:
             return feat,None
@@ -121,7 +122,7 @@ class ResNet(nn.Module):
             out = self.layer4(out)
             feat = F.avg_pool2d(out, 4)
             feat = feat.view(out.size(0), -1)
-            feat = feat/feat.norm(dim = 1).reshape([-1,1]) #add
+            feat = self.scale * feat/feat.norm(dim = 1).reshape([-1,1]) #add
             feat = feat * score
             out = self.linear(feat)
             
@@ -131,8 +132,8 @@ class ResNet(nn.Module):
                 return None,out
         
 
-def ResNet18_z(num_classes=10):
-    return ResNet(BasicBlock, [2,2,2,2], num_classes)
+def ResNet18_z(num_classes=10, scale=1.0):
+    return ResNet(BasicBlock, [2,2,2,2], num_classes, scale=scale)
 
 def ResNet34(num_classes=10):
     return ResNet(BasicBlock, [3,4,6,3], num_classes)

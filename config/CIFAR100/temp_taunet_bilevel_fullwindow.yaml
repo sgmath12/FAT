@@ -1,0 +1,41 @@
+# bilevel TauNet with bilevel_end == epochs (window 0-50): meta-phase NEVER stops, tau_net keeps
+#   learning via the bilevel objective for the WHOLE run (no freeze). Compare against window 0-10
+#   (3-step H=41.82, best bilevel cell so far) to see whether more meta-learning time helps or just
+#   adds cost. Same base: gradnorm input [norm, entropy, gradnorm], v2 arch (BN+hidden64/depth2), 3-step.
+method : temperature_taunet_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_adapt : True
+tau_hidden : 64
+tau_depth : 2
+tau_bn : True
+val : True
+bilevel_start : 0
+bilevel_end : 50
+tau_meta_lr : 100
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

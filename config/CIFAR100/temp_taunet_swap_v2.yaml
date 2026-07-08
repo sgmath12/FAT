@@ -1,0 +1,35 @@
+# NEW combo, never tested: taunet_swap (rectify_swap) + v2 capacity (BN + bigger MLP). 3-step (fast AT).
+#   Combines the two things separately: swap alone=42.17, taunet_v2 alone (no swap)=41.87 (best taunet cell).
+#   Same method as temp_taunet_swap.yaml (train_temperature_taunet_swap) but with the v2 TauNet capacity knobs.
+method : temperature_taunet_swap
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_adapt : True
+tau_hidden : 64
+tau_depth : 2
+tau_bn : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

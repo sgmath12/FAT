@@ -13,6 +13,10 @@ from torch.autograd import Variable
 import torch
 import torch.nn.functional as F
 import torchattacks
+import logging
+import os
+import dataset as _dataset_mod
+from torch.func import functional_call
 import matplotlib
 matplotlib.use('Agg') # 서버 환경(GUI 없는 환경)에서 X11 화면 출력 에러 방지
 import matplotlib.pyplot as plt
@@ -433,51 +437,2174 @@ def train_DPFAT_adaptive(model, train_loader, optimizer, origin_model, epoch, co
                 exp_avg[key] = (1 -decay) * value + decay * exp_avg[key]
 
 
-def train_DPFAT_rank(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
-    """DPFAT_adaptive with a configurable per-sample temperature SIGNAL.
+def rectify_swap(logits, y):
+    """Teacher rectification (PARAMETER-FREE): make the true class the top logit.
 
-    Same pipeline as train_DPFAT_adaptive; only the per-sample temperature
-    T_i = config.tau * signal_i + config.alpha changes:
-      config.signal : 'norm'   -> ||teacher_feat||      (original DPFAT)
-                      'margin'  -> top1-top2 teacher logit  (high dispersion, robust-predictive)
-      config.rank   : True      -> replace signal by its batch rank/N in (0,1]
-                                   (forces full per-sample spread; fixes low-dispersion failure)
-    4-cell ablation: {norm,margin} x {raw,rank}.
+    For samples the teacher already gets right (argmax==y) this is a no-op. For wrong samples it
+    SWAPS logit[y] with logit[argmax] -> true class becomes top while the soft distribution's shape
+    (confidence magnitude / entropy) is preserved. Uses the label, so any baseline it is compared
+    against must apply the same rectification (fairness). Apply BEFORE the global temperature /T.
+    """
+    out = logits.clone()
+    idx = torch.arange(logits.size(0), device=logits.device)
+    amax = logits.argmax(dim=1)
+    y_val = out[idx, y].clone()
+    out[idx, y] = out[idx, amax]
+    out[idx, amax] = y_val
+    return out
+
+
+def rectify_soft(logits, y, margin):
+    """Gentle teacher rectification: LIFT the true-class logit to (current max + margin) ONLY where the
+    teacher is wrong (argmax != y); leave every other logit untouched. Unlike hard rectify_swap (which
+    demotes the wrong top class to y's low value, erasing the confusion structure), this keeps the whole
+    teacher distribution and just floats y to the top by `margin` -> the previously-top wrong class stays
+    #2 (dark-knowledge / confusion structure preserved). margin in logit space, applied BEFORE /T."""
+    out = logits.clone()
+    idx = torch.arange(logits.size(0), device=logits.device)
+    cur_max = out.max(dim=1).values
+    need = out[idx, y] < cur_max                                   # only where y is not already top
+    out[idx, y] = torch.where(need, cur_max + margin, out[idx, y])
+    return out
+
+
+def train_temperature_swapsoft(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Global temperature + SOFT swap-rectification (rectify_soft): float true class to top by `margin`
+    while preserving the teacher's confusion structure. Refinement of train_temperature_swap (hard swap).
+    knobs: tau = global temperature, beta = margin (logit space)."""
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    margin = getattr(config, "beta", 1.0) or 1.0
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            target = (rectify_soft(teacher_logits, y, margin) / config.tau).detach()   # soft rectify THEN soften
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_swap(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Baseline (global temperature) + teacher swap-rectification. Fair swap-baseline for the carve method.
+
+    Same as train_temperature (student normalizes, teacher target = teacher_logits / tau) but the raw
+    teacher logits are first rectify_swap'd so the true class is the top logit. tau = global temperature.
     """
     model.train()
     origin_model.eval()
     annealing = (epoch / config.epochs) ** 2
     decay = annealing * (1 - config.kappa) + config.kappa
     criterion_kl = nn.KLDivLoss(reduction='none')
-    use_rank = getattr(config, "rank", True)
-    signal_kind = getattr(config, "signal", "margin")
 
     for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
         N, C, H, W = x.shape
         optimizer.zero_grad()
         x, y = x.cuda(), y.cuda()
-        teacher_feat, teacher_logits = origin_model(x, feat=True)
 
-        # ---- per-sample temperature signal (from clean teacher) ----
-        if signal_kind == "norm":
-            s = teacher_feat.norm(dim=1)
-        else:  # 'margin' : top1 - top2 logit
-            top2 = teacher_logits.topk(2, dim=1).values
-            s = top2[:, 0] - top2[:, 1]
-        if use_rank:  # batch rank -> (0,1], forces full dispersion
-            s = s.argsort().argsort().float().add(1).div(N)
-        T = (config.tau * s + config.alpha).reshape([-1, 1])
-        teacher_logits = teacher_logits / T
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            target = (rectify_swap(teacher_logits, y) / config.tau).detach()   # rectify THEN soften
 
-        x_pgd = inner_loss_only_return(model, teacher_logits, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
         plus_logits = model(x_pgd)
-
-        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(teacher_logits.detach(), dim=1))
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
         loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
 
         student_logits = model(x)
-        consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
-        loss += annealing * config.lamda * (consistency_loss).mean()
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_tadapt(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature_swap + a LEARNED per-sample teacher temperature T(x) (teacher-side analog of padapt).
+
+    T(x) = tau * exp(r_centered),  r_centered = clamp(T_head(Phi_teacher.detach()), -c, c) - batch_mean(clamp(...))
+    T_head (model.T_head, zero-init, set up in get_model when config.t_adapt) lives on the STUDENT so it
+    shares the optimizer; its input is the FROZEN teacher's raw feature (detached), so gradients only ever
+    update T_head, never the teacher. Zero-init -> r=0 everywhere -> T(x)=tau exactly at step 0, matching
+    the fixed swap baseline. The clamp bounds T(x) to [tau/2, 2*tau] (blocks the kappa(x) near-zero-temp
+    divergence failure seen before). Centering r by its own batch mean BEFORE the exp pins the batch's
+    GEOMETRIC-MEAN temperature at tau on every single step: the KD loss can only reshuffle which samples
+    get a harder/softer target, it can never lower the whole batch's softness to trivially minimize itself
+    (the "T->inf flattens every target toward uniform" collapse mode a free-running learned T would have).
+    The adversarial search uses a DETACHED copy of the target (the attack doesn't need to move T_head);
+    only the outer KD loss backprops into T_head. Logs per-epoch T(x) mean/std/p5/p50/p95 (same observable
+    padapt used for p(x)) to see whether it collapses back to flat (T(x)==tau, reconfirms uniqueness) or
+    finds real per-sample structure.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    clamp_range = getattr(config, "t_clamp", None) or 0.6931471805599453  # ln(2) -> T(x) in [tau/2, 2*tau]
+
+    T_all = []
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, teacher_logits = origin_model(x, feat=True)
+            teacher_logits = rectify_swap(teacher_logits, y)
+
+        r = model.T_head(teacher_feat.detach())              # [N,1], zero-init -> r=0
+        r = torch.clamp(r, -clamp_range, clamp_range)
+        r = r - r.mean()                                      # batch-center in log-space: pins geomean(T)=tau
+        T_x = config.tau * torch.exp(r)                       # [N,1]
+        target = teacher_logits / T_x                         # differentiable wrt T_head only
+
+        x_pgd = inner_loss_only_return(model, target.detach(), x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        T_all.append(T_x.detach().cpu())
+
+    if T_all:
+        T_cat = torch.cat(T_all).flatten()
+        q = torch.quantile(T_cat, torch.tensor([0.05, 0.5, 0.95]))
+        logging.info({"T_mean": round(T_cat.mean().item(), 4), "T_std": round(T_cat.std().item(), 4),
+                      "T_p5": round(q[0].item(), 4), "T_p50": round(q[1].item(), 4),
+                      "T_p95": round(q[2].item(), 4), "epoch": epoch})
+
+
+def train_temperature_taunet(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Interpretable LEARNED per-sample teacher temperature (user's idea, priority #3, 2026-07-04).
+
+    tau(x) comes from a tiny MLP (model.tau_net, see utils.TauNet) fed ONLY 3 interpretable logit
+    statistics -- no raw feature vector at all (unlike train_temperature_tadapt, which reads the
+    teacher's raw 512-d feature through a linear head):
+        norm = ||teacher_logits||_2, margin = top1 - top2, entropy = H(softmax(teacher_logits))
+    tau(x) = config.tau * exp(r_centered), r_centered = clamp(tau_net(stats), -c, c) - batch_mean(clamp(...)).
+    SAME anti-collapse mechanism as train_temperature_tadapt: nn.KLDivLoss's target-entropy term
+    (sum q*log(q)) is NOT constant once tau is learned, so without batch centering the optimizer can
+    trivially shrink the loss by flattening every sample's target (raising tau for the whole batch)
+    with zero relation to distillation quality -- confirmed empirically (an uncentered version
+    collapsed to its clamp ceiling within 1 epoch). Centering pins geomean(tau(x))==config.tau every
+    step, so only RELATIVE per-sample softening/sharpening can move the loss.
+    NO extra loss term: tau_net is trained purely by the ordinary KD loss's gradient (same mechanism
+    as padapt/t_adapt). Final layer zero-init -> tau(x)==config.tau for every sample at step 0 --
+    exact match to the fixed-temperature baseline before any learning happens.
+    Logs per-epoch tau(x) mean/std/p5/p50/p95 (same observable as padapt/t_adapt) to see whether tau
+    collapses back to a constant (reconfirms the session's uniqueness finding) or finds real
+    per-sample structure.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    clamp_range = getattr(config, "t_clamp", None) or 0.6931471805599453  # ln(2) -> tau in [tau/2, 2*tau]
+
+    tau_all = []
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            norm = teacher_logits.norm(dim=1, keepdim=True)
+            top2 = teacher_logits.topk(2, dim=1).values
+            margin = (top2[:, 0] - top2[:, 1]).unsqueeze(1)
+            probs = F.softmax(teacher_logits, dim=1)
+            entropy = -(probs * probs.clamp_min(1e-12).log()).sum(dim=1, keepdim=True)
+            stats = torch.cat([norm, margin, entropy], dim=1)
+
+        r = model.tau_net(stats)                      # [N,1], differentiable wrt tau_net only
+        r = torch.clamp(r, -clamp_range, clamp_range)
+        r = r - r.mean()                              # batch-center in log-space: pins geomean(tau)=config.tau
+        tau_x = config.tau * torch.exp(r)
+        target = teacher_logits / tau_x
+
+        x_pgd = inner_loss_only_return(model, target.detach(), x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        if epoch == 0 and batch_idx == 0:
+            g = model.tau_net.net[-1].weight.grad
+            logging.info({"tau_net_first_batch_grad_abs_mean": g.abs().mean().item() if g is not None else None})
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        tau_all.append(tau_x.detach().cpu())
+
+    if tau_all:
+        tau_cat = torch.cat(tau_all).flatten()
+        q = torch.quantile(tau_cat, torch.tensor([0.05, 0.5, 0.95]))
+        logging.info({"tau_mean": round(tau_cat.mean().item(), 4), "tau_std": round(tau_cat.std().item(), 4),
+                      "tau_p5": round(q[0].item(), 4), "tau_p50": round(q[1].item(), 4),
+                      "tau_p95": round(q[2].item(), 4), "epoch": epoch})
+
+
+def _pgd_attack_true_label(model, x_natural, y, step_size, epsilon, perturb_steps):
+    """Plain Madry-style PGD maximizing CE against the TRUE label (not a KL vs. a teacher target) --
+    used only for the bilevel meta-batch attack, since the meta objective must use ground truth to
+    avoid re-opening the tau-can-game-the-ruler loophole (see train_temperature_taunet_bilevel)."""
+    was_training = model.training
+    model.eval()
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            loss_ce = F.cross_entropy(model(x_adv), y)
+        grad = torch.autograd.grad(loss_ce, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    if was_training:
+        model.train()
+    return x_adv.detach()
+
+
+def _entropy_match(u, H_target, beta_lo=0.05, beta_hi=20.0, n_bisect=12, n_newton=2):
+    """Per-sample inverse temperature beta s.t. H(softmax(beta*u)) == H_target; returns beta[:,None]*u.
+
+    Used by train_temperature_deltanet_bilevel to pin every EDITED target's entropy to the plain
+    tau-baseline target's entropy, so the delta edit can only MOVE probability mass between classes
+    (direction), never sharpen/soften the target overall. Sharpening is the bilevel estimator's
+    confirmed cheat axis: a sharper target inflates the inner-loss gradient, so the one-step proxy
+    takes a bigger step and looks better to L_after regardless of transferability -- the globaltau
+    run collapsed through exactly that hole, and _normalized_proxy_step's attempt to fix it at the
+    proxy level backfired (see the REVERTED note in train_temperature_taunet_bilevel). This closes
+    the hole at the PARAMETRIZATION level instead: sharpness is not in delta's reachable set at all.
+
+    H(beta) = logZ - beta*E_p[u] is strictly decreasing in beta (dH/dbeta = -beta*Var_p(u) < 0), so:
+    bracketing bisection under no_grad, then n_newton DIFFERENTIABLE Newton steps from the bracketed
+    point -- gradients w.r.t. u flow through the Newton refinement, so delta_net's gradient SEES the
+    constraint (a detached solve would let the optimizer chase sharpness directions that the forward
+    pass silently cancels, wasting the norm budget on a dead axis).
+
+    u: [N,C] edited logits. H_target: [N] target entropies (must be attainable, i.e. < log C, which
+    holds since it comes from an actual softmax). At delta==0, u equals the baseline target and the
+    solver returns beta==1 exactly (Newton fixed point), preserving the zero-init fair start.
+    """
+    def _H_and_var(beta):
+        p = F.softmax(beta.unsqueeze(1) * u, dim=1)
+        logp = torch.log(p.clamp_min(1e-12))
+        H = -(p * logp).sum(dim=1)
+        Eu = (p * u).sum(dim=1)
+        var = (p * u * u).sum(dim=1) - Eu * Eu
+        return H, var
+
+    N = u.shape[0]
+    with torch.no_grad():
+        lo = u.new_full((N,), beta_lo)
+        hi = u.new_full((N,), beta_hi)
+        for _ in range(n_bisect):
+            mid = 0.5 * (lo + hi)
+            H_mid, _ = _H_and_var(mid)
+            too_soft = H_mid > H_target        # H decreasing in beta: still too soft -> raise beta
+            lo = torch.where(too_soft, mid, lo)
+            hi = torch.where(too_soft, hi, mid)
+        beta = 0.5 * (lo + hi)
+    for _ in range(n_newton):
+        H, var = _H_and_var(beta)
+        dH = -(beta * var).clamp_min(1e-8)     # dH/dbeta, strictly negative; floor for stability
+        beta = (beta - (H - H_target) / dH).clamp(beta_lo, beta_hi)
+    return beta.unsqueeze(1) * u
+
+
+def _normalized_proxy_step(backbone_named, grads, lr_now):
+    """Build the differentiable proxy backbone update with a FIXED overall step norm (user's idea,
+    2026-07-05): without this, a sharper tau produces a bigger KL(target||student) and hence a bigger
+    proxy_grads magnitude, so the proxy step is simply LARGER -- L_after's one-step lookahead then
+    confounds "sharper tau took a bigger step" with "sharper tau is genuinely better", since a bigger
+    step usually looks like more progress early in training regardless of direction. Normalizing the
+    WHOLE gradient vector to a fixed unit norm before scaling by lr_now removes this confound: tau can
+    only influence the proxy update's DIRECTION now, not its magnitude. The norm itself is DETACHED so
+    backprop into tau flows only through the direction, not through "how tau affects the norm".
+    """
+    valid = [g for g in grads if g is not None]
+    total_norm = torch.sqrt(sum((g ** 2).sum() for g in valid) + 1e-12).detach()
+    new_params = {}
+    for (n, p), g in zip(backbone_named, grads):
+        if g is None:
+            new_params[n] = p
+        else:
+            new_params[n] = p - lr_now * (g / total_norm)
+    return new_params
+
+
+def train_temperature_taunet_bilevel(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Bilevel/meta-learning TauNet (user's idea, 2026-07-04) -- fixes the DEEPER collapse mode of
+    train_temperature_taunet: even after batch log-centering blocks the "inflate everyone" cheat,
+    tau_net's gradient still only reflects "does nudging tau(x) make the (frozen) x_adv easier for the
+    CURRENT student", which can reward curve-fitting to the student's CURRENT idiosyncratic weaknesses
+    rather than a genuinely transferable per-sample signal. Fix (Ren et al. 2018 "Learning to Reweight
+    Examples" / Meta-Weight-Net, adapted from sample-weight to temperature):
+
+      1. A DIFFERENTIABLE PROXY step on the backbone: proxy_theta = theta - lr*grad(inner_robust_KD_loss,
+         create_graph=True, retain_graph=True). This is ONLY used to build a differentiable path from
+         tau_net into "which direction would this batch push the backbone" -- it is a plain-SGD finite
+         step (standard in bilevel/meta-learning, e.g. Ren et al. 2018, regardless of what the REAL/outer
+         optimizer is) and does NOT have to match AdamW's real dynamics. The REAL backbone update happens
+         SEPARATELY, later, via a normal inner_loss.backward() + optimizer.step() (full AdamW) reusing
+         the SAME retained graph -- FOUND EMPIRICALLY (2026-07-05) that routing the REAL update through
+         this raw-SGD proxy instead starves the backbone: AdamW's adaptive per-parameter normalization
+         produces a much larger effective step than raw SGD at the same nominal OneCycleLR value, so a
+         raw-SGD-only backbone barely moves (confirmed: epoch 0-5 eval showed clean/rob accuracy
+         IDENTICAL to the untouched natural teacher, ~74/0 -- the backbone was essentially frozen).
+      2. L_after = CE(functional_call(model, proxy_theta, x_meta_adv), y_meta) on a HELD-OUT meta batch
+         (CIFAR100's val split, config.val=True, 45000/5000, never seen by train_loader) using the TRUE
+         label and a FRESH plain PGD attack (_pgd_attack_true_label, current real weights, not part of
+         the meta graph) -- deliberately NOT the tau-parameterized KD/soft target, or tau could game
+         this ruler exactly like the original entropy-collapse bug. Per user's explicit decision: robust
+         (adversarial) meta-loss, not clean-only -- the main loss is already about adversarial training,
+         so the meta-objective stays consistent with that instead of switching to clean for convenience.
+      3. tau_grads = autograd.grad(L_after, tau_net.parameters()) -- ONLY tau_net gets this gradient.
+         tau_net is stepped with its OWN plain SGD optimizer (config.tau_meta_lr, default 100), NOT
+         the shared AdamW -- FOUND EMPIRICALLY (2026-07-05): routing tau_net's tiny (~1e-5) meta-gradient
+         through AdamW causes runaway growth, because AdamW normalizes step size by the gradient's OWN
+         magnitude, so even a consistently-tiny-but-same-signed gradient gets a nearly full-LR-sized
+         step every batch regardless of how small it actually is. Within ~15-20 meta-phase batches this
+         inflated tau_net's raw output far past the log-centering clamp range, saturating EVERY sample
+         to the same clamp boundary -> after batch-centering that's identically 0 for everyone -> total
+         collapse (confirmed via scratchpad/diag_bilevel_collapse.py: AdamW showed weight-norm growing
+         every single step with no equilibrium; plain SGD at lr=100 keeps weight-norm essentially flat
+         while still letting real, bounded per-sample dispersion develop gradually).
+      4. Efficiency (user's idea): this expensive path (2nd-order + meta batch + functional_call) only
+         runs for epoch in [config.bilevel_start, config.bilevel_end) -- a MID-training window, not
+         epoch 0 (student is undertrained then, so "what helps the student" is a moving/unstable
+         target). Outside the window tau_net gets ZERO gradient (forward-only, wrapped in
+         torch.no_grad()) -- before the window it's still zero-init (tau(x)==config.tau exactly,
+         matching the plain baseline); after the window it's frozen at whatever the meta phase found.
+
+    Requires config.val=True (dataset.py carves a genuine held-out 5000-image split, never touched by
+    train_loader) and config.tau_adapt=True (attaches model.tau_net via get_model, same as the other
+    taunet variants). Reuses the SAME batch log-centering reparam as train_temperature_taunet for
+    tau(x) itself, so the original entropy-collapse fix stays in place regardless of the meta objective
+    layered on top.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    clamp_range = getattr(config, "t_clamp", None) or 0.6931471805599453
+    _tc = getattr(config, "tau_center", None)
+    tau_center = bool(_tc) if _tc is not None else True  # False -> let the batch's global tau level move too
+    _bs = getattr(config, "bilevel_start", None)
+    _be = getattr(config, "bilevel_end", None)
+    bilevel_start = int(_bs) if _bs is not None else 10
+    bilevel_end = int(_be) if _be is not None else 20
+    in_meta_phase = bilevel_start <= epoch < bilevel_end
+
+    if in_meta_phase and not hasattr(train_temperature_taunet_bilevel, "_meta_loader"):
+        _, meta_loader, _ = getattr(_dataset_mod, config.dataset)(
+            root=os.path.join(config.data_root, config.dataset), download=False,
+            batch_size=config.batch_size, val=True, config=config)
+        train_temperature_taunet_bilevel._meta_loader = meta_loader
+        train_temperature_taunet_bilevel._meta_iter = iter(meta_loader)
+        _tml = getattr(config, "tau_meta_lr", None)
+        tau_meta_lr = float(_tml) if _tml is not None else 100.0
+        train_temperature_taunet_bilevel._tau_optimizer = torch.optim.SGD(model.tau_net.parameters(), lr=tau_meta_lr)
+
+    if epoch == bilevel_end:
+        model.tau_net.requires_grad_(False)
+
+    tau_all = []
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        # teacher input-gradient norm at the clean point (2026-07-05: replaces `margin`, which was
+        # redundant with entropy, corr~0.99 -- see dpfat-signal-ablation memory). gradnorm alone was the
+        # best teacher-only signal found this session (H=41.97 @ gamma=0.3, beats baseline/taunet_v2).
+        x_req = x.clone().detach().requires_grad_(True)
+        with torch.enable_grad():
+            _, z_req = origin_model(x_req, feat=True)
+            ce = F.cross_entropy(z_req, y)
+        g_in = torch.autograd.grad(ce, x_req)[0]
+        gradnorm = g_in.flatten(1).norm(dim=1, keepdim=True)
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            norm = teacher_logits.norm(dim=1, keepdim=True)
+            probs = F.softmax(teacher_logits, dim=1)
+            entropy = -(probs * probs.clamp_min(1e-12).log()).sum(dim=1, keepdim=True)
+            stats = torch.cat([norm, entropy, gradnorm], dim=1)
+
+        with torch.no_grad() if not in_meta_phase else torch.enable_grad():
+            r = model.tau_net(stats)
+            r = torch.clamp(r, -clamp_range, clamp_range)
+            if tau_center:
+                r = r - r.mean()   # pins geomean(tau)==config.tau every batch -- see docstring for why
+                                    # this is skippable under bilevel (config.tau_center=False): the
+                                    # entropy-reward-hacking loophole this blocks is specific to training
+                                    # tau_net off the shared (gameable) KD loss; bilevel's L_after is a
+                                    # genuine held-out CE against true labels with no such free-lunch
+                                    # direction, so the global level is free to move if that's what helps.
+            tau_x = config.tau * torch.exp(r)
+        target = teacher_logits / tau_x
+
+        x_pgd = inner_loss_only_return(model, target.detach(), x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+
+        if in_meta_phase:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            inner_loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+            with torch.no_grad():
+                model(x)   # clean forward: updates student BN running stats, matches every other variant
+
+            backbone_named = [(n, p) for n, p in model.named_parameters() if not n.startswith("tau_net.")]
+            backbone_params = [p for _, p in backbone_named]
+            # DIFFERENTIABLE PROXY step (retain_graph=True: inner_loss's graph is reused below for the
+            # REAL update too). This proxy is a plain-SGD finite step used ONLY to build a differentiable
+            # path from tau_net into "how would the backbone move" -- it does NOT have to exactly match
+            # AdamW's real dynamics (standard in bilevel/meta-learning: Ren et al. 2018 also uses a plain
+            # SGD virtual step regardless of what the real/outer optimizer is). The REAL backbone update
+            # happens further below via a normal .backward() + optimizer.step() (full AdamW), so training
+            # dynamics match every other (working) variant -- found empirically (2026-07-05) that routing
+            # the REAL update through this same raw-SGD proxy starves the backbone: AdamW's adaptive
+            # normalization produces a much larger effective step than raw SGD at the same nominal
+            # OneCycleLR value, so a raw-SGD-only backbone barely moves (confirmed: epoch 0-5 eval showed
+            # clean_acc/rob_acc identical to the untouched natural teacher, ~74/0).
+            proxy_grads = torch.autograd.grad(inner_loss, backbone_params, create_graph=True, retain_graph=True, allow_unused=True)
+            lr_now = optimizer.param_groups[0]['lr']
+            # REVERTED (2026-07-06): normalizing the proxy step's magnitude was meant to remove the
+            # "sharper tau -> bigger inner_loss gradient -> bigger one-step proxy update -> looks better
+            # to L_after" confound, but empirically it made things WORSE (H~31 vs 41.82, tau_std blew up
+            # to ~6 vs ~0.73) -- normalization apparently also removed an unintentional damping effect the
+            # raw gradient magnitude provided, letting the underlying "sharper is better" greedy bias run
+            # much more freely (same failure mode as the global-scalar collapse, just weaker before this
+            # change). Confirmed via an ISOLATED (no GPU contention) rerun reproducing the bad result, so
+            # this is a genuine regression from the normalization, not noise. Back to the plain (raw,
+            # un-normalized) proxy step that produced the good 41.82 (3-step) / 42.36 (10-step) results.
+            proxy_backbone_params = {
+                n: (p - lr_now * g if g is not None else p)
+                for (n, p), g in zip(backbone_named, proxy_grads)
+            }
+
+            try:
+                x_m, y_m = next(train_temperature_taunet_bilevel._meta_iter)
+            except StopIteration:
+                train_temperature_taunet_bilevel._meta_iter = iter(train_temperature_taunet_bilevel._meta_loader)
+                x_m, y_m = next(train_temperature_taunet_bilevel._meta_iter)
+            x_m, y_m = x_m.cuda(), y_m.cuda()
+            x_m_adv = _pgd_attack_true_label(model, x_m, y_m, config.step_size, config.eps, perturb_steps=config.steps)
+
+            # meta_loss variants (user's idea, 2026-07-05): "adv" (default, original) only rewards true
+            # held-out ROBUST accuracy; "cleanadv" also rewards clean accuracy (so tau can't buy robustness
+            # by trashing clean performance); "featdiff" rewards clean/adv FEATURE consistency directly
+            # (a TRADES-flavored invariance signal) instead of classification accuracy at all; "advfeat"
+            # combines CE(adv) with the feature-consistency term -- both "does the student still get it
+            # right under attack" AND "did the attack move the feature representation" matter.
+            meta_loss_kind = getattr(config, "bilevel_meta_loss", None) or "adv"
+            was_training = model.training
+            model.eval()
+            if meta_loss_kind == "featdiff":
+                feat_clean, _ = functional_call(model, proxy_backbone_params, (x_m,), kwargs={"feat": True})
+                feat_adv, _ = functional_call(model, proxy_backbone_params, (x_m_adv,), kwargs={"feat": True})
+                L_after = F.mse_loss(feat_adv, feat_clean)
+            elif meta_loss_kind == "advfeat":
+                feat_clean, _ = functional_call(model, proxy_backbone_params, (x_m,), kwargs={"feat": True})
+                feat_adv, meta_logits_adv = functional_call(model, proxy_backbone_params, (x_m_adv,), kwargs={"feat": True})
+                L_after = F.cross_entropy(meta_logits_adv, y_m) + F.mse_loss(feat_adv, feat_clean)
+            else:
+                meta_logits_adv = functional_call(model, proxy_backbone_params, (x_m_adv,))
+                if meta_loss_kind == "cleanadv":
+                    meta_logits_clean = functional_call(model, proxy_backbone_params, (x_m,))
+                    L_after = F.cross_entropy(meta_logits_adv, y_m) + F.cross_entropy(meta_logits_clean, y_m)
+                else:
+                    L_after = F.cross_entropy(meta_logits_adv, y_m)
+            if was_training:
+                model.train()
+
+            tau_net_params = list(model.tau_net.parameters())
+            tau_grads = torch.autograd.grad(L_after, tau_net_params, retain_graph=True, allow_unused=True)
+
+            # REAL backbone update: normal backward + full AdamW (matches every other variant's dynamics).
+            # inner_loss's graph is still alive (retain_graph=True was used above) -- reuse it here instead
+            # of recomputing the forward pass. MUST happen before tau_optimizer.step() below: that call
+            # modifies tau_net's parameters in-place, and tau_net is a LEAF inside inner_loss's own graph
+            # (via target = teacher_logits/tau_x) -- mutating it before this backward() would corrupt/
+            # invalidate the retained graph.
+            inner_loss.backward()
+
+            # tau_net moves via the L_after meta-gradient (own plain SGD optimizer), NOT AdamW using
+            # inner_loss's gradient -- overwrite whatever inner_loss.backward() just put in tau_net's .grad.
+            tau_optimizer = train_temperature_taunet_bilevel._tau_optimizer
+            tau_optimizer.zero_grad()
+            for p, g in zip(tau_net_params, tau_grads):
+                p.grad = g
+            tau_optimizer.step()
+
+            # backbone-only AdamW step: tau_net's .grad must be cleared first so the shared optimizer
+            # doesn't ALSO move tau_net (it already got its real update above).
+            for p in tau_net_params:
+                p.grad = None
+            optimizer.step()
+            scheduler.step()
+        else:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+            student_logits = model(x)
+            if config.lamda is not None and config.lamda > 0:
+                consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+                loss += annealing * config.lamda * (consistency_loss).mean()
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        tau_all.append(tau_x.detach().cpu())
+
+    if tau_all:
+        tau_cat = torch.cat(tau_all).flatten()
+        q = torch.quantile(tau_cat, torch.tensor([0.05, 0.5, 0.95]))
+        logging.info({"tau_mean": round(tau_cat.mean().item(), 4), "tau_std": round(tau_cat.std().item(), 4),
+                      "tau_p5": round(q[0].item(), 4), "tau_p50": round(q[1].item(), 4),
+                      "tau_p95": round(q[2].item(), 4), "epoch": epoch, "in_meta_phase": in_meta_phase})
+
+
+def train_temperature_bilevel_globaltau(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Bilevel-learned SINGLE GLOBAL temperature (user's idea, 2026-07-05): isolates the "can bilevel find
+    a better GLOBAL constant than the hand-picked config.tau=16" question from the per-sample-structure
+    question. No MLP, no per-sample stats at all -- just ONE scalar parameter (model.log_tau, see
+    get_model's tau_global_bilevel branch), tau = exp(log_tau), IDENTICAL for every sample. Otherwise
+    reuses the exact same bilevel machinery as train_temperature_taunet_bilevel: a differentiable proxy
+    backbone step (used only to build the path from log_tau into "how would the backbone move"), a
+    held-out meta batch with a TRUE-label adversarial attack (L_after = CE), log_tau's OWN plain SGD
+    optimizer (config.tau_meta_lr, same AdamW-runaway-avoidance finding applies here too), and a REAL
+    backbone update via normal backward+AdamW (matches every other variant's training dynamics).
+    log_tau is clamped to a wide but finite safety range (tau in [2, 64]) purely to avoid numerical
+    blowup -- NOT meant to bind; if it saturates there, that itself is informative (mirrors the earlier
+    finding that a per-sample free-mean version collapsed to the tau/2 floor with a narrower [8,32]
+    range, which was worse than the hand-picked 16, H=41.34).
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    LOG_TAU_MIN, LOG_TAU_MAX = 0.6931471805599453, 4.1588830833596715  # tau in [2, 64]
+    _bs = getattr(config, "bilevel_start", None)
+    _be = getattr(config, "bilevel_end", None)
+    bilevel_start = int(_bs) if _bs is not None else 10
+    bilevel_end = int(_be) if _be is not None else 20
+    in_meta_phase = bilevel_start <= epoch < bilevel_end
+
+    if in_meta_phase and not hasattr(train_temperature_bilevel_globaltau, "_meta_loader"):
+        _, meta_loader, _ = getattr(_dataset_mod, config.dataset)(
+            root=os.path.join(config.data_root, config.dataset), download=False,
+            batch_size=config.batch_size, val=True, config=config)
+        train_temperature_bilevel_globaltau._meta_loader = meta_loader
+        train_temperature_bilevel_globaltau._meta_iter = iter(meta_loader)
+        _tml = getattr(config, "tau_meta_lr", None)
+        tau_meta_lr = float(_tml) if _tml is not None else 100.0
+        train_temperature_bilevel_globaltau._tau_optimizer = torch.optim.SGD([model.log_tau], lr=tau_meta_lr)
+
+    if epoch == bilevel_end:
+        model.log_tau.requires_grad_(False)
+
+    tau_all = []
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+
+        with torch.no_grad() if not in_meta_phase else torch.enable_grad():
+            log_tau_c = torch.clamp(model.log_tau, LOG_TAU_MIN, LOG_TAU_MAX)
+            tau_x = torch.exp(log_tau_c)   # scalar, identical for every sample -- broadcasts below
+        target = teacher_logits / tau_x
+
+        x_pgd = inner_loss_only_return(model, target.detach(), x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+
+        if in_meta_phase:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            inner_loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+            with torch.no_grad():
+                model(x)   # clean forward: updates student BN running stats, matches every other variant
+
+            backbone_named = [(n, p) for n, p in model.named_parameters() if n != "log_tau"]
+            backbone_params = [p for _, p in backbone_named]
+            proxy_grads = torch.autograd.grad(inner_loss, backbone_params, create_graph=True, retain_graph=True, allow_unused=True)
+            lr_now = optimizer.param_groups[0]['lr']
+            # REVERTED (2026-07-06): see train_temperature_taunet_bilevel's comment -- normalizing the
+            # proxy step made things worse, not better; back to the plain raw-gradient proxy step.
+            proxy_backbone_params = {
+                n: (p - lr_now * g if g is not None else p)
+                for (n, p), g in zip(backbone_named, proxy_grads)
+            }
+
+            try:
+                x_m, y_m = next(train_temperature_bilevel_globaltau._meta_iter)
+            except StopIteration:
+                train_temperature_bilevel_globaltau._meta_iter = iter(train_temperature_bilevel_globaltau._meta_loader)
+                x_m, y_m = next(train_temperature_bilevel_globaltau._meta_iter)
+            x_m, y_m = x_m.cuda(), y_m.cuda()
+            x_m_adv = _pgd_attack_true_label(model, x_m, y_m, config.step_size, config.eps, perturb_steps=config.steps)
+
+            was_training = model.training
+            model.eval()
+            meta_logits_adv = functional_call(model, proxy_backbone_params, (x_m_adv,))
+            L_after = F.cross_entropy(meta_logits_adv, y_m)
+            if was_training:
+                model.train()
+
+            tau_grads = torch.autograd.grad(L_after, [model.log_tau], retain_graph=True, allow_unused=True)
+
+            inner_loss.backward()
+
+            tau_optimizer = train_temperature_bilevel_globaltau._tau_optimizer
+            tau_optimizer.zero_grad()
+            model.log_tau.grad = tau_grads[0]
+            tau_optimizer.step()
+
+            model.log_tau.grad = None
+            optimizer.step()
+            scheduler.step()
+        else:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+            student_logits = model(x)
+            if config.lamda is not None and config.lamda > 0:
+                consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+                loss += annealing * config.lamda * (consistency_loss).mean()
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        tau_all.append(tau_x.detach().cpu().item())
+
+    if tau_all:
+        logging.info({"tau": round(sum(tau_all) / len(tau_all), 4), "epoch": epoch, "in_meta_phase": in_meta_phase})
+
+
+def train_temperature_tauclass_bilevel(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Bilevel-learned PER-CLASS temperature vector (user's idea, 2026-07-07): tau_c in R^C, one
+    temperature per logit COORDINATE, shared by every sample. Fills the last open cell of the
+    {per-sample, per-class} x {scalar, direction} matrix: the per-sample scalar is a temperature
+    reparametrization (proven inert), the per-sample vector (DeltaNet) drove delta->0 under batch
+    centering, and the uncentered DeltaNet pilot's answer WAS a per-class constant -- but ADDITIVE
+    (prior tilt, bought nothing). This tests the multiplicative sibling: dividing each class's logit
+    by its own constant CAN reorder classes (a direction edit, unlike the per-sample scalar) and
+    acts proportionally to logit magnitude (unlike the additive tilt) -- e.g. selectively flattening
+    classes the teacher is habitually overconfident about.
+
+    Parametrization (model.log_tau_c, get_model's tau_classwise branch, zero-init in R^C):
+        s = clamp(log_tau_c, +-t_clamp) - mean(clamp(log_tau_c, +-t_clamp))
+        tau_c = config.tau * exp(s)          # geomean(tau_c) == config.tau ALWAYS
+    The LOG-CENTERING is load-bearing: globaltau collapsed by moving the GLOBAL temperature level
+    (the estimator's confirmed sharpness cheat: sharper target -> bigger inner gradient -> bigger
+    one-step proxy update -> better-looking L_after). Centering removes the global level from the
+    reachable set entirely, so only RELATIVE per-class structure is learnable; clamp keeps any
+    single class within e^{+-t_clamp} (~[tau/2, 2*tau] at the default) of the shared level.
+
+    Bilevel machinery copied verbatim from train_temperature_bilevel_globaltau (differentiable
+    plain-SGD proxy step -> L_after = true-label adversarial CE on the held-out meta batch
+    (config.val=True, 45000/5000 split) -> autograd.grad into log_tau_c only, stepped by its OWN
+    plain SGD (config.tau_meta_lr, default 100 -- same AdamW-runaway-avoidance finding); REAL
+    backbone update via normal backward+AdamW; meta phase only for epoch in [bilevel_start,
+    bilevel_end), default 0-10 (the low-lr OneCycle warmup window per the taunet_bilevel v2
+    finding), frozen after).
+
+    Per-epoch logging: dispersion of the realized tau_c vector (std/min/max/p5/p50/p95). Structure
+    emerging == std grows through the window; std ~ 0 at freeze == the per-class multiplicative
+    axis is inert too (matrix cell closed -- a uniqueness result, not a failure)."""
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    clamp_range = getattr(config, "t_clamp", None) or 0.6931471805599453
+    _bs = getattr(config, "bilevel_start", None)
+    _be = getattr(config, "bilevel_end", None)
+    bilevel_start = int(_bs) if _bs is not None else 0
+    bilevel_end = int(_be) if _be is not None else 10
+    in_meta_phase = bilevel_start <= epoch < bilevel_end
+
+    if in_meta_phase and not hasattr(train_temperature_tauclass_bilevel, "_meta_loader"):
+        _, meta_loader, _ = getattr(_dataset_mod, config.dataset)(
+            root=os.path.join(config.data_root, config.dataset), download=False,
+            batch_size=config.batch_size, val=True, config=config)
+        train_temperature_tauclass_bilevel._meta_loader = meta_loader
+        train_temperature_tauclass_bilevel._meta_iter = iter(meta_loader)
+        _tml = getattr(config, "tau_meta_lr", None)
+        tau_meta_lr = float(_tml) if _tml is not None else 100.0
+        train_temperature_tauclass_bilevel._tau_optimizer = torch.optim.SGD([model.log_tau_c], lr=tau_meta_lr)
+
+    if epoch == bilevel_end:
+        model.log_tau_c.requires_grad_(False)
+
+    tau_c_last = None
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+
+        with torch.no_grad() if not in_meta_phase else torch.enable_grad():
+            s = torch.clamp(model.log_tau_c, -clamp_range, clamp_range)
+            s = s - s.mean()                     # geomean(tau_c)==config.tau: global level unreachable
+            tau_c = config.tau * torch.exp(s)    # [C], broadcasts over the batch below
+        target = teacher_logits / tau_c
+
+        x_pgd = inner_loss_only_return(model, target.detach(), x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+
+        if in_meta_phase:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            inner_loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+            with torch.no_grad():
+                model(x)   # clean forward: updates student BN running stats, matches every other variant
+
+            backbone_named = [(n, p) for n, p in model.named_parameters() if n != "log_tau_c"]
+            backbone_params = [p for _, p in backbone_named]
+            proxy_grads = torch.autograd.grad(inner_loss, backbone_params, create_graph=True, retain_graph=True, allow_unused=True)
+            lr_now = optimizer.param_groups[0]['lr']
+            # plain raw-gradient proxy step (normalized proxy REVERTED 2026-07-06, see taunet_bilevel;
+            # the sharpness confound it targeted is closed here by the log-centering instead)
+            proxy_backbone_params = {
+                n: (p - lr_now * g if g is not None else p)
+                for (n, p), g in zip(backbone_named, proxy_grads)
+            }
+
+            try:
+                x_m, y_m = next(train_temperature_tauclass_bilevel._meta_iter)
+            except StopIteration:
+                train_temperature_tauclass_bilevel._meta_iter = iter(train_temperature_tauclass_bilevel._meta_loader)
+                x_m, y_m = next(train_temperature_tauclass_bilevel._meta_iter)
+            x_m, y_m = x_m.cuda(), y_m.cuda()
+            x_m_adv = _pgd_attack_true_label(model, x_m, y_m, config.step_size, config.eps, perturb_steps=config.steps)
+
+            was_training = model.training
+            model.eval()
+            meta_logits_adv = functional_call(model, proxy_backbone_params, (x_m_adv,))
+            L_after = F.cross_entropy(meta_logits_adv, y_m)
+            if was_training:
+                model.train()
+
+            tau_grads = torch.autograd.grad(L_after, [model.log_tau_c], retain_graph=True, allow_unused=True)
+
+            # REAL backbone update: must run before tau_optimizer.step() -- log_tau_c is a leaf inside
+            # inner_loss's retained graph (via target); mutating it in-place first would corrupt it.
+            inner_loss.backward()
+
+            tau_optimizer = train_temperature_tauclass_bilevel._tau_optimizer
+            tau_optimizer.zero_grad()
+            model.log_tau_c.grad = tau_grads[0]
+            tau_optimizer.step()
+
+            model.log_tau_c.grad = None
+            optimizer.step()
+            scheduler.step()
+        else:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+            student_logits = model(x)
+            if config.lamda is not None and config.lamda > 0:
+                consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+                loss += annealing * config.lamda * (consistency_loss).mean()
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        tau_c_last = tau_c.detach()
+
+    if tau_c_last is not None:
+        t = tau_c_last.float().cpu()
+        q = torch.quantile(t, torch.tensor([0.05, 0.5, 0.95]))
+        logging.info({"tauc_mean": round(t.mean().item(), 4), "tauc_std": round(t.std().item(), 4),
+                      "tauc_min": round(t.min().item(), 4), "tauc_max": round(t.max().item(), 4),
+                      "tauc_p5": round(q[0].item(), 4), "tauc_p50": round(q[1].item(), 4),
+                      "tauc_p95": round(q[2].item(), 4), "epoch": epoch, "in_meta_phase": in_meta_phase})
+        # full per-class vector (index == class id) + the extreme classes, one line per epoch --
+        # cheap (~1KB) and lets the WHICH-classes question be answered from the log alone
+        srt = torch.argsort(t)
+        logging.info({"tauc_bot5_idx": srt[:5].tolist(), "tauc_top5_idx": srt[-5:].tolist(),
+                      "tauc_vec": [round(v, 3) for v in t.tolist()], "epoch": epoch})
+
+
+def train_temperature_deltanet_bilevel(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Bilevel-learned per-sample VECTOR edit of the teacher target (user's idea, 2026-07-06):
+    direction-only DeltaNet. Motivation: every per-sample SCALAR on the teacher's logits is a
+    temperature reparametrization and provably inert at T=16 (softmax washout, diag_target_level.py);
+    the one axis never explored by a LEARNED mechanism is target DIRECTION (moving probability mass
+    between classes) -- hand-crafted swap was the only method that ever touched it. This learns that
+    edit: delta = model.delta_net(teacher_logits/tau) (utils.DeltaNet, logits-only input, zero-init).
+
+    Four structural constraints make the edit direction-only and collapse-proof:
+      1. RESIDUAL + ZERO-INIT: target0 = z_t/tau; edited = target0 + delta; delta==0 at step 0 ->
+         exact plain-baseline start (fair-start convention).
+      2. MEAN-CENTERING: delta -= delta.mean(dim=1) -- a constant logit shift is softmax-invariant,
+         so that direction is pure wasted capacity; remove it.
+      3. PER-SAMPLE NORM CAP: ||delta|| <= config.delta_r (default 0.3; target0's own norm is O(1)
+         since tau ~ ||z_t||) -- "slight edit" enforced by construction, not by hope.
+      4. ENTROPY MATCHING (the load-bearing one): _entropy_match rescales the edited logits so every
+         sample's target entropy equals its plain-baseline target's entropy. The bilevel estimator's
+         confirmed cheat ("sharper target -> bigger inner gradient -> bigger one-step proxy step ->
+         better-looking L_after"; killed globaltau) is thereby OUTSIDE delta's reachable set: delta
+         can only choose WHERE the probability mass sits, never HOW concentrated it is. The solve is
+         differentiable (Newton refinement) so delta_net's meta-gradient sees the constraint instead
+         of chasing directions the forward pass cancels.
+
+    Bilevel machinery is copied verbatim from train_temperature_taunet_bilevel (differentiable plain-
+    SGD proxy step -> L_after = true-label adversarial CE on a held-out meta batch (config.val=True)
+    -> autograd.grad into delta_net only; delta_net stepped by its OWN plain SGD (config.delta_meta_lr,
+    fallback tau_meta_lr, default 100 -- same AdamW-runaway-avoidance finding); REAL backbone update
+    via normal backward+AdamW; meta phase only for epoch in [bilevel_start, bilevel_end), frozen
+    after). Window default 0-10 matching the taunet_bilevel v2 finding (mid-training windows sit on
+    OneCycleLR's peak and wreck the backbone; halfwindow/fullwindow ablations confirmed worse).
+
+    Per-epoch logging: realized ||delta|| stats + cap-saturation fraction, matched-beta stats (how
+    hard entropy matching has to correct), and the swap-rediscovery probe: mean delta on the TRUE
+    class for teacher-wrong vs teacher-right samples -- if the meta signal is real, delta should
+    push mass toward the true class precisely where the teacher is wrong (labels used for LOGGING
+    ONLY, never in the delta path).
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    delta_r = float(getattr(config, "delta_r", None) or 0.3)
+    _bs = getattr(config, "bilevel_start", None)
+    _be = getattr(config, "bilevel_end", None)
+    bilevel_start = int(_bs) if _bs is not None else 0
+    bilevel_end = int(_be) if _be is not None else 10
+    in_meta_phase = bilevel_start <= epoch < bilevel_end
+
+    if in_meta_phase and not hasattr(train_temperature_deltanet_bilevel, "_meta_loader"):
+        _, meta_loader, _ = getattr(_dataset_mod, config.dataset)(
+            root=os.path.join(config.data_root, config.dataset), download=False,
+            batch_size=config.batch_size, val=True, config=config)
+        train_temperature_deltanet_bilevel._meta_loader = meta_loader
+        train_temperature_deltanet_bilevel._meta_iter = iter(meta_loader)
+        _dml = getattr(config, "delta_meta_lr", None)
+        if _dml is None:
+            _dml = getattr(config, "tau_meta_lr", None)
+        delta_meta_lr = float(_dml) if _dml is not None else 100.0
+        train_temperature_deltanet_bilevel._delta_optimizer = torch.optim.SGD(model.delta_net.parameters(), lr=delta_meta_lr)
+
+    if epoch == bilevel_end:
+        model.delta_net.requires_grad_(False)
+
+    dnorm_all, beta_all = [], []
+    dtrue_wrong_sum, dtrue_right_sum, n_wrong, n_right = 0.0, 0.0, 0, 0
+    sat_count, n_total = 0, 0
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+        target0 = teacher_logits / config.tau
+        with torch.no_grad():
+            p0 = F.softmax(target0, dim=1)
+            H0 = -(p0 * torch.log(p0.clamp_min(1e-12))).sum(dim=1)
+
+        with torch.no_grad() if not in_meta_phase else torch.enable_grad():
+            d = model.delta_net(target0.detach())
+            d = d - d.mean(dim=1, keepdim=True)                    # softmax shift invariance
+            if bool(getattr(config, "delta_center_batch", False)):
+                # PILOT FINDING (2026-07-06, diag_delta_direction.py): the unconstrained pilot
+                # learned literally ONE global direction (alignment 1.0000, per-sample residual
+                # 0.5% of ||delta||) -- a constant class-prior tilt added to every target -- and
+                # tied the fair 45k baseline exactly (H 40.56 vs 40.55). Same escape route the
+                # taunet entropy-hack used (a batch-uniform move), same medicine: subtract the
+                # BATCH-MEAN delta vector so only RELATIVE per-sample structure is representable.
+                # Win-either-way: signal survives -> genuinely per-sample; delta -> 0 -> the
+                # vector/direction axis joins the scalar axes as provably-inert (uniqueness).
+                d = d - d.mean(dim=0, keepdim=True)
+            dn = d.norm(dim=1, keepdim=True)
+            d = d * (delta_r / dn.clamp_min(1e-12)).clamp(max=1.0)  # ||delta|| <= delta_r
+            edited = target0 + d
+            target = _entropy_match(edited, H0)
+
+        x_pgd = inner_loss_only_return(model, target.detach(), x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+
+        if in_meta_phase:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            inner_loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+            with torch.no_grad():
+                model(x)   # clean forward: updates student BN running stats, matches every other variant
+
+            backbone_named = [(n, p) for n, p in model.named_parameters() if not n.startswith("delta_net.")]
+            backbone_params = [p for _, p in backbone_named]
+            # plain raw-gradient proxy step (see taunet_bilevel: normalized proxy REVERTED 2026-07-06;
+            # here the sharpness confound it targeted is already closed by _entropy_match instead)
+            proxy_grads = torch.autograd.grad(inner_loss, backbone_params, create_graph=True, retain_graph=True, allow_unused=True)
+            lr_now = optimizer.param_groups[0]['lr']
+            proxy_backbone_params = {
+                n: (p - lr_now * g if g is not None else p)
+                for (n, p), g in zip(backbone_named, proxy_grads)
+            }
+
+            try:
+                x_m, y_m = next(train_temperature_deltanet_bilevel._meta_iter)
+            except StopIteration:
+                train_temperature_deltanet_bilevel._meta_iter = iter(train_temperature_deltanet_bilevel._meta_loader)
+                x_m, y_m = next(train_temperature_deltanet_bilevel._meta_iter)
+            x_m, y_m = x_m.cuda(), y_m.cuda()
+            x_m_adv = _pgd_attack_true_label(model, x_m, y_m, config.step_size, config.eps, perturb_steps=config.steps)
+
+            was_training = model.training
+            model.eval()
+            meta_logits_adv = functional_call(model, proxy_backbone_params, (x_m_adv,))
+            L_after = F.cross_entropy(meta_logits_adv, y_m)
+            if was_training:
+                model.train()
+
+            delta_net_params = list(model.delta_net.parameters())
+            delta_grads = torch.autograd.grad(L_after, delta_net_params, retain_graph=True, allow_unused=True)
+
+            # REAL backbone update: normal backward + full AdamW, reusing the retained graph. MUST run
+            # before delta_optimizer.step() -- delta_net is a leaf inside inner_loss's graph (via
+            # target), and mutating its params in-place first would corrupt the retained graph.
+            inner_loss.backward()
+
+            delta_optimizer = train_temperature_deltanet_bilevel._delta_optimizer
+            delta_optimizer.zero_grad()
+            for p, g in zip(delta_net_params, delta_grads):
+                p.grad = g
+            delta_optimizer.step()
+
+            # backbone-only AdamW step: clear delta_net's .grad so the shared optimizer doesn't ALSO
+            # move it (it already got its real meta update above).
+            for p in delta_net_params:
+                p.grad = None
+            optimizer.step()
+            scheduler.step()
+        else:
+            plus_logits = model(x_pgd)
+            kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+            loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+            student_logits = model(x)
+            if config.lamda is not None and config.lamda > 0:
+                consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+                loss += annealing * config.lamda * (consistency_loss).mean()
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        with torch.no_grad():
+            d_det = d.detach()
+            dnorm_all.append(d_det.norm(dim=1).cpu())
+            beta_all.append((target.detach().norm(dim=1) / edited.detach().norm(dim=1).clamp_min(1e-12)).cpu())
+            sat_count += int((dn.detach().squeeze(1) >= delta_r).sum().item())
+            n_total += N
+            t_wrong = teacher_logits.argmax(dim=1) != y
+            d_true = d_det.gather(1, y.unsqueeze(1)).squeeze(1)
+            dtrue_wrong_sum += d_true[t_wrong].sum().item();  n_wrong += int(t_wrong.sum().item())
+            dtrue_right_sum += d_true[~t_wrong].sum().item(); n_right += int((~t_wrong).sum().item())
+
+    if dnorm_all:
+        dn_cat = torch.cat(dnorm_all)
+        beta_cat = torch.cat(beta_all)
+        qd = torch.quantile(dn_cat, torch.tensor([0.05, 0.5, 0.95]))
+        qb = torch.quantile(beta_cat, torch.tensor([0.05, 0.95]))
+        logging.info({"dnorm_mean": round(dn_cat.mean().item(), 4), "dnorm_p5": round(qd[0].item(), 4),
+                      "dnorm_p50": round(qd[1].item(), 4), "dnorm_p95": round(qd[2].item(), 4),
+                      "sat_frac": round(sat_count / max(n_total, 1), 4),
+                      "beta_mean": round(beta_cat.mean().item(), 4), "beta_p5": round(qb[0].item(), 4),
+                      "beta_p95": round(qb[1].item(), 4),
+                      "dtrue_wrong": round(dtrue_wrong_sum / max(n_wrong, 1), 5),
+                      "dtrue_right": round(dtrue_right_sum / max(n_right, 1), 5),
+                      "wrong_frac": round(n_wrong / max(n_total, 1), 4),
+                      "epoch": epoch, "in_meta_phase": in_meta_phase})
+
+
+def train_temperature_taunet_swap(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature_taunet + rectify_swap (user's idea, 2026-07-04): stack the two independently-
+    validated levers -- swap (parameter-free teacher rectification, best known result 42.17 H) and the
+    interpretable learned per-sample temperature (taunet alone: 41.51 H, real non-degenerate per-sample
+    structure but no win). stats (norm/margin/entropy) are computed from the RAW teacher_logits (same
+    as train_temperature_taunet); swap is applied AFTER, only to build the actual target -- mirrors
+    train_temperature_tadapt's convention (target = rectify_swap(teacher_logits, y) / T(x)).
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    clamp_range = getattr(config, "t_clamp", None) or 0.6931471805599453
+
+    tau_all = []
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            norm = teacher_logits.norm(dim=1, keepdim=True)
+            top2 = teacher_logits.topk(2, dim=1).values
+            margin = (top2[:, 0] - top2[:, 1]).unsqueeze(1)
+            probs = F.softmax(teacher_logits, dim=1)
+            entropy = -(probs * probs.clamp_min(1e-12).log()).sum(dim=1, keepdim=True)
+            stats = torch.cat([norm, margin, entropy], dim=1)
+            swapped_logits = rectify_swap(teacher_logits, y)
+
+        r = model.tau_net(stats)
+        r = torch.clamp(r, -clamp_range, clamp_range)
+        r = r - r.mean()
+        tau_x = config.tau * torch.exp(r)
+        target = swapped_logits / tau_x
+
+        x_pgd = inner_loss_only_return(model, target.detach(), x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        if epoch == 0 and batch_idx == 0:
+            g = model.tau_net.net[-1].weight.grad
+            logging.info({"tau_net_first_batch_grad_abs_mean": g.abs().mean().item() if g is not None else None})
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        tau_all.append(tau_x.detach().cpu())
+
+    if tau_all:
+        tau_cat = torch.cat(tau_all).flatten()
+        q = torch.quantile(tau_cat, torch.tensor([0.05, 0.5, 0.95]))
+        logging.info({"tau_mean": round(tau_cat.mean().item(), 4), "tau_std": round(tau_cat.std().item(), 4),
+                      "tau_p5": round(q[0].item(), 4), "tau_p50": round(q[1].item(), 4),
+                      "tau_p95": round(q[2].item(), 4), "epoch": epoch})
+
+
+def train_temperature(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Global-temperature-only distillation (clean, minimal).
+
+    Student normalizes its own features (reformation=True / ResNet18_z) -- the confirmed lever.
+    Teacher target = raw teacher logits / tau, where tau is a single GLOBAL temperature:
+        tau = 1  ==  raw teacher logits (no softening) exactly.
+    No carve, no feature normalization, no batch rescale -- tau is the only teacher knob.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)      # raw teacher logits = linear(Phi)
+            target = (teacher_logits / config.tau).detach()     # global temperature; tau=1 == raw teacher
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats (matches DPFAT_adaptive)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_tauclass_fixed(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """FIXED per-class temperature from precomputed teacher stats -- NO learning (user, 2026-07-07).
+
+    Direct heuristic counterpart of train_temperature_tauclass_bilevel: instead of meta-learning
+    tau_c (budget-starved in the 0-10 window; learned direction correlates with nothing,
+    |r| < 0.14 vs gnorm/acc/margin/entropy), set it once from a per-class teacher statistic and
+    train the plain 50k loop. Everything except the target divisor is train_temperature verbatim.
+
+        tau_c = tau * exp(gamma * (log s_c - mean_c log s_c))
+
+    geomean(tau_c) == tau for ANY gamma (same anchoring as tpnorm/bilevel: global sharpness is
+    unreachable, only per-class SHAPE varies). s_c = config.tauclass_stat (default 'gnorm':
+    per-class teacher grad-norm, 12.7x class spread, r(gnorm, class acc) = -0.92) read from the
+    config.tauclass_stats npz (diag_perclass_teacher.npz). gamma > 0 -> hard/high-gnorm classes get
+    SOFTER targets; gamma < 0 -> sharper. gamma = 0 == train_temperature exactly (50k H 41.77 seed0).
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    if not hasattr(train_temperature_tauclass_fixed, "_tau_c"):
+        stats_path = getattr(config, "tauclass_stats", None) or "results/CIFAR100/diag_perclass_teacher.npz"
+        stat_name = getattr(config, "tauclass_stat", None) or "gnorm"
+        gamma = float(config.gamma)
+        s = np.load(stats_path)[stat_name].astype(np.float64)
+        u = np.log(s) - np.log(s).mean()
+        tau_c = config.tau * np.exp(gamma * u)
+        train_temperature_tauclass_fixed._tau_c = torch.tensor(tau_c, dtype=torch.float32).cuda()
+        t = train_temperature_tauclass_fixed._tau_c
+        logging.info({"tauc_fixed_stat": stat_name, "gamma": gamma,
+                      "tauc_mean": round(t.mean().item(), 4), "tauc_std": round(t.std().item(), 4),
+                      "tauc_min": round(t.min().item(), 4), "tauc_max": round(t.max().item(), 4),
+                      "tauc_vec": [round(v, 3) for v in t.tolist()]})
+    tau_c = train_temperature_tauclass_fixed._tau_c
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            target = (teacher_logits / tau_c).detach()   # [C] broadcasts over the batch
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_coshead(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature verbatim, for the COSINE-HEAD student (config cos_head: True -> ResNet18_zcos):
+    logits = s*cos(theta), feature AND classifier weights normalized, s a learnable global scalar.
+    Closes the last magnitude channel (AT grows ||w_c|| 5x on the plain norm student). Only addition
+    here: log s once per epoch -- if s reproduces the ~5x growth, the channel was purely global
+    (cosine head should then TIE = directional-distillation pillar); if the tie breaks, per-class
+    ||w_c|| structure mattered. Fair bar: 50k baseline tau16 seed0 H 41.77.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            target = (teacher_logits / config.tau).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+    log_s = model.encoder.log_s if hasattr(model, "encoder") else model.log_s
+    logging.info({"cos_s": round(torch.exp(log_s.detach()).item(), 4), "epoch": epoch})
+
+
+def train_temperature_costeacher(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """COSINE-TEACHER target (user, 2026-07-07 night): the teacher passes ONLY direction.
+
+        target = s_t * (Phi_t_hat . w_t_hat)   -- both teacher feature AND classifier rows
+        L2-normalized, bias dropped;  s_t = mean||Phi_t|| * mean||w_t,c|| / tau  (frozen at first
+        batch) so tau=16 matches the raw z_t/tau target's sharpness exactly = fair start, and tau
+        keeps its meaning as THE one global temperature (cos is bounded in [-1,1]; unscaled
+        softmax(cos) is near-uniform, so a global scale is structurally necessary -- normalization
+        does not kill temperature, it BECOMES it).
+
+    vs the raw z_t/tau target this removes exactly: ||Phi_t|| variation (known-inert, iso tie),
+    per-class ||w_t,c|| (1.25x spread; a per-class multiplicative rescale = the axis the tauclass
+    sweep just closed), and the bias (std 0.02). Completes the cos 2x2 with temp_coshead:
+    {student norm, student cos} x {teacher raw/tau, teacher cos} -- same isolation design that
+    established student-norm as THE lever. Student arch is orthogonal: this method works for both
+    the norm student and the cos_head student (logs cos_s when present). Fair bar: 50k H 41.77.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    teacher_enc = origin_model.encoder if hasattr(origin_model, "encoder") else origin_model
+    w_hat_t = F.normalize(teacher_enc.linear.weight.detach(), dim=1)
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, _ = origin_model(x, feat=True)
+            if not hasattr(train_temperature_costeacher, "_s_t"):
+                mean_phi = teacher_feat.norm(dim=1).mean().item()
+                mean_w = teacher_enc.linear.weight.detach().norm(dim=1).mean().item()
+                train_temperature_costeacher._s_t = mean_phi * mean_w / config.tau
+                logging.info({"cos_teacher_s_t": round(train_temperature_costeacher._s_t, 4),
+                              "mean_phi_t": round(mean_phi, 4), "mean_w_t": round(mean_w, 4), "tau": config.tau})
+            cos_t = F.linear(F.normalize(teacher_feat, dim=1), w_hat_t)
+            target = (train_temperature_costeacher._s_t * cos_t).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+    enc = model.encoder if hasattr(model, "encoder") else model
+    if hasattr(enc, "log_s"):
+        logging.info({"cos_s": round(torch.exp(enc.log_s.detach()).item(), 4), "epoch": epoch})
+
+
+def train_temperature_cemix(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature + a true-label CE term on the ADVERSARIAL example (user's idea, 2026-07-07):
+
+        loss = KL(student(x_adv) || teacher(x)/tau) + beta * CE(student(x_adv), y)
+
+    Rationale: the pipeline distills from a NATURAL teacher and currently sees no label at all --
+    RSLAD's "pure KD beats CE-mix" verdict assumed a ROBUST teacher, so here the label may supply
+    exactly the robust signal the natural teacher lacks. Distinct from dualkd (which added a CLEAN
+    KD term and lost monotonically): this term is the classic AT objective on x_adv. beta=0 ==
+    train_temperature exactly (50k H 41.77 seed0). Sweep beta via --beta.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            target = (teacher_logits / config.tau).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        if config.beta is not None and config.beta > 0:
+            loss += config.beta * F.cross_entropy(plus_logits, y)
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_madry_at(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Plain Madry PGD-AT, no distillation (2026-07-07): trains the ROBUST TEACHER checkpoint needed
+    by the ARD/RSLAD generality block (Exp A: stack student-norm on robust-teacher AD; Exp B: swap in
+    the natural teacher and show directionalization rescues it). CE(model(x_adv), y) with a true-label
+    PGD attack (reuses _pgd_attack_true_label); raw ResNet18, from scratch (load/finetune False),
+    repo-convention schedule (SGD 0.1 OneCycle, mirrors clean.yaml). origin_model is unused."""
+    model.train()
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        x, y = x.cuda(), y.cuda()
+        x_adv = _pgd_attack_true_label(model, x, y, config.step_size, config.eps, perturb_steps=config.steps)
+        optimizer.zero_grad()
+        loss = F.cross_entropy(model(x_adv), y)
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+        if config.weight_avg == True:
+            annealing = (epoch / config.epochs) ** 2
+            decay = annealing * (1 - config.kappa) + config.kappa
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_tpnorm(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """TEACHER-side Lq-norm POWER sweep on top of the norm student (user's idea, 2026-07-06 night).
+
+    Record check that motivated this: the old powernorm p-sweep (Phi/||Phi||^p optimal at p=1) was run
+    with a RAW student during the un-normalization quest -- the combination "norm student + teacher
+    ||Phi||^p" was never swept, and non-L2 norm orders q were never tried anywhere. This closes both.
+
+    target = teacher_logits / ( tau * r(x) ),   r(x) = ( ||Phi_t(x)||_q / batch_mean(||Phi_t||_q) )^p
+      - p = config.gamma (power), q = config.eta (norm order; eta >= 99 -> L-infinity).
+      - MATCHED EFFECTIVE TEMPERATURE by construction: r is mean-normalized per batch, so the batch's
+        average temperature stays ~tau for ANY (p,q) -- p only reshapes WHICH samples get softer or
+        sharper (p>0: big-norm softer; p<0: inverted; p=0: r==1 == train_temperature EXACTLY). This is
+        the matched-softness control the earlier per-sample-temp experiments taught us to build in.
+      - Since teacher logits are linear in Phi, dividing logits by ||Phi||_2 IS W(Phi/||Phi||_2); for
+        q != 2 this is the scalar-equivalent of an Lq-normalized teacher feature.
+    Expectation is honest-flat (every teacher-side per-sample SCALAR has died), but the (norm-student x
+    p-power x Lq) cells are genuinely unswept and the dose-response curve is the cheap decisive test.
+    Sweep via --gamma (p) and --eta (q); both logged.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    p_pow = float(config.gamma) if config.gamma is not None else 0.0
+    q_ord = float(config.eta) if config.eta is not None else 2.0
+    q_ord = float('inf') if q_ord >= 99 else q_ord
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, teacher_logits = origin_model(x, feat=True)
+            nq = teacher_feat.norm(p=q_ord, dim=1, keepdim=True)
+            # GEOMETRIC-mean anchor (log-centering, same convention as taunet): temperature is a
+            # multiplicative quantity, so arithmetic mean-normalization of r drifts the effective
+            # average softness as |p| grows (Jensen gap). This pins geomean(T)==tau EXACTLY for
+            # every (p,q), so the sweep moves per-sample SHAPE only, never global softness.
+            logn = nq.clamp_min(1e-12).log()
+            r = torch.exp(p_pow * (logn - logn.mean()))
+            target = (teacher_logits / (config.tau * r)).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_dualkd(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature + an EXPLICIT clean-image KD term (user's idea): currently `student_logits =
+    model(x)` is computed ONLY to update BN running stats -- the student's CLEAN prediction is never
+    directly supervised to match the teacher target at all (the lamda consistency term matches x_adv
+    to the student's OWN clean prediction, not to the teacher). This adds:
+        loss += beta * KL( student(x) || target )     [target = teacher(x)/tau, same fixed clean target]
+    beta=0 reduces EXACTLY to train_temperature. Hypothesis: directly anchoring student(x) to the
+    teacher lifts clean acc without touching the x_adv term that carries robustness.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    beta = config.beta if config.beta is not None else 0.0
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)      # raw teacher logits = linear(Phi)
+            target = (teacher_logits / config.tau).detach()     # global temperature; tau=1 == raw teacher
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats (matches train_temperature)
+        if beta > 0:
+            clean_kd_loss = criterion_kl(F.log_softmax(student_logits, dim=1), F.softmax(target, dim=1))
+            loss += beta * clean_kd_loss.sum(dim=1).mean()
+
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_std(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """STANDARD Hinton KD temperature (control for the asymmetric train_temperature):
+      - BOTH teacher AND student logits divided by T before softmax
+      - KD loss scaled by T^2
+      - inner PGD is INLINED (not the shared inner_loss_only_return) so the attack ALSO uses student/T,
+        keeping inner & outer objectives consistent.
+    T = config.tau. student L2-norm, teacher raw. NOTE: with the cosine head (feat_scale=1) student logits
+    are already ~O(1), so /T over-softens the student -> this tests whether textbook KD scaling even fits
+    this architecture (vs the asymmetric version where feat_scale is the student-side temperature).
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    T = config.tau
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            soft_target = F.softmax(teacher_logits / T, dim=1).detach()      # teacher /T
+
+        # inner PGD: maximize the SAME standard-KD KL (student also /T) vs the soft target
+        model.eval()
+        x_adv = x.detach() + 0.001 * torch.randn_like(x).detach()
+        for _ in range(config.steps):
+            x_adv.requires_grad_()
+            with torch.enable_grad():
+                lk = F.kl_div(F.log_softmax(model(x_adv) / T, dim=1), soft_target, reduction='sum')
+            grad = torch.autograd.grad(lk, [x_adv])[0]
+            x_adv = x_adv.detach() + config.step_size * torch.sign(grad.detach())
+            x_adv = torch.min(torch.max(x_adv, x - config.eps), x + config.eps).clamp(0.0, 1.0)
+        model.train()
+        optimizer.zero_grad()
+
+        plus_logits = model(x_adv)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits / T, dim=1), soft_target)   # student /T
+        loss = (T * T) * (1.0 / N) * (kl_loss.sum(dim=1)).sum()                       # standard T^2 scaling
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_vuln(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Per-sample VULNERABILITY-modulated temperature (input-wise; diagnostic-greenlit: vulnerability is
+    ORTHOGONAL to confidence, Spearman 0.13, unlike entropy/margin ~0.99). v(x) = KL(softmax(teacher(x)) ||
+    softmax(teacher(x_adv))) via a cheap 2-step random-start teacher PGD = how much this sample's prediction
+    moves under attack. Per-sample temperature:  T(x) = T0 * exp(gamma * zscore_batch(v))
+        gamma > 0 -> vulnerable samples SOFTER (hedge on the fragile teacher)
+        gamma < 0 -> vulnerable samples SHARPER (stronger correct signal where it matters)
+    swap (vuln_swap, default True) rectifies the target so the true label is the top logit (commutes with
+    /Tx). gamma=0 & swap on == swap-baseline (42.17 control); gamma=0 & swap off == plain temp (41.62).
+    knobs: tau=T0, gamma (signed vuln strength), vuln_swap. student L2-norm, teacher raw.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    T0 = config.tau
+    gamma = getattr(config, "gamma", 0.0) or 0.0
+    use_swap = bool(getattr(config, "vuln_swap", True))
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            p_clean = F.softmax(teacher_logits, dim=1)
+
+        # vulnerability: cheap 2-step random-start PGD on the TEACHER (maximize CE)
+        xa = (x + (torch.rand_like(x) * 2 - 1) * config.eps).clamp(0.0, 1.0).detach()
+        for _ in range(2):
+            xa.requires_grad_(True)
+            with torch.enable_grad():
+                _, za = origin_model(xa, feat=True)
+                ce = F.cross_entropy(za, y)
+            g = torch.autograd.grad(ce, xa)[0]
+            xa = torch.min(torch.max(xa.detach() + (config.eps / 2) * g.sign(), x - config.eps), x + config.eps).clamp(0.0, 1.0)
+        with torch.no_grad():
+            _, za = origin_model(xa, feat=True)
+            p_adv = F.softmax(za, dim=1)
+            v = (p_clean * ((p_clean + 1e-12).log() - (p_adv + 1e-12).log())).sum(1)   # KL(clean||adv) per sample
+            u = ((v - v.mean()) / (v.std() + 1e-6)).clamp(-2.0, 2.0)                     # z-scored, clamped
+            Tx = (T0 * torch.exp(gamma * u)).reshape(-1, 1)                              # always positive
+            tgt = rectify_swap(teacher_logits, y) if use_swap else teacher_logits        # swap commutes with /Tx
+            target = (tgt / Tx).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_gradnorm(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Per-sample TEACHER INPUT-GRADIENT-NORM-modulated temperature (user's idea, 2026-07-05, their
+    stated favorite of the teacher-only signals). g(x) = ||d CE(teacher(x), y) / dx||_2 at the CLEAN
+    point (single backward pass, no attack needed) -- a large gradient norm means the teacher's loss
+    surface is locally steep at this input, a plausible proxy for "how much non-robust-feature content
+    this sample carries" (small input perturbations would swing the loss a lot). The STUDENT NEVER
+    APPEARS in this signal, matching the project's philosophy directly (per user, 2026-07-05): keep the
+    natural teacher's clean knowledge maximally intact, and let any calibration toward robustness come
+    ONLY from the teacher's OWN robustness-relevant properties -- never from watching what the student
+    currently gets right or wrong (which is exactly the self-referential "curve-fitting" risk this whole
+    teacher-only family of signals (see also train_temperature_vuln) is designed to avoid).
+
+    T(x) = T0 * exp(gamma * zscore_batch(g))
+        gamma > 0 -> high-gradient-norm (locally fragile) samples get a SOFTER target
+        gamma < 0 -> high-gradient-norm samples get a SHARPER target
+    swap (vuln_swap, default True) rectifies the target so the true label is the top logit (commutes
+    with /Tx). gamma=0 & swap on == swap-baseline (42.17 control); gamma=0 & swap off == plain temp.
+    knobs: tau=T0, gamma (signed strength), vuln_swap. Mirrors train_temperature_vuln's structure/knobs
+    exactly -- only the per-sample signal differs (input-gradient-norm vs. attacked-teacher KL).
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    T0 = config.tau
+    gamma = getattr(config, "gamma", 0.0) or 0.0
+    use_swap = bool(getattr(config, "vuln_swap", True))
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        # teacher input-gradient norm at the CLEAN point (no attack -- one backward pass through the teacher)
+        x_req = x.clone().detach().requires_grad_(True)
+        with torch.enable_grad():
+            _, z_req = origin_model(x_req, feat=True)
+            ce = F.cross_entropy(z_req, y)
+        g_in = torch.autograd.grad(ce, x_req)[0]
+        gnorm = g_in.flatten(1).norm(dim=1)   # [N], student never touched
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            u = ((gnorm - gnorm.mean()) / (gnorm.std() + 1e-6)).clamp(-2.0, 2.0)   # z-scored, clamped
+            Tx = (T0 * torch.exp(gamma * u)).reshape(-1, 1)                        # always positive
+            tgt = rectify_swap(teacher_logits, y) if use_swap else teacher_logits  # swap commutes with /Tx
+            target = (tgt / Tx).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_smooth_temp(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """eps-ball SMOOTHED teacher target + global temperature (golden-logit direction).
+
+    Instead of distilling to the teacher's single clean point (which is non-robust / varies fast
+    over the eps-ball), distill to the RANDOMIZED-SMOOTHING teacher: average the teacher logits over
+    K uniform perturbations in the L_inf eps-ball, then soften by T. Diagnostic: this target function
+    is ~4x FLATTER over the ball (lower local KL) than plain temperature at matched softness = more
+    robust-shaped by construction. Student L2-normalizes (student_norm=True), teacher raw, NO /13.
+
+    knobs: temperature = T (softness), smooth_k = K (ball samples; K=1 == plain temperature, more K =
+    smoother but K extra teacher forward passes -> the 'fast version drops it' resource lever).
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    T = getattr(config, "temperature", 1.0) or 1.0
+    K = int(getattr(config, "smooth_k", 8) or 8)
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            zsum = 0
+            for _ in range(K):
+                d = (torch.rand_like(x) * 2 - 1) * config.eps      # uniform noise in the L_inf eps-ball
+                _, zk = origin_model((x + d).clamp(0.0, 1.0), feat=True)
+                zsum = zsum + zk
+            z_smooth = zsum / K                                    # eps-ball averaged teacher logits
+            target = (z_smooth / T).detach()                       # + global temperature softening
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: keeps student BN running stats in sync
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_smooth_temp_swap(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """GOLDEN-LOGIT combo: eps-ball smoothed teacher (FLAT) + swap-rectify (CORRECT) + temperature (SOFT).
+    = train_smooth_temp with rectify_swap on the smoothed logits before /T. All three golden conditions.
+    knobs: temperature=T, smooth_k=K. student L2-norm, teacher raw, NO /13."""
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    T = getattr(config, "temperature", 1.0) or 1.0
+    K = int(getattr(config, "smooth_k", 8) or 8)
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            zsum = 0
+            for _ in range(K):
+                d = (torch.rand_like(x) * 2 - 1) * config.eps
+                _, zk = origin_model((x + d).clamp(0.0, 1.0), feat=True)
+                zsum = zsum + zk
+            z_smooth = zsum / K                                    # eps-ball averaged (FLAT)
+            target = (rectify_swap(z_smooth, y) / T).detach()      # swap (CORRECT) then /T (SOFT)
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_carve_decorr_l1(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Decorrelated carve, L1 fragility -- separate method (refactor later).
+
+    Plain carve down-weights fragile channels, but fragility is ~0.49 correlated with class-need
+    (contribution to the true-class logit), so it mostly just softens class info. This variant
+    PROTECTS class-relevant channels and carves only the vulnerable-but-class-IRRELEVANT ones:
+
+        fragility  = |Phi_t(x) - Phi_t(x_adv)|                       (L1; PGD-2 teacher carve)
+        class_need = |W[pred] * Phi_t(x)|                            (per-dim contribution to teacher's OWN top class)
+        need_rel   = class_need / mean_dim(class_need)               (per-sample normalized, mean=1)
+        gate       = exp(-beta * need_rel)                           (class-relevant dim -> gate->0, protected)
+        w          = exp(-tau * fragility * gate)                    (carve only vulnerable & class-irrelevant)
+
+    class_need uses the teacher's PREDICTED class (argmax), NOT the ground-truth label -- using the
+    true label leaks it into the target (carved acc jumps above the teacher's own ceiling, sharpening
+    toward truth and corrupting the soft dark-knowledge). pred keeps it honest denoising.
+
+    Two knobs: tau = fragility carve strength, beta = class-protection strength.
+    beta=0 => gate=1 => EXACTLY train_carve_only_l1 (plain carve); so a beta sweep IS the ablation.
+    Student untouched (student_norm=True -> ResNet18_z, L2-normalized). NO /13, NO teacher norm.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    tau = getattr(config, "tau", 1.0)                       # fragility carve strength
+    beta = getattr(config, "beta", 1.0)                     # class-protection strength (0 == plain carve)
+    csteps = int(getattr(config, "gamma", 2) or 2)          # carve PGD steps (2 == PGD-2)
+    cstep = config.eps / csteps
+    lin_w = (origin_model.encoder.linear.weight if hasattr(origin_model, "encoder")
+             else origin_model.linear.weight)              # [num_classes, feat_dim]
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, teacher_logits = origin_model(x, feat=True)   # raw teacher clean feature Phi_t(x)
+            pred = teacher_logits.argmax(dim=1)                         # teacher's OWN top class (no label leak)
+
+        # --- carve: gamma-step PGD on the teacher to expose fragile channels ---
+        x_adv = x.clone().detach()
+        for _ in range(csteps):
+            x_adv.requires_grad_(True)
+            _, logits_adv = origin_model(x_adv, feat=True)
+            ce = F.cross_entropy(logits_adv, y)
+            grad = torch.autograd.grad(ce, x_adv)[0]
+            x_adv = x_adv.detach() + cstep * grad.sign()
+            x_adv = torch.min(torch.max(x_adv, x - config.eps), x + config.eps)
+            x_adv = x_adv.clamp(0.0, 1.0)
+
+        with torch.no_grad():
+            z_adv, _ = origin_model(x_adv, feat=True)
+            fragility = (teacher_feat - z_adv).abs()                        # per-channel fragility (L1)
+            class_need = (lin_w[pred] * teacher_feat).abs()                 # per-channel contribution to teacher's OWN class
+            need_rel = class_need / (class_need.mean(dim=1, keepdim=True) + 1e-8)
+            gate = torch.exp(-beta * need_rel)                             # protect class-relevant channels
+            w = torch.exp(-tau * fragility * gate)                        # carve only vulnerable & class-irrelevant
+            target = origin_model.linear(teacher_feat * w).detach()        # carved logits; NO /13, NO norm
+
+        # --- student PGD-distillation to the carved target ---
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: keeps student BN running stats in sync
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_carve_decorr_temp_l1(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """DECOUPLED: decorr carve (orthogonal denoise) + GLOBAL temperature (softness) -- separate method.
+
+    Identical decorr carve as train_carve_decorr_l1 (protect teacher's own class dims, carve only
+    vulnerable-&-class-irrelevant), THEN soften the carved logits by a global temperature T:
+
+        target = teacher.linear(Phi_t(x) * w) / T          (w = decorr carve weight)
+
+    Rationale (two diagnostics): softness is the winning lever (global temp best H 41.62), but it is
+    uniform; decorr removes vulnerable dims global temp can't touch -- but decorr RE-SHARPENS the
+    target. So couple them: carve denoises, T restores softness. Because decorr sharpens, T must be
+    pushed HIGHER than the pure-global optimum (16) to reach the same net softness.
+    Three knobs: tau = carve strength, beta = class protection, T = config.temperature (softness).
+    T=1, beta=0 => plain sharp carve; beta=0 => carve_only_l1 / T. Student L2-norm, teacher raw, NO /13.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    tau = getattr(config, "tau", 1.0)                       # fragility carve strength
+    beta = getattr(config, "beta", 1.0)                     # class-protection strength
+    T = getattr(config, "temperature", 1.0) or 1.0         # global softening temperature (sweep HIGH)
+    csteps = int(getattr(config, "gamma", 2) or 2)
+    cstep = config.eps / csteps
+    lin_w = (origin_model.encoder.linear.weight if hasattr(origin_model, "encoder")
+             else origin_model.linear.weight)
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, teacher_logits = origin_model(x, feat=True)
+            pred = teacher_logits.argmax(dim=1)                         # teacher's own class (no label leak)
+
+        x_adv = x.clone().detach()
+        for _ in range(csteps):
+            x_adv.requires_grad_(True)
+            _, logits_adv = origin_model(x_adv, feat=True)
+            ce = F.cross_entropy(logits_adv, y)
+            grad = torch.autograd.grad(ce, x_adv)[0]
+            x_adv = x_adv.detach() + cstep * grad.sign()
+            x_adv = torch.min(torch.max(x_adv, x - config.eps), x + config.eps)
+            x_adv = x_adv.clamp(0.0, 1.0)
+
+        with torch.no_grad():
+            z_adv, _ = origin_model(x_adv, feat=True)
+            fragility = (teacher_feat - z_adv).abs()
+            class_need = (lin_w[pred] * teacher_feat).abs()
+            need_rel = class_need / (class_need.mean(dim=1, keepdim=True) + 1e-8)
+            gate = torch.exp(-beta * need_rel)                         # protect class-relevant channels
+            w = torch.exp(-tau * fragility * gate)                    # decorr carve
+            target = (origin_model.linear(teacher_feat * w) / T).detach()   # + GLOBAL temperature softening
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_carve_decorr_temp_swap_l1(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """decorr carve + global temperature + teacher SWAP-rectification. = train_carve_decorr_temp_l1
+    with rectify_swap applied to the carved logits (true class -> top) BEFORE /T. Compare against
+    train_temperature_swap (the fair swap-baseline). knobs: tau, beta, temperature (T)."""
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    tau = getattr(config, "tau", 1.0)
+    beta = getattr(config, "beta", 1.0)
+    T = getattr(config, "temperature", 1.0) or 1.0
+    csteps = int(getattr(config, "gamma", 2) or 2)
+    cstep = config.eps / csteps
+    lin_w = (origin_model.encoder.linear.weight if hasattr(origin_model, "encoder")
+             else origin_model.linear.weight)
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, teacher_logits = origin_model(x, feat=True)
+            pred = teacher_logits.argmax(dim=1)
+
+        x_adv = x.clone().detach()
+        for _ in range(csteps):
+            x_adv.requires_grad_(True)
+            _, logits_adv = origin_model(x_adv, feat=True)
+            ce = F.cross_entropy(logits_adv, y)
+            grad = torch.autograd.grad(ce, x_adv)[0]
+            x_adv = x_adv.detach() + cstep * grad.sign()
+            x_adv = torch.min(torch.max(x_adv, x - config.eps), x + config.eps)
+            x_adv = x_adv.clamp(0.0, 1.0)
+
+        with torch.no_grad():
+            z_adv, _ = origin_model(x_adv, feat=True)
+            fragility = (teacher_feat - z_adv).abs()
+            class_need = (lin_w[pred] * teacher_feat).abs()
+            need_rel = class_need / (class_need.mean(dim=1, keepdim=True) + 1e-8)
+            gate = torch.exp(-beta * need_rel)
+            w = torch.exp(-tau * fragility * gate)
+            carved = origin_model.linear(teacher_feat * w)
+            target = (rectify_swap(carved, y) / T).detach()   # SWAP-rectify carved logits THEN soften
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_carve_only_l1(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Carve-only teacher target -- its own clean method, NOT the transform dispatcher.
+
+    Fragility metric = L1 (per-channel absolute deviation). (An L2 / squared-deviation variant
+    is a separate method: train_carve_only_l2.) 'l1' here names the FRAGILITY metric; the student
+    always L2-normalizes its own features (student_norm=True -> ResNet18_z) in both variants.
+
+    Teacher-side operation is ONLY the carve:
+      1. find fragile feature channels with a gamma-step PGD on the TEACHER (config.gamma, default 2 --
+         i.e. PGD-2, NOT FGSM), maximizing teacher CE;
+      2. per-channel fragility = |Phi_t(x) - Phi_t(x_adv)|  (L1);
+      3. down-weight fragile channels: w = exp(-tau * fragility)  (tau = config.tau = carve strength;
+         it plays the temperature role -- bigger tau -> softer/more-carved target);
+      4. push the carved clean feature through the teacher's OWN linear head -> carved teacher logits.
+    NO global /13 rescale, NO teacher feature-normalization -- carve is the whole teacher knob.
+    Student is left untouched by carve; it is ResNet18_z (student_norm=True => L2-normalized features),
+    trained by PGD-distillation to the carved target.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    tau = getattr(config, "tau", 1.0)                       # carve strength (== temperature role)
+    csteps = int(getattr(config, "gamma", 2) or 2)          # carve PGD steps (2 == PGD-2)
+    cstep = config.eps / csteps                             # carve step size (independent of AT step_size)
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, _ = origin_model(x, feat=True)    # raw teacher clean feature Phi_t(x)
+
+        # --- carve: gamma-step PGD on the teacher to expose fragile channels ---
+        x_adv = x.clone().detach()
+        for _ in range(csteps):
+            x_adv.requires_grad_(True)
+            _, logits_adv = origin_model(x_adv, feat=True)
+            ce = F.cross_entropy(logits_adv, y)
+            grad = torch.autograd.grad(ce, x_adv)[0]
+            x_adv = x_adv.detach() + cstep * grad.sign()
+            x_adv = torch.min(torch.max(x_adv, x - config.eps), x + config.eps)
+            x_adv = x_adv.clamp(0.0, 1.0)
+
+        with torch.no_grad():
+            z_adv, _ = origin_model(x_adv, feat=True)
+            fragility = (teacher_feat - z_adv).abs()        # per-channel fragility
+            w = torch.exp(-tau * fragility)                 # fragile channels -> ~0
+            target = origin_model.linear(teacher_feat * w).detach()   # carved logits; NO /13, NO norm
+
+        # --- student PGD-distillation to the carved target ---
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: keeps student BN running stats in sync
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_carve_only_l2(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Carve-only teacher target, L2 fragility -- separate copy of train_carve_only_l1 (refactor later).
+
+    IDENTICAL to train_carve_only_l1 except the fragility metric is L2 / squared per-channel deviation:
+        fragility = (Phi_t(x) - Phi_t(x_adv))**2     (vs. .abs() in the l1 variant).
+    Squaring shrinks per-channel deviations that are < 1, so the same tau carves LESS than in l1 --
+    the l2 tau sweep is scaled up accordingly. Student still L2-normalizes its own features.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    tau = getattr(config, "tau", 1.0)                       # carve strength (== temperature role)
+    csteps = int(getattr(config, "gamma", 2) or 2)          # carve PGD steps (2 == PGD-2)
+    cstep = config.eps / csteps                             # carve step size (independent of AT step_size)
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N = x.shape[0]
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            teacher_feat, _ = origin_model(x, feat=True)    # raw teacher clean feature Phi_t(x)
+
+        # --- carve: gamma-step PGD on the teacher to expose fragile channels ---
+        x_adv = x.clone().detach()
+        for _ in range(csteps):
+            x_adv.requires_grad_(True)
+            _, logits_adv = origin_model(x_adv, feat=True)
+            ce = F.cross_entropy(logits_adv, y)
+            grad = torch.autograd.grad(ce, x_adv)[0]
+            x_adv = x_adv.detach() + cstep * grad.sign()
+            x_adv = torch.min(torch.max(x_adv, x - config.eps), x + config.eps)
+            x_adv = x_adv.clamp(0.0, 1.0)
+
+        with torch.no_grad():
+            z_adv, _ = origin_model(x_adv, feat=True)
+            fragility = (teacher_feat - z_adv) ** 2         # per-channel fragility (L2 / squared)
+            w = torch.exp(-tau * fragility)                 # fragile channels -> ~0
+            target = origin_model.linear(teacher_feat * w).detach()   # carved logits; NO /13, NO norm
+
+        # --- student PGD-distillation to the carved target ---
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: keeps student BN running stats in sync
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
 
         loss.backward()
         optimizer.step()
@@ -730,3 +2857,189 @@ def train_cure(model, train_loader, optimizer, origin_model, epoch, config, sche
     ema_sd = ema_model.state_dict()
     for k in list(exp_avg.keys()):
         exp_avg[k] = ema_sd[k].clone()
+
+
+def train_temperature_reweight(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature + per-sample KD-loss reweighting by TEACHER instability (input-dependent idea #2).
+
+    Teacher instability at x = KL( p_t(x) || p_t(x_adv) ) on RAW teacher logits, where x_adv is the
+    student's inner-loop adversary. Samples where the teacher's own prediction moves a lot are treated
+    as unreliable targets and downweighted:
+        w_i = exp(-gamma * kl_i / mean(kl)),  then  w <- w / mean(w)   (mean-1: keeps the loss scale)
+    gamma=0 -> w == 1 == train_temperature EXACTLY (baseline). Sweep via --gamma.
+    NOT a temperature reparametrization: acts on per-sample GRADIENT magnitude, not on target shape,
+    so it cannot be absorbed by softmax the way the scalar-temperature signals were.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    gamma = config.gamma if config.gamma is not None else 0.0
+
+    kl_sum = 0.0; kl_max = 0.0; n_seen = 0
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)      # raw teacher logits
+            target = (teacher_logits / config.tau).detach()     # global temperature target
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+
+        with torch.no_grad():
+            _, teacher_logits_adv = origin_model(x_pgd, feat=True)
+            kl_t = criterion_kl(F.log_softmax(teacher_logits_adv, dim=1),
+                                F.softmax(teacher_logits, dim=1)).sum(dim=1)        # [N] KL(t(x) || t(x_adv))
+            # clamp the normalized signal: kl is heavy-tailed (max ~15x mean) and gamma<0 (UPWEIGHT)
+            # would otherwise explode exp() so one sample dominates the batch
+            kl_n = (kl_t / kl_t.mean().clamp_min(1e-8)).clamp(max=5.0)
+            w = torch.exp(-gamma * kl_n)
+            w = (w / w.mean().clamp_min(1e-8)).detach()                             # renormalize to mean 1
+
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (w * kl_loss.sum(dim=1)).mean()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats (matches train_temperature)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        kl_sum += kl_t.sum().item(); kl_max = max(kl_max, kl_t.max().item()); n_seen += N
+
+    logging.info({"teacher_kl_mean": round(kl_sum / max(n_seen, 1), 4), "teacher_kl_max": round(kl_max, 4), "epoch": epoch})
+
+
+def train_temperature_decompw(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Idea A: per-sample KD weight from the DECOMPOSITION of the teacher's vulnerability
+    (not its magnitude — answers 'every sample shakes under a natural teacher').
+
+    Teacher logit change under the student's adversary is split into two channels
+    (raw teacher: z = linear(Phi), so magnitude-only change is exactly linear(s*Phi)):
+        z_mag = linear( (||Phi_adv||/||Phi||) * Phi )     # pure magnitude/norm channel
+        rot   = || z_adv - z_mag ||                        # rotation (direction) residual
+        r     = rot / ||z_adv - z_clean||                  # rotation SHARE in (0,~1)
+    norm-dominant vulnerability (r small) is what normalization fixes -> trust the target;
+    rotation-dominant (r large) means the teacher's DIRECTIONAL info is corrupted near x ->
+    downweight:  w = exp(-gamma * r / mean(r)), renormalized to mean 1. gamma=0 == baseline.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    gamma = config.gamma if config.gamma is not None else 0.0
+
+    r_all = []
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            f_c, teacher_logits = origin_model(x, feat=True)    # raw teacher feat & logits
+            target = (teacher_logits / config.tau).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+
+        with torch.no_grad():
+            f_a, z_a = origin_model(x_pgd, feat=True)
+            s = (f_a.norm(dim=1) / f_c.norm(dim=1).clamp_min(1e-8)).unsqueeze(1)
+            z_mag = origin_model.linear(s * f_c)                             # magnitude-only logits
+            rot = (z_a - z_mag).norm(dim=1)
+            tot = (z_a - teacher_logits).norm(dim=1).clamp_min(1e-8)
+            r = rot / tot                                                    # rotation share [N]
+            w = torch.exp(-gamma * r / r.mean().clamp_min(1e-8))
+            w = (w / w.mean().clamp_min(1e-8)).detach()
+
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (w * kl_loss.sum(dim=1)).mean()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats (matches train_temperature)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        r_all.append(r.cpu())
+
+    r_cat = torch.cat(r_all)
+    q = torch.quantile(r_cat, torch.tensor([0.05, 0.5, 0.95]))
+    logging.info({"rot_share_mean": round(r_cat.mean().item(), 4), "rot_share_p5": round(q[0].item(), 4),
+                  "rot_share_p50": round(q[1].item(), 4), "rot_share_p95": round(q[2].item(), 4), "epoch": epoch})
+
+
+def train_temperature_padapt(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature with the ResNet18_zp student (p_adapt: True) — input-dependent idea #3.
+
+    The student's feature-normalization STRENGTH is a learned per-sample head:
+        Phi_hat = Phi / ||Phi||^{p(x)},  p(x) = sigmoid(p_head(Phi)), zero-init -> starts at 0.5.
+    Training loop identical to train_temperature; additionally logs the clean-batch p(x)
+    distribution every epoch. p(x)->1 everywhere == full L2 norm (iso3); p(x)->0 == raw student;
+    meaningful per-sample variation == the input-dependent mechanism we are hunting.
+    """
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    p_all = []
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)      # raw teacher logits
+            target = (teacher_logits / config.tau).detach()     # global temperature target
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats (matches train_temperature)
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        # _p_last was set by the LAST forward = the clean model(x) pass above
+        for m in model.modules():
+            if getattr(m, "_p_last", None) is not None:
+                p_all.append(m._p_last.cpu())
+                break
+
+    if p_all:
+        p_cat = torch.cat(p_all).flatten()
+        q = torch.quantile(p_cat, torch.tensor([0.05, 0.5, 0.95]))
+        logging.info({"p_mean": round(p_cat.mean().item(), 4), "p_std": round(p_cat.std().item(), 4),
+                      "p_p5": round(q[0].item(), 4), "p_p50": round(q[1].item(), 4),
+                      "p_p95": round(q[2].item(), 4), "epoch": epoch})

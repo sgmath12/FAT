@@ -1,0 +1,43 @@
+# Bilevel TauNet, meta loss = ||feat_adv - feat_clean||^2 (user's idea, 2026-07-05): TRADES-flavored
+#   invariance signal instead of classification accuracy -- tau_net is rewarded when the (proxy-updated)
+#   backbone's PENULTIMATE FEATURE for the adversarial meta example stays close to its clean counterpart,
+#   rather than rewarding held-out CE directly. Same v5 base otherwise: real AdamW backbone step +
+#   SGD-only tau_net update + window 0-10, tau_center: True.
+method : temperature_taunet_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_adapt : True
+tau_hidden : 64
+tau_depth : 2
+tau_bn : True
+val : True
+bilevel_start : 0
+bilevel_end : 10
+tau_meta_lr : 100
+bilevel_meta_loss : featdiff
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

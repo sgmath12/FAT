@@ -1,0 +1,38 @@
+# FULLY directional student: cosine head (feature AND classifier weights L2-normalized, no bias),
+#   logits = s*cos(theta), s = single learnable global scalar (log-param, init 1.853 = clean ckpt
+#   mean ||w_c||, fair start). Closes the last magnitude channel: AT on the plain norm student grows
+#   ||w_c|| 1.85 -> 9.5 (5x, class spread 1.37x). method temperature_coshead == train_temperature +
+#   per-epoch cos_s logging; cos_head: True -> ResNet18_zcos (resnet_zcos.py).
+#   TIE -> directional-distillation pillar (all magnitude freedom removable); win/loss -> per-class
+#   ||w_c|| structure mattered. Fair bar: 50k baseline tau16 seed0 H 41.77 (63.04/31.23).
+method : temperature_coshead
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cos_head : True
+val : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

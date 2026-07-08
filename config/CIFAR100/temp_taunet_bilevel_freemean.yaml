@@ -1,0 +1,47 @@
+# Bilevel TauNet with tau_center: False (user's idea, 2026-07-05): the batch log-centering that pins
+#   geomean(tau(x))==config.tau every batch was originally a safeguard against training tau_net off the
+#   SHARED (gameable) KD loss -- flattening the target trivially shrinks nn.KLDivLoss's target-entropy
+#   term regardless of real fit quality. Under bilevel, tau_net's gradient comes from L_after (a genuine
+#   held-out adversarial CE against TRUE labels), which has no such free-lunch direction -- so the pin
+#   may be needlessly blocking tau_net from finding a better GLOBAL temperature level, not just relative
+#   per-sample structure. This run removes the pin (tau_center: False) but keeps the same clamp bound
+#   (tau in [tau/2, 2*tau] per sample) as a numerical safety net. Same v5 base (real AdamW backbone step
+#   + SGD-only tau_net update + window epoch 0-10) that produced H=41.59 (tau_center: True, baseline 41.77).
+method : temperature_taunet_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_adapt : True
+tau_hidden : 64
+tau_depth : 2
+tau_bn : True
+val : True
+bilevel_start : 0
+bilevel_end : 10
+tau_meta_lr : 100
+tau_center : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

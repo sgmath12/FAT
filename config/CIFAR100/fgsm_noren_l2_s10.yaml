@@ -1,0 +1,29 @@
+# CARVE-ONLY noren but vulnerability dev = L2 (squared) per-dim instead of L1 (abs).
+# Identical to fgsm_noren_s10 except transform: fgsm_noren_l2. alpha=1, steps=10, carve PGD-2.
+method : DPFAT_transform
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 0.7
+lamda : 0.0
+tau : 0.0
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+transform : fgsm_noren_l2

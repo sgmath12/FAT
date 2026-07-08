@@ -1,0 +1,46 @@
+# Bilevel-learned PER-CLASS temperature vector (user's idea, 2026-07-07).
+#   method train_temperature_tauclass_bilevel: tau_c in R^100, one temperature per logit coordinate,
+#   shared by every sample -- the last open cell of {per-sample, per-class} x {scalar, direction}:
+#   per-sample scalar = temperature reparametrization (proven inert); per-sample vector (DeltaNet)
+#   -> delta==0 under batch centering; per-class ADDITIVE constant = what the uncentered DeltaNet
+#   pilot learned (tied baseline). This is the per-class MULTIPLICATIVE constant: can reorder
+#   classes, acts proportionally to logit magnitude.
+#   log-centered every step (geomean(tau_c)==tau) so the global-sharpness cheat that collapsed
+#   globaltau is structurally unreachable; clamp keeps each class within ~[tau/2, 2*tau].
+#   Window 0-10 (low-lr OneCycle warmup) per the taunet_bilevel v2 finding; log_tau_c frozen after.
+#   Fair bar: temp_baseline_val45k (same 45000-image train split). Watch tauc_std per epoch:
+#   grows = per-class structure emerging; ~0 at freeze = this cell is inert too (uniqueness result).
+method : temperature_tauclass_bilevel
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_classwise : True
+val : True
+bilevel_start : 0
+bilevel_end : 10
+tau_meta_lr : 100
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

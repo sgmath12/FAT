@@ -8,6 +8,7 @@ data/
 
 # Checkpoints / model weights
 CIFAR10/checkpoint/
+CIFAR100/checkpoint/
 *.pkl
 *.pt
 *.pth
@@ -23,3 +24,9 @@ results/
 .claude/
 .vscode/
 .idea/
+
+# Local working notes (not part of the code)
+memory/
+scratchpad/
+experiment_plan.md
+nohup.out

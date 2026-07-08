@@ -1,0 +1,37 @@
+# carve-only teacher target, L2 fragility (its own method train_carve_only_l2; NOT the transform dispatcher).
+#   teacher: raw (teacher_norm=False). Fragile channels found by PGD-gamma (gamma=2 -> PGD-2, NOT FGSM),
+#           per-channel fragility = (Phi_t(x) - Phi_t(x_adv))**2 (L2/squared), down-weighted by
+#           w=exp(-tau*fragility), pushed through teacher's own linear head. NO /13 rescale, NO teacher norm.
+#   student: L2-norm features (student_norm=True -> ResNet18_z). Untouched by carve.
+# 'l2' = fragility metric (L1/abs variant = carve_only_l1). Squaring shrinks |Δ|<1 -> needs LARGER tau.
+# Fast regime (steps=3, step_size 4/255); steps=10 version is a SEPARATE config: carve_only_l2_10step.yaml.
+# Results -> results/CIFAR100/carve_only_l2/output.log. Sweep tau with: --tau 1.0 (append per tau).
+method : carve_only_l2
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+gamma : 2
+lamda : 0.0
+tau : 1.0
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

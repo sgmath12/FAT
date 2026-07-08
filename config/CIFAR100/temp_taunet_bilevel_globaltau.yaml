@@ -1,0 +1,42 @@
+# Bilevel-learned SINGLE GLOBAL scalar temperature (user's idea, 2026-07-05): no MLP, no per-sample
+#   structure at all -- just ONE nn.Parameter (log_tau), tau=exp(log_tau), identical for every sample.
+#   Isolates "can bilevel find a better GLOBAL constant than the hand-picked 16" from the per-sample
+#   question. tau_meta_lr calibrated separately from the per-sample TauNet case: the global scalar's
+#   gradient is ~1000x smaller (a lot of cancellation across samples averaging into one shared number),
+#   so needs a much bigger SGD lr (2000, vs 100 for TauNet) to move at a comparable pace. Same window
+#   0-10, 3-step, tau in [2,64] safety clamp (wider than the per-sample [8,32] since we want to see
+#   where the global optimum actually sits, not artificially truncate it).
+method : temperature_bilevel_globaltau
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+tau_global_bilevel : True
+val : True
+bilevel_start : 0
+bilevel_end : 10
+tau_meta_lr : 2000
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+aa : False

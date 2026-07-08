@@ -4,7 +4,7 @@ import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 import torchattacks
-import os,pdb,copy
+import os,pdb,copy,math
 from Externals.autoattack import AutoAttack
 from Externals.robustbench.eval import benchmark
 from Externals.robustbench.data import load_cifar10, load_cifar100, load_imagenet
@@ -59,6 +59,81 @@ def inner_loss_only_return(model,
     return x_adv
 
 
+class TauNet(nn.Module):
+    """Interpretable LEARNED per-sample teacher temperature (user's idea, 2026-07-04).
+
+    Outputs a raw, UNCONSTRAINED per-sample score r(s) from 3 interpretable logit statistics only:
+        norm = ||teacher_logits||_2, margin = top1 - top2, entropy = H(softmax(teacher_logits)).
+    No raw features go in -- only these 3 scalars -- so r(x) stays inspectable/plottable per sample.
+
+    r is turned into tau(x) = config.tau * exp(r_centered) in the training loop (see
+    train_temperature_taunet), with the SAME batch log-centering trick train_temperature_tadapt
+    uses: r_centered = clamp(r, -c, c) - batch_mean(clamp(r, -c, c)). This is NOT optional --
+    an earlier version had this net directly emit a sigmoid-bounded tau in [1,20] with no batch
+    anchor, and it collapsed to the clamp ceiling within 1 epoch: nn.KLDivLoss's target-entropy
+    term (sum q*log(q), normally a constant when the teacher/tau is fixed) is NOT constant when
+    tau is learned, so the optimizer could trivially shrink the loss by flattening EVERY sample's
+    target (raising tau for the whole batch) with zero relation to actual distillation quality.
+    Batch log-centering pins geomean(tau(x))==config.tau every step, closing that loophole --
+    only RELATIVE per-sample softening/sharpening can still move the loss.
+
+    Final layer zero-init (weight=0, bias=0) -> r==0 for every sample at step 0 -> tau(x)==config.tau
+    exactly, matching the fixed-temperature baseline before any learning happens.
+
+    Optional capacity knobs (default = the original minimal net, so old configs are unaffected):
+    - use_bn: BatchNorm1d(3, affine=False) on the raw stats before the MLP. norm/margin/entropy live
+      on very different scales (~10-20 / variable / 0-4.6 nats); without this the first layer's
+      random init sees a lopsided input and has to learn the rescaling itself. Safe with a FROZEN
+      teacher (norm/margin/entropy's population distribution never shifts during training).
+    - hidden / depth: width and number of hidden layers (depth=1 == original single hidden layer).
+    """
+    def __init__(self, hidden=32, depth=1, use_bn=False):
+        super().__init__()
+        self.bn = nn.BatchNorm1d(3, affine=False) if use_bn else nn.Identity()
+        layers = [nn.Linear(3, hidden), nn.ReLU()]
+        for _ in range(depth - 1):
+            layers += [nn.Linear(hidden, hidden), nn.ReLU()]
+        layers += [nn.Linear(hidden, 1)]
+        self.net = nn.Sequential(*layers)
+        nn.init.zeros_(self.net[-1].weight)
+        nn.init.zeros_(self.net[-1].bias)
+
+    def forward(self, s):
+        return self.net(self.bn(s))
+
+
+class DeltaNet(nn.Module):
+    """Learned per-sample VECTOR edit of the teacher target (user's idea, 2026-07-06): the last live
+    axis after every per-sample SCALAR failed. A scalar on teacher logits is a temperature
+    reparametrization and is absorbed by softmax (proven inert at T=16, where multiplicative changes
+    barely move the near-uniform target -- diag_target_level.py); a VECTOR delta can move probability
+    mass BETWEEN classes -- the target-DIRECTION axis that only hand-crafted swap ever touched.
+
+    Consumes ONLY the teacher's logits (pre-divided by config.tau, so O(1) scale) -- no features, no
+    labels. Emits a raw delta in R^C; the training loop (train_temperature_deltanet_bilevel)
+    constrains it to direction-only: mean-centered (softmax shift invariance), per-sample norm-capped
+    (config.delta_r), and ENTROPY-MATCHED back to the fixed-tau baseline target so overall
+    sharpness -- the bilevel estimator's confirmed cheat axis (see the globaltau collapse) -- is
+    structurally unlearnable.
+
+    Final layer zero-init -> delta==0 for every sample at step 0 -> target == the plain temperature
+    baseline exactly (same fair-start convention as TauNet/T_head/p_head).
+    """
+    def __init__(self, num_classes, hidden=128, depth=1, use_bn=False):
+        super().__init__()
+        self.bn = nn.BatchNorm1d(num_classes, affine=False) if use_bn else nn.Identity()
+        layers = [nn.Linear(num_classes, hidden), nn.ReLU()]
+        for _ in range(depth - 1):
+            layers += [nn.Linear(hidden, hidden), nn.ReLU()]
+        layers += [nn.Linear(hidden, num_classes)]
+        self.net = nn.Sequential(*layers)
+        nn.init.zeros_(self.net[-1].weight)
+        nn.init.zeros_(self.net[-1].bias)
+
+    def forward(self, z):
+        return self.net(self.bn(z))
+
+
 def load_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_name", default="clean.yaml")
@@ -71,6 +146,13 @@ def load_parser():
     parser.add_argument("--pct", default=-1, type = float)
     parser.add_argument("--epochs", default=-1, type = int)
     parser.add_argument("--temperature", default=-1, type = int)
+    parser.add_argument("--feat_scale", default=-1, type = float)
+    parser.add_argument("--delta_r", default=-1, type = float)
+    parser.add_argument("--delta_meta_lr", default=-1, type = float)
+    parser.add_argument("--tau_meta_lr", default=-1, type = float)
+    parser.add_argument("--bilevel_start", default=-1, type = int)
+    parser.add_argument("--bilevel_end", default=-1, type = int)
+    parser.add_argument("--seed", default=0, type = int)
     parser.add_argument("--lr", default=-1, type = float)
     parser.add_argument("--batch_size", default=-1, type = float)
     parser.add_argument("--tags", default = " ",type = str)
@@ -111,6 +193,13 @@ def load_config(args):
     config.eta = args.eta if args.eta != -1 else config.eta
     config.tau = args.tau if args.tau != -1 else config.tau
     config.temperature = args.temperature if args.temperature != -1 else config.temperature
+    config.feat_scale = args.feat_scale if args.feat_scale != -1 else getattr(config, "feat_scale", 1.0)
+    config.delta_r = args.delta_r if args.delta_r != -1 else getattr(config, "delta_r", None)
+    config.delta_meta_lr = args.delta_meta_lr if args.delta_meta_lr != -1 else getattr(config, "delta_meta_lr", None)
+    config.tau_meta_lr = args.tau_meta_lr if args.tau_meta_lr != -1 else getattr(config, "tau_meta_lr", None)
+    config.bilevel_start = args.bilevel_start if args.bilevel_start != -1 else getattr(config, "bilevel_start", None)
+    config.bilevel_end = args.bilevel_end if args.bilevel_end != -1 else getattr(config, "bilevel_end", None)
+    config.seed = args.seed
     config.epochs = args.epochs if args.epochs != -1 else config.epochs
     config.lr = args.lr if args.lr != -1 else config.lr
     config.pct = args.pct if args.pct != -1 else config.pct
@@ -144,11 +233,58 @@ def get_model(config):
         model = ResNet18()
         model_reform = ResNet18_z()
 
-        base_teacher = model_reform if config.reformation else model
-        base_student = copy.deepcopy(base_teacher)
+        # student & teacher feature-normalization are INDEPENDENT toggles.
+        # Fall back to config.reformation when the explicit flags are absent (old configs unchanged).
+        student_norm = getattr(config, "student_norm", None)
+        if student_norm is None: student_norm = config.reformation
+        teacher_norm = getattr(config, "teacher_norm", None)
+        if teacher_norm is None: teacher_norm = config.reformation
+        base_teacher = model_reform if teacher_norm else model
+        base_student = copy.deepcopy(model_reform if student_norm else model)
 
         if config.convert is False:
             # CURE-style: no input normalization, model operates on raw [0,1]
+            teacher_model = base_teacher
+            student_model = base_student
+        else:
+            teacher_model = Converter(base_teacher, mean, std)
+            student_model = Converter(base_student, mean, std)
+
+    if config.dataset == 'CIFAR100':
+        # CIFAR-100 stats; reuse the CIFAR10/ ResNet defs with num_classes=100
+        mean = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
+        std = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
+
+        from CIFAR10.models.resnet import ResNet18
+        from CIFAR10.models.resnet_z import ResNet18_z
+        model = ResNet18(num_classes=100)
+        if bool(getattr(config, "block_norm", False)):
+            from CIFAR10.models.resnet_zbn import ResNet18_zbn
+            model_reform = ResNet18_zbn(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0), block_norm=True)
+        elif bool(getattr(config, "p_adapt", False)):
+            from CIFAR10.models.resnet_zp import ResNet18_zp
+            model_reform = ResNet18_zp(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        elif bool(getattr(config, "p_global", False)):
+            from CIFAR10.models.resnet_zp import ResNet18_zpg
+            model_reform = ResNet18_zpg(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        elif bool(getattr(config, "cos_head", False)):
+            # fully directional student: feature AND classifier weights normalized, logits = s*cos.
+            # See resnet_zcos.py for the fair-start/learnable-s rationale.
+            from CIFAR10.models.resnet_zcos import ResNet18_zcos
+            model_reform = ResNet18_zcos(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        else:
+            model_reform = ResNet18_z(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+
+        # student & teacher feature-normalization are INDEPENDENT toggles.
+        # Fall back to config.reformation when the explicit flags are absent (old configs unchanged).
+        student_norm = getattr(config, "student_norm", None)
+        if student_norm is None: student_norm = config.reformation
+        teacher_norm = getattr(config, "teacher_norm", None)
+        if teacher_norm is None: teacher_norm = config.reformation
+        base_teacher = model_reform if teacher_norm else model
+        base_student = copy.deepcopy(model_reform if student_norm else model)
+
+        if config.convert is False:
             teacher_model = base_teacher
             student_model = base_student
         else:
@@ -174,13 +310,69 @@ def get_model(config):
         try  :
             checkpoint = os.path.join(path, config.finetune_checkpoint)
             checkpoint = torch.load(checkpoint)
-            student_model.load_state_dict(checkpoint)
+            try:
+                student_model.load_state_dict(checkpoint)
+            except RuntimeError:
+                # students with extra heads (e.g. p_adapt's p_head) load the clean backbone with strict=False
+                r = student_model.load_state_dict(checkpoint, strict=False)
+                print ("finetune loaded strict=False; missing keys:", r.missing_keys)
         except:
             print ("There is no natural model! ")
-    
+
+    if bool(getattr(config, "t_adapt", False)):
+        # learned per-sample teacher temperature T(x): tiny zero-init head on the STUDENT,
+        # consuming the (detached) TEACHER's raw 512-d feature. See train_temperature_tadapt.
+        student_model.T_head = nn.Linear(512, 1)
+        nn.init.zeros_(student_model.T_head.weight)
+        nn.init.zeros_(student_model.T_head.bias)
+
+    if bool(getattr(config, "tau_adapt", False)):
+        # interpretable learned per-sample teacher temperature tau(x): TauNet lives on the STUDENT
+        # so it shares the optimizer; consumes only 3 logit statistics (norm/margin/entropy), never
+        # a raw feature. See train_temperature_taunet.
+        student_model.tau_net = TauNet(
+            hidden=int(getattr(config, "tau_hidden", None) or 32),
+            depth=int(getattr(config, "tau_depth", None) or 1),
+            use_bn=bool(getattr(config, "tau_bn", False)),
+        )
+
+    if bool(getattr(config, "tau_global_bilevel", False)):
+        # ONE single learnable GLOBAL scalar temperature (no per-sample structure at all, no MLP) --
+        # user's idea, 2026-07-05: isolate whether bilevel can find a better GLOBAL constant than the
+        # hand-picked config.tau=16, separate from the per-sample-structure question. log-parametrized
+        # so tau=exp(log_tau) stays positive for any real-valued update; init at log(config.tau) so
+        # tau(x)==config.tau exactly at step 0 (matches every other variant's fair-start convention).
+        # See train_temperature_bilevel_globaltau.
+        student_model.log_tau = nn.Parameter(torch.tensor(float(np.log(config.tau))))
+
+    if bool(getattr(config, "tau_classwise", False)):
+        # ONE learnable temperature PER CLASS (logit coordinate), shared by every sample -- user's
+        # idea, 2026-07-07: the last open cell of the {per-sample, per-class} x {scalar, direction}
+        # matrix. Unlike the per-sample scalar (temperature reparametrization, proven inert), a
+        # per-class divisor CAN reorder classes; unlike the additive per-class tilt the uncentered
+        # DeltaNet pilot converged to (bought nothing), it acts proportionally to logit magnitude.
+        # zero-init -> tau_c == config.tau exactly at step 0 (fair-start convention); the training
+        # loop log-centers so only RELATIVE per-class structure is learnable (geomean pinned to
+        # config.tau -- the global-sharpness cheat that collapsed globaltau is unreachable).
+        # See train_temperature_tauclass_bilevel.
+        _nc = 100 if config.dataset == "CIFAR100" else 10
+        student_model.log_tau_c = nn.Parameter(torch.zeros(_nc))
+
+    if bool(getattr(config, "delta_adapt", False)):
+        # learned per-sample VECTOR edit of the teacher target: DeltaNet lives on the STUDENT (shares
+        # the optimizer via model.parameters(), same as tau_net); consumes only teacher_logits/tau.
+        # See train_temperature_deltanet_bilevel.
+        _nc = 100 if config.dataset == "CIFAR100" else 10
+        student_model.delta_net = DeltaNet(
+            _nc,
+            hidden=int(getattr(config, "delta_hidden", None) or 128),
+            depth=int(getattr(config, "delta_depth", None) or 1),
+            use_bn=bool(getattr(config, "delta_bn", False)),
+        )
+
     student_model = student_model.cuda()
     teacher_model = teacher_model.cuda()
-    
+
     return teacher_model, student_model
 
 

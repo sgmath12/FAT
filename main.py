@@ -17,9 +17,17 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 torch.cuda.empty_cache()
 
-def main(config,npt): 
+def main(config,npt):
+    seed = getattr(config, "seed", 0)          # re-seed here (module-level line 13 runs before config exists)
+    import random as _random
+    torch.manual_seed(seed); torch.cuda.manual_seed_all(seed); np.random.seed(seed); _random.seed(seed)
+    # val=config.val must be forwarded: bilevel methods draw their meta batch from the val split and
+    # assume it is HELD OUT. Before this fix (2026-07-06) the main train_loader silently ignored
+    # config.val and trained on the full 50000 -- so every bilevel run's "held-out" meta batch
+    # actually overlapped the training set (train 391 batches instead of 352 was the tell).
     train_loader, val_loader, test_loader = getattr(dataset,config.dataset)\
-        (root= os.path.join(config.data_root, config.dataset), download=True, batch_size = config.batch_size, config = config)
+        (root= os.path.join(config.data_root, config.dataset), download=True, batch_size = config.batch_size,
+         val = bool(getattr(config, "val", False)), config = config)
 
     path = Path(os.path.realpath(__file__))
     teacher_model, model = get_model(config)
@@ -44,12 +52,27 @@ def main(config,npt):
         "beta" : config.beta,
         "lamda": config.lamda,
         "tau": config.tau,
+        "gamma": getattr(config, "gamma", None),
+        "eta": getattr(config, "eta", None),
+        "temperature": getattr(config, "temperature", None),
+        "smooth_k": getattr(config, "smooth_k", None),
+        "feat_scale": getattr(config, "feat_scale", None),
+        "seed": getattr(config, "seed", None),
+        "vuln_swap": getattr(config, "vuln_swap", None),
+        "block_norm": getattr(config, "block_norm", None),
+        "delta_r": getattr(config, "delta_r", None),
+        "delta_meta_lr": getattr(config, "delta_meta_lr", None),
+        "tau_meta_lr": getattr(config, "tau_meta_lr", None),
+        "bilevel_start": getattr(config, "bilevel_start", None),
+        "bilevel_end": getattr(config, "bilevel_end", None),
         "kappa": config.kappa,
         "lr": config.lr,
         "load": config.load,
         "finetune": config.finetune,
         "evaluate": config.evaluate,
         "reformation": config.reformation,
+        "student_norm": getattr(config, "student_norm", config.reformation),
+        "teacher_norm": getattr(config, "teacher_norm", config.reformation),
         "cyclic": config.cyclic,
         "weight_avg":config.weight_avg,
     })
@@ -135,7 +158,8 @@ def main(config,npt):
         # clean_acc, _ = evaluate_clean(test_model, test_loader, config)
         # d2 = {"last_clean_acc" : clean_acc}
         # logger.info(d2)
-        if getattr(config, "aa", True):   # set `aa: False` in config to skip AA during sweeps
+        _aa = getattr(config, "aa", None)
+        if _aa is None or bool(_aa):   # set `aa: False` in config to skip AA during sweeps
             aa_acc = evaluate_final_aa(test_model, test_loader, config)
             d2 = {"last_aa_acc" : aa_acc}
             logger.info(d2)

@@ -1,0 +1,37 @@
+# DECOUPLED: decorr carve (denoise) + global temperature (softness). method train_carve_decorr_temp_l1.
+#   target = teacher.linear(Phi_t*w) / T ;  w = decorr carve (protect teacher's own class dims).
+#   tau = carve strength, beta = class protection, temperature T = global softness (SWEEP HIGH, >16,
+#   because decorr re-sharpens so T must overshoot the pure-global optimum 16). class_need via PRED.
+#   student L2-norm (student_norm=True), teacher raw (teacher_norm=False), NO /13. steps=3.
+# Results -> results/CIFAR100/carve_decorr_temp_l1/output.log. Bar: global temp H 41.62.
+method : carve_decorr_temp_l1
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+beta : 0.1
+gamma : 2
+temperature : 24
+lamda : 0.0
+tau : 0.5
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

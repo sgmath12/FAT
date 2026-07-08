@@ -1,0 +1,34 @@
+# (a) Per-stage RMS normalization at the 4 ResNet stage outputs (block_norm=True) + plain global temperature.
+#   Leans into the ONE reliable lever (normalization) architecturally instead of target-side tricks.
+#   base = train_temperature (student cosine-norm + teacher/tau). RMS-norm adds NO params (clean ckpt loads).
+#   student_norm True (final cosine head) + block_norm True (4 stage RMS norms). steps=3, tau=16.
+# Results -> results/CIFAR100/blocknorm_temp/output.log. Compare vs plain temp 41.46 (3-seed).
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+block_norm : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,33 @@
+# Robust teacher for the ARD/RSLAD generality block (2026-07-07): plain Madry PGD-AT from scratch,
+# raw ResNet18, repo-convention schedule (mirrors clean.yaml: SGD 0.1, OneCycle, 50ep). PGD-10
+# eps 8/255 step 2/255 training attack. Checkpoint -> CIFAR100/checkpoint/at_teacher/madry_at_last.pkl
+# (same Converter(ResNet18) state_dict format as clean_last.pkl -> drop-in as origin_model).
+method : madry_at
+dataset : CIFAR100
+arch: ResNet18
+optim : SGD
+lr : 0.1
+alpha : 0.0
+beta : 0.0
+gamma : 0.0
+eta : 0.0
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+load : False
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+weight_avg : False
+kappa : 0.999
+val : False
+aug : none
+log : True
+cyclic : True
+data_root : ./data
+aa : False
