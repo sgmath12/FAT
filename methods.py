@@ -1964,15 +1964,7 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
     model.train()
     origin_model.eval()
     annealing = (epoch / config.epochs) ** 2
-    # wa_noanneal (2026-07-19, user q "얘네는 wa annealing 없지?"): ADR's own WA (timm
-    # ModelEmaV2) uses a FIXED decay for the whole run (ema = decay*ema + (1-decay)*model,
-    # decay constant from __init__) -- no epoch-dependent ramp like our annealing*(1-kappa)+kappa
-    # glide. This isolation cell matches ADR's convention: decay pinned at config.kappa from
-    # epoch 0 (no early fast-forgetting phase).
-    if bool(getattr(config, "wa_noanneal", False)):
-        decay = config.kappa
-    else:
-        decay = annealing * (1 - config.kappa) + config.kappa
+    decay = annealing * (1 - config.kappa) + config.kappa
     criterion_kl = nn.KLDivLoss(reduction='none')
     enc = model.encoder if hasattr(model, "encoder") else model
     beta = config.beta if config.beta is not None else 1.0
