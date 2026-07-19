@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.distributions import Beta
 from tqdm import tqdm
 from utils import *
+from utils import _awp_bn_disable, _awp_bn_enable
 import pdb
 import torch.nn.functional as F
 
@@ -1581,6 +1582,27 @@ def train_temperature(model, train_loader, optimizer, origin_model, epoch, confi
     decay = annealing * (1 - config.kappa) + config.kappa
     criterion_kl = nn.KLDivLoss(reduction='none')
 
+    # AWP (Wu et al. NeurIPS'20) -- optional, config.awp_gamma>0 and epoch>=awp_warmup. Off by
+    # default: behavior identical to before this cell. Used as the fair baseline+WA+AWP control
+    # for the featdir/k350+WA+AWP cell. config.awp_style selects the mechanics:
+    #   "proxy" (default) = utils.AdvWeightPerturb, the original AWP paper's proxy-network port.
+    #   "sam"             = utils.AdvWeightPerturbSAM, the ADR-repo port (SAM-style, no proxy
+    #                        network, perturbs all params via the model's own gradient).
+    awp_style = str(getattr(config, "awp_style", "proxy") or "proxy")
+    awp_gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
+    use_awp = awp_gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
+    if use_awp:
+        if awp_style == "sam":
+            if not hasattr(train_temperature, "_awp_sam"):
+                train_temperature._awp_sam = AdvWeightPerturbSAM(model, rho=awp_gamma)
+            awp = train_temperature._awp_sam
+            awp.rho = awp_gamma
+        else:
+            if not hasattr(train_temperature, "_awp"):
+                train_temperature._awp = AdvWeightPerturb(model, gamma=awp_gamma)
+            awp = train_temperature._awp
+            awp.gamma = awp_gamma
+
     for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
         N, C, H, W = x.shape
         optimizer.zero_grad()
@@ -1591,17 +1613,47 @@ def train_temperature(model, train_loader, optimizer, origin_model, epoch, confi
             target = (teacher_logits / config.tau).detach()     # global temperature; tau=1 == raw teacher
 
         x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
-        plus_logits = model(x_pgd)
-        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
-        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
 
-        student_logits = model(x)   # clean forward: updates student BN running stats (matches DPFAT_adaptive)
-        if config.lamda is not None and config.lamda > 0:
-            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
-            loss += annealing * config.lamda * (consistency_loss).mean()
+        def _step_loss():
+            pl = model(x_pgd)
+            kl = criterion_kl(F.log_softmax(pl, dim=1), F.softmax(target, dim=1))
+            l = (1.0 / N) * (kl.sum(dim=1)).sum()
+            sl = model(x)   # clean forward: updates student BN running stats (matches DPFAT_adaptive)
+            if config.lamda is not None and config.lamda > 0:
+                cons = criterion_kl(F.log_softmax(pl, dim=1), F.softmax(sl, dim=1))
+                l = l + annealing * config.lamda * cons.mean()
+            return l, pl
 
-        loss.backward()
-        optimizer.step()
+        if use_awp and awp_style == "sam":
+            # ADR/SAM-style: ascent direction from the gradient at CLEAN weights; the gradient
+            # the optimizer actually applies is measured at the perturbed weights, then weights
+            # are restored to w before optimizer.step() (see AdvWeightPerturbSAM docstring).
+            optimizer.zero_grad()
+            loss1, _ = _step_loss()
+            loss1.backward()
+            awp.first_step()
+            _awp_bn_disable(model)
+            optimizer.zero_grad()
+            loss, plus_logits = _step_loss()
+            loss.backward()
+            awp.restore()
+            _awp_bn_enable(model)
+            optimizer.step()
+        elif use_awp:
+            def _awp_loss_fn(pm, _x_pgd=x_pgd, _target=target):
+                pl = pm(_x_pgd)
+                return (1.0 / N) * criterion_kl(F.log_softmax(pl, dim=1), F.softmax(_target, dim=1)).sum(dim=1).sum()
+            awp_diff = awp.calc_awp(_awp_loss_fn)
+            awp.perturb(awp_diff)
+            loss, plus_logits = _step_loss()
+            loss.backward()
+            optimizer.step()
+            awp.restore(awp_diff)
+        else:
+            loss, plus_logits = _step_loss()
+            loss.backward()
+            optimizer.step()
+
         scheduler.step()
 
         if config.weight_avg == True:
@@ -1637,10 +1689,16 @@ def train_temperature_tauclass_fixed(model, train_loader, optimizer, origin_mode
         gamma = float(config.gamma)
         s = np.load(stats_path)[stat_name].astype(np.float64)
         u = np.log(s) - np.log(s).mean()
+        # PLACEBO control (2026-07-08): permute the centered stat across classes -- same tau_c
+        # dispersion, difficulty-alignment destroyed. If shuffled ~= gnorm-aligned, the per-class
+        # signal is generic jitter, not the difficulty structure.
+        shuffled = bool(getattr(config, "tauclass_shuffle", False))
+        if shuffled:
+            u = np.random.RandomState(int(getattr(config, "tauclass_shuffle_seed", 0) or 0)).permutation(u)
         tau_c = config.tau * np.exp(gamma * u)
         train_temperature_tauclass_fixed._tau_c = torch.tensor(tau_c, dtype=torch.float32).cuda()
         t = train_temperature_tauclass_fixed._tau_c
-        logging.info({"tauc_fixed_stat": stat_name, "gamma": gamma,
+        logging.info({"tauc_fixed_stat": stat_name, "gamma": gamma, "tauc_shuffle": shuffled,
                       "tauc_mean": round(t.mean().item(), 4), "tauc_std": round(t.std().item(), 4),
                       "tauc_min": round(t.min().item(), 4), "tauc_max": round(t.max().item(), 4),
                       "tauc_vec": [round(v, 3) for v in t.tolist()]})
@@ -1782,6 +1840,379 @@ def train_temperature_costeacher(model, train_loader, optimizer, origin_model, e
     enc = model.encoder if hasattr(model, "encoder") else model
     if hasattr(enc, "log_s"):
         logging.info({"cos_s": round(torch.exp(enc.log_s.detach()).item(), 4), "epoch": epoch})
+
+
+def _log_gain_stats(model, epoch):
+    """Per-epoch gain-head telemetry: effective ||w_s,c|| = exp(log_g_c) * ||w_t,c||."""
+    enc = model.encoder if hasattr(model, "encoder") else model
+    if not hasattr(enc, "log_g"):
+        return
+    with torch.no_grad():
+        g = enc.log_g.exp()
+        eff = g * enc.linear.weight.norm(dim=1)
+        logging.info({"g_mean": round(g.mean().item(), 4), "g_std": round(g.std().item(), 4),
+                      "g_min": round(g.min().item(), 4), "g_max": round(g.max().item(), 4),
+                      "wnorm_eff_mean": round(eff.mean().item(), 4),
+                      "wnorm_eff_spread": round((eff.max() / eff.min()).item(), 4), "epoch": epoch})
+
+
+def train_temperature_dirattack(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature (baseline KL outer loss) but the INNER attack is the direction-max
+    adversary (inner_featdir_only_return) -- completes the {outer: KL/dir} x {inner: KL/dir} 2x2
+    (user q, 2026-07-13 evening: "is baseline better because the ATTACK uses the classification
+    loss?"). Known cells: KL/KL 41.77, dir/dir 39.93, dir/KL 39.79 (klattack, no recovery ->
+    attack side is not the lever). THIS = KL/dir: stays ~41.7 -> the classification-aware
+    advantage enters through the TRAINING gradient (span(W_s)-shaped backbone supervision), not
+    the adversary; drops -> attack-side matters after all. Loop = train_temperature verbatim
+    except the x_pgd line."""
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            phi_t, teacher_logits = origin_model(x, feat=True)
+            phi_t_hat = F.normalize(phi_t, dim=1).detach()
+            target = (teacher_logits / config.tau).detach()
+
+        x_pgd = inner_featdir_only_return(model, phi_t_hat, x, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_temperature_gainhead(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """train_temperature with the GAIN-ONLY student head (gain_head: True -> ResNet18_zgain):
+    w_s,c = exp(log_g_c) * w_t,c, direction FROZEN at the teacher head, 100 learnable gains
+    (+ free bias). The {direction frozen, ||w_c|| free} cell of the head-side 2x2 -- diagonal
+    partner of coshead {direction free, ||w_c|| frozen}, which loses -1.4~-2.7. Fair bars:
+    baseline (1) 41.77 3-step / 42.18 10-step, coshead (3) 40.01 (tau16 3-step). Diagnostic basis
+    + registered prediction (TIE or small loss): scripts/diag_head_rotation.py, memory 2026-07-13.
+    Loop = train_temperature verbatim + per-epoch gain stats."""
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            _, teacher_logits = origin_model(x, feat=True)
+            target = (teacher_logits / config.tau).detach()
+
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        plus_logits = model(x_pgd)
+        kl_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target, dim=1))
+        loss = (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+        student_logits = model(x)   # clean forward: updates student BN running stats
+        if config.lamda is not None and config.lamda > 0:
+            consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(student_logits, dim=1))
+            loss += annealing * config.lamda * (consistency_loss).mean()
+
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+    _log_gain_stats(model, epoch)
+
+
+def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Feature-space DIRECTIONAL distillation (user, 2026-07-13) -- the loss-level version of the
+    mechanism claim ("direction is the teacher's message, magnitude is the student's property"):
+
+        L = || Phi_hat_s(x_adv) - Phi_hat_t(x) ||^2                       (backbone; = 2 - 2 cos)
+          + beta * KL( head(scale * Phi_hat_s.DETACHED) || z_t / tau )    (head-only)
+
+    The detach is the supervision split: the KL can only move the head (log_g / W_s, bias), the
+    backbone sees nothing but the teacher's normalized (post-hoc) feature DIRECTION. The attack
+    maximizes the same direction loss (inner_featdir_only_return) -- the teacher's classifier
+    head w_t appears NOWHERE in the backbone path or the attack. Head soft target stays z_t/tau
+    on purpose: a hard-CE head would flip to the HE regime and delete the per-class-confidence
+    structure the gain channel is supposed to learn. With gain_head: True the student head is
+    additionally w_s,c = exp(log_g_c) * w_t,c (the full decomposition: teacher head deleted from
+    supervision, student head = 100 gains). tau = head-target sharpness, beta = head-loss weight
+    (dir loss is bounded by 4, per-sample KL is O(1) at tau16 -> beta 1.0 is a sane start).
+    Everything else (BN clean forward, lamda consistency, EMA) = train_temperature verbatim."""
+    model.train()
+    origin_model.eval()
+    annealing = (epoch / config.epochs) ** 2
+    # wa_noanneal (2026-07-19, user q "얘네는 wa annealing 없지?"): ADR's own WA (timm
+    # ModelEmaV2) uses a FIXED decay for the whole run (ema = decay*ema + (1-decay)*model,
+    # decay constant from __init__) -- no epoch-dependent ramp like our annealing*(1-kappa)+kappa
+    # glide. This isolation cell matches ADR's convention: decay pinned at config.kappa from
+    # epoch 0 (no early fast-forgetting phase).
+    if bool(getattr(config, "wa_noanneal", False)):
+        decay = config.kappa
+    else:
+        decay = annealing * (1 - config.kappa) + config.kappa
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    enc = model.encoder if hasattr(model, "encoder") else model
+    beta = config.beta if config.beta is not None else 1.0
+    scale = float(getattr(config, "feat_scale", 1.0) or 1.0)
+    supp = float(getattr(config, "featdir_suppress", 0.0) or 0.0)      # moved up: needed by the AWP loss closure too
+    alpha = float(getattr(config, "featdir_alpha", 0.0) or 0.0)
+
+    # AWP (Wu et al. NeurIPS'20) -- optional, config.awp_gamma>0 and epoch>=awp_warmup. Off by
+    # default (awp_gamma None/0): behavior identical to before this cell. config.awp_style
+    # selects "proxy" (utils.AdvWeightPerturb, default) vs "sam" (utils.AdvWeightPerturbSAM,
+    # the ADR-repo port) -- see train_temperature's comment for the mechanics difference.
+    awp_style = str(getattr(config, "awp_style", "proxy") or "proxy")
+    awp_gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
+    use_awp = awp_gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
+    if use_awp:
+        if awp_style == "sam":
+            if not hasattr(train_feat_direction, "_awp_sam"):
+                train_feat_direction._awp_sam = AdvWeightPerturbSAM(model, rho=awp_gamma)
+            awp = train_feat_direction._awp_sam
+            awp.rho = awp_gamma
+        else:
+            if not hasattr(train_feat_direction, "_awp"):
+                train_feat_direction._awp = AdvWeightPerturb(model, gamma=awp_gamma)
+            awp = train_feat_direction._awp
+            awp.gamma = awp_gamma
+
+    # SUBSPACE cells (exists-and-unique pair, 2026-07-13 evening): featdir_span 'teacher' projects
+    # the direction loss (and attack) onto the k-dim orthonormalized span of the TEACHER head --
+    # "defend only the classification subspace, still magnitude-free"; 'random' = same k, random
+    # orthonormal subspace (RandomState-seeded) = the uniqueness placebo. None/absent = full 512-d.
+    # train_eps (2026-07-14 night): optional TRAINING-attack radius override (numeric, e.g.
+    # 0.0392157 = 10/255) -- config.eps stays 8/255 so evaluate() still tests at the standard
+    # radius. Robust-leaning frontier points train harder, get evaluated identically.
+    eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+
+    span_mode = getattr(config, "featdir_span", None)
+    Q = None
+    if span_mode:
+        if not hasattr(train_feat_direction, "_Q_cache"):
+            train_feat_direction._Q_cache = {}
+        t_enc = origin_model.encoder if hasattr(origin_model, "encoder") else origin_model
+        Wt = t_enc.linear.weight.detach()
+        # k dose ("how much of the teacher's direction to follow", 2026-07-14 k-curve): for
+        # 'random' mode, --eta overrides the subspace dim (default = num_classes). Existing
+        # curve points: k=100 pgd 30.12/30.50, k=512 (= plain featdir) 28.91.
+        k = int(config.eta) if (span_mode != "teacher" and getattr(config, "eta", None)) else Wt.shape[0]
+        ck = (span_mode, k)
+        if ck not in train_feat_direction._Q_cache:
+            if span_mode == "teacher":
+                base = Wt.t()
+            elif span_mode.startswith("pca_"):    # pca_natural / pca_robust / pca_kdstudent(oracle)
+                # top-k feature-PCA directions of the natural / ROBUST teacher (user's
+                # "robust-important subspace" hypothesis; scripts/diag_feature_pca.py --
+                # eff. rank: natural 57.2, robust 8.7(!)). Target stays the NATURAL teacher's
+                # direction; only the grading metric is informed.
+                V = np.load("results/CIFAR100/feature_pca_bases.npz")[span_mode.split("_")[1]]
+                base = torch.tensor(V[:, :k])
+            else:   # 'random' placebo / k-dose
+                g = torch.Generator().manual_seed(int(getattr(config, "featdir_span_seed", 0) or 0))
+                base = torch.randn(Wt.shape[1], k, generator=g)
+            Qm, _ = torch.linalg.qr(base.double().cpu())
+            train_feat_direction._Q_cache[ck] = Qm.float().cuda()
+            logging.info({"featdir_span": span_mode, "span_k": k})
+        Q = train_feat_direction._Q_cache[ck]
+
+    dir_sum, cos_sum, n_sum = 0.0, 0.0, 0
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        N, C, H, W = x.shape
+        optimizer.zero_grad()
+        x, y = x.cuda(), y.cuda()
+
+        with torch.no_grad():
+            phi_t, teacher_logits = origin_model(x, feat=True)          # raw teacher feat & logits
+            phi_t_hat = F.normalize(phi_t, dim=1).detach()              # post-hoc directionalized teacher
+            if bool(getattr(config, "featdir_normfeat_target", False)):
+                # user q (2026-07-17): head target from the NORMALIZED teacher feature through
+                # the teacher's own (raw, unnormalized) head, instead of z_t/tau. z_t/tau already
+                # approximates this (z_t/tau = (||Phi_t||/tau)*(W_t.Phi_hat_t), ||Phi_t||~13≈tau);
+                # this cell makes it exact (drops the tau-vs-||Phi_t|| approximation gap) while
+                # keeping the teacher head's per-class weight-norm structure (unlike costeacher's
+                # full W_t normalization, which already TIED at 41.61 vs 41.77 on 2026-07-08).
+                t_enc = origin_model.encoder if hasattr(origin_model, "encoder") else origin_model
+                target = F.linear(phi_t_hat, t_enc.linear.weight.detach(), t_enc.linear.bias.detach()).detach()
+            else:
+                target = (teacher_logits / config.tau).detach()             # head-only soft target
+
+        # SELF-METRIC cell (2026-07-13 night): reconstruct the baseline gradient geometry
+        # W_s^T(p - p_t) WITHOUT teacher logits -- route the direction error through the student's
+        # OWN head (detached snapshot = metric only, not trained by this term):
+        #   L_backbone = KL( softmax(W_s.sg * Phi_hat_s(x_adv)) || softmax(W_s.sg * Phi_hat_t) )
+        # Teacher still sends ONLY Phi_hat_t; span(W_s) + softmax saliency weighting come from the
+        # student. ||Phi_t||~13 makes normalization auto-set ~tau-13 sharpness (the flat optimum).
+        # Attack = matched KL to the same z_tdir target (dirattack crash showed KL-shaped losses
+        # need their matched adversary). Free head only (gain_head unsupported here).
+        # 'teachkl' variant (uniqueness partner, 2026-07-14): same construction but the metric
+        # head is the TEACHER's (frozen). Both recover -> any decision-shaped metric suffices
+        # (parallels random=teacher in the span pair); only selfkl recovers -> the metric must
+        # TRACK the student. Either way the exists-and-unique structure closes.
+        metric_mode = str(getattr(config, "featdir_metric", "l2"))
+        selfkl = metric_mode in ("selfkl", "teachkl")
+        if selfkl:
+            m_enc = (origin_model.encoder if hasattr(origin_model, "encoder") else origin_model) \
+                    if metric_mode == "teachkl" else enc
+            W_det = m_enc.linear.weight.detach()
+            b_det = m_enc.linear.bias.detach()
+            z_tdir = F.linear(scale * phi_t_hat, W_det, b_det).detach()
+            x_pgd = inner_loss_only_return(model, z_tdir, x, y, optimizer, config.step_size, eps_train, perturb_steps=config.steps)
+        elif str(getattr(config, "featdir_attack", "dir")) == "dircons":
+            # matched-adversary cell (user, 2026-07-15): x_adv must stress the consistency term
+            # too, else lamda is inert on featdir (measured backbone g_cons ~4e-6 under the
+            # dir-only adversary). w = featdir_atk_cons = relative weight inside the attack.
+            with torch.no_grad():
+                model.eval()
+                clean_logits_atk = model(x).detach()
+                model.train()
+            x_pgd = inner_featdir_cons_return(model, phi_t_hat, x, optimizer, config.step_size, eps_train, perturb_steps=config.steps,
+                                              Q=Q, w_cons=float(getattr(config, "featdir_atk_cons", 1.0) or 1.0), clean_logits=clean_logits_atk)
+        elif str(getattr(config, "featdir_attack", "dir")) == "kl":
+            # attack-isolation cell (2026-07-13): training LOSS unchanged, inner maximization
+            # swapped back to the original KL-to-target attack (through the student head).
+            # Discriminates "featdir's -1.8(pgd)+cw-tie = weaker direction-max adversary" vs
+            # "= removing logit supervision from the backbone". Recovery -> story-faithful
+            # method at baseline performance (the user's stated goal).
+            x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, eps_train, perturb_steps=config.steps)
+        else:
+            x_pgd = inner_featdir_only_return(model, phi_t_hat, x, optimizer, config.step_size, eps_train, perturb_steps=config.steps, Q=Q)
+
+        def _step_loss():
+            feat_s, plus_logits = model(x_pgd, feat=True)                   # raw student feat (pre-norm)
+            fs_hat = F.normalize(feat_s, dim=1)
+            d_feat = fs_hat - phi_t_hat
+            if selfkl:
+                z_adv_m = F.linear(scale * fs_hat, W_det, b_det)            # metric head: params detached
+                dir_loss = criterion_kl(F.log_softmax(z_adv_m, dim=1), F.softmax(z_tdir, dim=1)).sum(dim=1)
+            elif Q is not None:
+                dir_loss = (d_feat @ Q).pow(2).sum(dim=1)                   # subspace-projected direction loss
+            else:
+                dir_loss = d_feat.pow(2).sum(dim=1)                        # 2 - 2cos per sample
+            loss = dir_loss.mean()
+
+            # Mechanism cell (5): FORBID USE of the free subspace (2026-07-14 evening) — energy
+            # penalty on the complement of span(Q): the student is still ungraded there wrt the
+            # teacher, but may not PUT anything there. Prediction: robustness falls toward k512
+            # (dissociates "freedom to build" from "merely not being punished"). Weight via
+            # featdir_suppress (0/absent = off, defined above with beta/scale). Applies at train;
+            # at convergence complement energy ~0 so eval sees no train/test mismatch.
+            if supp > 0 and Q is not None:
+                comp = fs_hat - (fs_hat @ Q) @ Q.T                          # (I - QQ^T) Phi_hat_s
+                loss = loss + supp * comp.pow(2).sum(dim=1).mean()
+
+            # featdir_alpha (2026-07-13 night): partial-undetach dial -- fraction alpha of the head-KL
+            # gradient reaches the backbone (alpha 0 = pure firewall/current, 1 = full flow). Tests
+            # whether TEACHER-confidence routing adds anything beyond the self-metric. (defined above)
+            feat_for_head = fs_hat if alpha >= 1.0 else (alpha * fs_hat + (1.0 - alpha) * fs_hat.detach())
+            head_logits = enc.head_from_feat(scale * feat_for_head)
+            # featdir_head_ce (2026-07-17, user q): the backbone is already teacher-anchored (L_dir),
+            # so does the head even need soft-target KD, or can it just fit the TRUE label directly
+            # (hard CE on x_adv)? Loses teacher dark-knowledge, but removes the head's objective-eval
+            # mismatch (KD divergence vs the CE/margin metrics AA/CW actually score).
+            if bool(getattr(config, "featdir_head_ce", False)):
+                loss = loss + beta * F.cross_entropy(head_logits, y)
+            else:
+                kl_loss = criterion_kl(F.log_softmax(head_logits, dim=1), F.softmax(target, dim=1))
+                loss = loss + beta * (1.0 / N) * (kl_loss.sum(dim=1)).sum()
+
+            student_logits = model(x)   # clean forward: updates student BN running stats
+            if config.lamda is not None and config.lamda > 0:
+                # cons_detach (2026-07-16, user q "왜 detach 없나"): default here is BIDIRECTIONAL
+                # (neither side detached -> adv pulled to clean AND clean pulled to adv). TRADES-style
+                # is one-directional (clean side fixed as target). featdir_cons_detach:True switches to
+                # the TRADES form for direct comparison against the champion (k350+WA+lamda4).
+                target_logits = student_logits.detach() if bool(getattr(config, "featdir_cons_detach", False)) else student_logits
+                consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target_logits, dim=1))
+                loss = loss + annealing * config.lamda * (consistency_loss).mean()
+
+            return loss, dir_loss, fs_hat, plus_logits
+
+        if use_awp and awp_style == "sam":
+            # ADR/SAM-style: ascent direction from the gradient at CLEAN weights; the gradient
+            # the optimizer actually applies is measured at the perturbed weights, then weights
+            # are restored to w before optimizer.step() (see AdvWeightPerturbSAM docstring).
+            optimizer.zero_grad()
+            loss1, _, _, _ = _step_loss()
+            loss1.backward()
+            awp.first_step()
+            _awp_bn_disable(model)
+            optimizer.zero_grad()
+            loss, dir_loss, fs_hat, plus_logits = _step_loss()
+            loss.backward()
+            awp.restore()
+            _awp_bn_enable(model)
+            optimizer.step()
+        elif use_awp:
+            def _awp_loss_fn(pm, _x_pgd=x_pgd, _phi_t_hat=phi_t_hat, _target=target):
+                p_enc = pm.encoder if hasattr(pm, "encoder") else pm
+                fs_, _ = pm(_x_pgd, feat=True)
+                fh_ = F.normalize(fs_, dim=1)
+                if selfkl:
+                    za_ = F.linear(scale * fh_, W_det, b_det)
+                    dl_ = criterion_kl(F.log_softmax(za_, dim=1), F.softmax(z_tdir, dim=1)).sum(dim=1)
+                elif Q is not None:
+                    dl_ = ((fh_ - _phi_t_hat) @ Q).pow(2).sum(dim=1)
+                else:
+                    dl_ = (fh_ - _phi_t_hat).pow(2).sum(dim=1)
+                l_ = dl_.mean()
+                if supp > 0 and Q is not None:
+                    comp_ = fh_ - (fh_ @ Q) @ Q.T
+                    l_ = l_ + supp * comp_.pow(2).sum(dim=1).mean()
+                ff_ = fh_ if alpha >= 1.0 else (alpha * fh_ + (1.0 - alpha) * fh_.detach())
+                hl_ = p_enc.head_from_feat(scale * ff_)
+                if bool(getattr(config, "featdir_head_ce", False)):
+                    return l_ + beta * F.cross_entropy(hl_, y)
+                kl_ = criterion_kl(F.log_softmax(hl_, dim=1), F.softmax(_target, dim=1))
+                return l_ + beta * (1.0 / N) * kl_.sum(dim=1).sum()
+            awp_diff = awp.calc_awp(_awp_loss_fn)
+            awp.perturb(awp_diff)
+            loss, dir_loss, fs_hat, plus_logits = _step_loss()
+            loss.backward()
+            optimizer.step()
+            awp.restore(awp_diff)     # net effect: grad direction from a locally-worst nearby
+                                       # weight, applied from the actual (unperturbed) position
+        else:
+            loss, dir_loss, fs_hat, plus_logits = _step_loss()
+            loss.backward()
+            optimizer.step()
+
+        scheduler.step()
+
+        if config.weight_avg == True:
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+        with torch.no_grad():
+            dir_sum += dir_loss.sum().item()
+            cos_sum += (fs_hat * phi_t_hat).sum(dim=1).sum().item()
+            n_sum += N
+
+    logging.info({"dir_loss_adv": round(dir_sum / max(n_sum, 1), 4),
+                  "cos_adv": round(cos_sum / max(n_sum, 1), 4), "epoch": epoch})
+    _log_gain_stats(model, epoch)
 
 
 def train_temperature_cemix(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):

@@ -33,7 +33,18 @@ def main(config,npt):
     teacher_model, model = get_model(config)
 
     if config.optim == "AdamW":
-        optimizer = optim.AdamW(model.parameters(), lr = config.lr)
+        if bool(getattr(config, "nodecay_logscale", False)):
+            # Discriminating test (2026-07-13): AdamW's default decoupled wd (0.01) on a
+            # LOG-parametrized head scalar (log_g / log_s) pulls the scale toward 1 (= teacher
+            # scale) every step -- a different regularizer than wd on a 512-d weight row, and a
+            # candidate common cause for all restricted-head -1.8 losses (gainhead/coshead never
+            # reproduce the free head's 5x ||w_c|| growth). This flag exempts ONLY those scalars.
+            nd = [p for n, p in model.named_parameters() if n.split('.')[-1] in ('log_g', 'log_s')]
+            nd_ids = {id(p) for p in nd}
+            rest = [p for p in model.parameters() if id(p) not in nd_ids]
+            optimizer = optim.AdamW([{'params': rest}, {'params': nd, 'weight_decay': 0.0}], lr = config.lr)
+        else:
+            optimizer = optim.AdamW(model.parameters(), lr = config.lr)
     elif config.optim == "SGD":
         wd = config.weight_decay if config.weight_decay is not None else 5e-4
         optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=0.9, weight_decay=wd)

@@ -59,6 +59,202 @@ def inner_loss_only_return(model,
     return x_adv
 
 
+def inner_featdir_cons_return(model,
+                phi_t_hat,
+                x_natural,
+                optimizer,
+                step_size=0.003,
+                epsilon=0.031,
+                perturb_steps=10,
+                Q=None,
+                w_cons=1.0,
+                clean_logits=None):
+    """Direction + CONSISTENCY hybrid attack (user, 2026-07-15): maximize
+        ||Q^T(Phi_hat_s(xa) - Phi_hat_t)||^2 + w_cons * KL(model(xa) || model(x).detach())
+    Rationale = the project's own matched-adversary principle (dirattack crash): the lamda
+    consistency term was inert on k350 because the dir-only adversary never stressed it
+    (measured backbone g_cons ~4e-6). TRADES-style second term makes x_adv challenge BOTH
+    outer terms. clean_logits must be precomputed (no_grad) by the caller."""
+    criterion_kl = nn.KLDivLoss(size_average=False, reduce=False)
+    model.eval()
+    p_clean = F.softmax(clean_logits, dim=1).detach()
+
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            feat_s, logits_a = model(x_adv, feat=True)
+            fs_hat = F.normalize(feat_s, dim=1)
+            d = fs_hat - phi_t_hat
+            loss_dir = (d @ Q).pow(2).sum() if Q is not None else d.pow(2).sum()
+            loss_cons = criterion_kl(F.log_softmax(logits_a, dim=1), p_clean).sum()
+            loss_atk = loss_dir + w_cons * loss_cons
+        grad = torch.autograd.grad(loss_atk, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+
+    model.train()
+    x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
+    optimizer.zero_grad()
+    return x_adv
+
+
+def inner_featdir_only_return(model,
+                phi_t_hat,
+                x_natural,
+                optimizer,
+                step_size=0.003,
+                epsilon=0.031,
+                perturb_steps=10,
+                Q=None):
+    """Direction-space inner maximization (train_feat_direction, 2026-07-13): perturb x to
+    maximize || Phi_hat_s(x_adv) - Phi_hat_t(x) ||^2 = 2 - 2 cos, i.e. rotate the student's
+    feature direction away from the teacher's. Neither head is touched -- the attack sees the
+    same purely directional objective the backbone trains on (mirrors inner_loss_only_return,
+    which pairs the KL attack with the KL loss)."""
+    model.eval()
+
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            feat_s, _ = model(x_adv, feat=True)
+            fs_hat = F.normalize(feat_s, dim=1)
+            d = fs_hat - phi_t_hat
+            # Q (512 x k, orthonormal): SUBSPACE-projected direction attack -- the adversary can
+            # only score by rotating the feature within span(Q) (exists-and-unique cells, 2026-07-13).
+            loss_dir = (d @ Q).pow(2).sum() if Q is not None else d.pow(2).sum()
+        grad = torch.autograd.grad(loss_dir, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+
+    model.train()
+
+    x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
+    # zero gradient
+    optimizer.zero_grad()
+    return x_adv
+
+
+_AWP_EPS = 1e-20
+
+def _awp_diff_in_weights(model, proxy):
+    """Wu et al. NeurIPS'20 AWP port. Norm-scaled weight diff (>=2D tensors only, i.e. conv/linear
+    weight matrices, not BN/bias) so the perturbation magnitude is relative per-layer."""
+    diff = {}
+    for (k_old, w_old), (k_new, w_new) in zip(model.state_dict().items(), proxy.state_dict().items()):
+        if len(w_old.size()) <= 1 or 'weight' not in k_old:
+            continue
+        d = w_new - w_old
+        diff[k_old] = w_old.norm() / (d.norm() + _AWP_EPS) * d
+    return diff
+
+def _awp_add_into_weights(model, diff, coeff=1.0):
+    names = diff.keys()
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if name in names:
+                param.add_(coeff * diff[name])
+
+class AdvWeightPerturb:
+    """AWP (Wu, Xia, Wang, NeurIPS 2020): finds a norm-ball weight perturbation that MAXIMIZES
+    the (already input-adversarial) training loss, seeking flat minima -- standard AA/robust-
+    generalization booster, orthogonal to WA. `loss_fn(proxy_model) -> scalar` lets callers reuse
+    their own training loss (dir_loss + head KL for featdir, KL for the KL pipeline) instead of
+    the original paper's plain CE, matching this project's own matched-adversary discipline.
+    Usage per step: diff = awp.calc_awp(loss_fn); awp.perturb(diff); <backward+opt.step()>; awp.restore(diff)."""
+    def __init__(self, model, gamma=5e-3, proxy_lr=0.01):
+        self.model = model
+        self.proxy = copy.deepcopy(model)
+        self.proxy_optim = optim.SGD(self.proxy.parameters(), lr=proxy_lr)
+        self.gamma = gamma
+
+    def calc_awp(self, loss_fn):
+        self.proxy.load_state_dict(self.model.state_dict())
+        self.proxy.train()
+        loss = -loss_fn(self.proxy)          # ascent: proxy_optim minimizes -loss = maximizes loss
+        self.proxy_optim.zero_grad()
+        loss.backward()
+        self.proxy_optim.step()
+        return _awp_diff_in_weights(self.model, self.proxy)
+
+    def perturb(self, diff):
+        _awp_add_into_weights(self.model, diff, coeff=self.gamma)
+
+    def restore(self, diff):
+        _awp_add_into_weights(self.model, diff, coeff=-self.gamma)
+
+
+def _awp_bn_disable(model):
+    """Freeze BN running-stat updates (momentum->0) for one forward. AdvWeightPerturbSAM's
+    per-step recipe does two forwards (ascent-gradient pass, then the perturbed-weight pass
+    whose gradient the optimizer actually uses); only the first should count towards
+    running_mean/var, matching ADR's util/bypass_bn.py."""
+    for m in model.modules():
+        if isinstance(m, nn.modules.batchnorm._BatchNorm):
+            m._awp_backup_momentum = m.momentum
+            m.momentum = 0
+
+def _awp_bn_enable(model):
+    for m in model.modules():
+        if isinstance(m, nn.modules.batchnorm._BatchNorm) and hasattr(m, '_awp_backup_momentum'):
+            m.momentum = m._awp_backup_momentum
+            del m._awp_backup_momentum
+
+
+class AdvWeightPerturbSAM:
+    """ADR-repo-style AWP port (their src/util/awp.py) -- an ALTERNATIVE to AdvWeightPerturb
+    above, same reference (Wu et al. NeurIPS'20) but different mechanics. This is structurally
+    a SAM (Foret et al. 2020) wrapper, not the original AWP paper's proxy-model construction:
+    - no separate proxy network -- perturbs the model's OWN parameters in place, using the
+      gradient just backprop'd at the CURRENT (unperturbed) weights, scaled per-parameter by
+      rho*||p||/||grad|| (same norm-ratio idea as the proxy version's diff scaling, just
+      computed directly from one gradient instead of a second network's ascent step).
+    - perturbs ALL parameters with a grad (weight + bias + BN affine) -- the proxy version
+      above restricts to >=2D conv/linear weight tensors only.
+    - one hyperparameter (rho) instead of two (proxy_lr for the ascent step, gamma for how much
+      of the diff to apply).
+    - the perturbation is a transient "look-ahead": the caller must restore weights to w BEFORE
+      optimizer.step(), so the persistent update always comes from the base optimizer at the
+      true w, using the gradient measured at w+e(w) (matches ADR's second_step order: restore,
+      then base_optimizer.step()) -- the proxy version's perturbation is instead what
+      optimizer.step() is applied AT (perturb -> forward/backward/step -> restore).
+
+    Usage per training step (mirrors ADR's advTrainer.py first_step/second_step, adapted to
+    reuse this codebase's own already-computed x_pgd instead of a closure):
+        optimizer.zero_grad(); loss1 = loss_fn(); loss1.backward()
+        awp.first_step()
+        _awp_bn_disable(model)          # first forward already updated BN running stats
+        optimizer.zero_grad(); loss2 = loss_fn(); loss2.backward()
+        awp.restore()
+        _awp_bn_enable(model)
+        optimizer.step()
+    """
+    def __init__(self, model, rho=0.005):
+        self.model = model
+        self.rho = rho
+        self._backup = {}
+
+    @torch.no_grad()
+    def first_step(self):
+        for p in self.model.parameters():
+            if p.grad is None:
+                continue
+            self._backup[p] = p.data.clone()
+            grad_norm = p.grad.norm()
+            scale = self.rho * p.data.norm() / (grad_norm + _AWP_EPS)
+            p.add_(p.grad * scale)
+
+    @torch.no_grad()
+    def restore(self):
+        for p, old in self._backup.items():
+            p.data.copy_(old)
+        self._backup = {}
+
+
 class TauNet(nn.Module):
     """Interpretable LEARNED per-sample teacher temperature (user's idea, 2026-07-04).
 
@@ -143,6 +339,9 @@ def load_parser():
     parser.add_argument("--gamma", default=-1, type = float)
     parser.add_argument("--eta", default=-1, type = float)
     parser.add_argument("--tau", default=-1, type = float)
+    parser.add_argument("--kappa", default=-1, type = float)
+    parser.add_argument("--awp_gamma", default=-1, type = float)
+    parser.add_argument("--awp_warmup", default=-1, type = int)
     parser.add_argument("--pct", default=-1, type = float)
     parser.add_argument("--epochs", default=-1, type = int)
     parser.add_argument("--temperature", default=-1, type = int)
@@ -192,6 +391,9 @@ def load_config(args):
     config.gamma = args.gamma if args.gamma != -1 else config.gamma
     config.eta = args.eta if args.eta != -1 else config.eta
     config.tau = args.tau if args.tau != -1 else config.tau
+    config.kappa = args.kappa if args.kappa != -1 else config.kappa
+    config.awp_gamma = args.awp_gamma if args.awp_gamma != -1 else getattr(config, "awp_gamma", 0.0)
+    config.awp_warmup = args.awp_warmup if args.awp_warmup != -1 else getattr(config, "awp_warmup", 0)
     config.temperature = args.temperature if args.temperature != -1 else config.temperature
     config.feat_scale = args.feat_scale if args.feat_scale != -1 else getattr(config, "feat_scale", 1.0)
     config.delta_r = args.delta_r if args.delta_r != -1 else getattr(config, "delta_r", None)
@@ -272,6 +474,11 @@ def get_model(config):
             # See resnet_zcos.py for the fair-start/learnable-s rationale.
             from CIFAR10.models.resnet_zcos import ResNet18_zcos
             model_reform = ResNet18_zcos(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        elif bool(getattr(config, "gain_head", False)):
+            # gain-only student head: w_s,c = exp(log_g_c) * w_t,c, direction frozen at the
+            # teacher head (finetune load), 100 learnable gains. See resnet_zgain.py.
+            from CIFAR10.models.resnet_zgain import ResNet18_zgain
+            model_reform = ResNet18_zgain(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
         else:
             model_reform = ResNet18_z(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
 

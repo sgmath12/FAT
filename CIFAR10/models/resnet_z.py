@@ -83,6 +83,12 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
+    def head_from_feat(self, out):
+        # classifier applied to an already normalized+scaled feature; exists so methods that
+        # split backbone/head supervision (train_feat_direction) work for both this head and
+        # the gain-only head (resnet_zgain), whose effective weight is reparametrized.
+        return self.linear(out)
+
     def forward(self, x, feat = None):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
