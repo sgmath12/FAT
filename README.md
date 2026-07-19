@@ -38,18 +38,36 @@ python -u main.py --config_name featdir_span_random_10step_wa.yaml \
 **Loss** (backbone / head split supervision):
 
 ```
-L = || Phi_hat_s(x_adv) - Phi_hat_t(x) ||^2                          backbone, direction-only
+L = || Q^T (Phi_hat_s(x_adv) - Phi_hat_t(x)) ||^2                    backbone, direction-only
   + beta * KL( head(scale * Phi_hat_s.detach()) || z_t / tau )       head-only (detached)
   + lamda * KL( head(Phi_hat_s(x_adv)) || head(Phi_hat_s(x)).sg )    consistency (adv <-> clean)
 ```
 
 `Phi_hat_s`, `Phi_hat_t` are L2-normalized student/teacher features (teacher post-hoc, no
-gradient). The backbone never sees the teacher's classifier head — only its normalized feature
-direction. The PGD attack (10 steps, step_size 2/255, eps 8/255) maximizes the same direction
-loss the backbone trains on (`inner_featdir_only_return` in `utils.py`), projected onto a
-`k=350`-dim random subspace of the 512-dim feature space (`featdir_span: random`, `--eta 350`).
-The student's own weight-averaged (EMA) copy is evaluated, with decay gliding from
-`kappa=0.999` toward 1.0 over training.
+gradient). `Q` is a fixed 512x350 random orthonormal matrix (`featdir_span: random`,
+`--eta 350` sets k=350; QR of a seeded `randn`, cached in `train_feat_direction._Q_cache`) — the
+backbone loss only scores the student inside this 350-dim subspace, the other 162 dims of the
+feature are unconstrained. The backbone never sees the teacher's classifier head — only its
+normalized feature direction (projected).
+
+**Generating `x_adv`** (`inner_featdir_only_return` in `utils.py`, matched to the training loss
+above — no classification loss anywhere in the attack):
+
+```
+x_adv = x + 0.001 * randn                      # random start
+repeat 10 times (step_size = 2/255):
+    feat_s = model(x_adv, feat=True)
+    fs_hat = normalize(feat_s)
+    loss_dir = || Q^T (fs_hat - Phi_hat_t) ||^2                # same subspace-projected loss
+    x_adv = x_adv + step_size * sign(grad(loss_dir, x_adv))
+    x_adv = clamp(x_adv, x - eps, x + eps)                     # eps = 8/255
+    x_adv = clamp(x_adv, 0, 1)
+```
+
+`Phi_hat_t` (and `Q`) are precomputed once per batch outside the loop, so the 10 PGD steps only
+rotate the student's feature away from the teacher's fixed direction — the same objective the
+backbone is trained to minimize, just maximized instead. The student's own weight-averaged
+(EMA) copy is evaluated, with decay gliding from `kappa=0.999` toward 1.0 over training.
 
 **Results** (CIFAR100, ResNet18, seed 0):
 
