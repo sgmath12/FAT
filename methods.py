@@ -234,6 +234,31 @@ def train_clean(model,train_loader,optimizer, origin_model,epoch, config, schedu
 
 
 
+def train_clean_mixup(model,train_loader,optimizer, origin_model,epoch, config, scheduler, exp_avg = None):
+    """Clean training with input mixup (Zhang et al. 2018), to produce a higher-entropy natural
+    teacher. lam ~ Beta(a,a); mix x and y within the batch; loss = lam*CE(out,y_a)+(1-lam)*CE(out,y_b).
+    a = config.mixup_alpha (default 1.0 = standard CIFAR mixup). Everything else = train_clean."""
+    XENT_loss = nn.CrossEntropyLoss()
+    a = float(getattr(config, "mixup_alpha", 1.0) or 1.0)
+    beta_dist = Beta(torch.tensor(a), torch.tensor(a))
+    model.train()
+    for batch_idx, (x,y) in enumerate(train_loader):
+        optimizer.zero_grad()
+        x,y = x.cuda(), y.cuda()
+        lam = beta_dist.sample().item()
+        index = torch.randperm(x.size(0), device=x.device)
+        mixed_x = lam * x + (1 - lam) * x[index]
+        output = model(mixed_x)
+        loss = lam * XENT_loss(output, y) + (1 - lam) * XENT_loss(output, y[index])
+
+        loss.backward()
+        optimizer.step()
+        if scheduler != None:
+            scheduler.step()
+
+    return
+
+
 def train_clean_and_plot(model,train_loader,optimizer, origin_model,epoch, config, scheduler, exp_avg = None):
     XENT_loss = nn.CrossEntropyLoss()
     model.train()
@@ -2012,23 +2037,93 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
         # curve points: k=100 pgd 30.12/30.50, k=512 (= plain featdir) 28.91.
         k = int(config.eta) if (span_mode != "teacher" and getattr(config, "eta", None)) else Wt.shape[0]
         ck = (span_mode, k)
-        if ck not in train_feat_direction._Q_cache:
-            if span_mode == "teacher":
-                base = Wt.t()
-            elif span_mode.startswith("pca_"):    # pca_natural / pca_robust / pca_kdstudent(oracle)
-                # top-k feature-PCA directions of the natural / ROBUST teacher (user's
-                # "robust-important subspace" hypothesis; scripts/diag_feature_pca.py --
-                # eff. rank: natural 57.2, robust 8.7(!)). Target stays the NATURAL teacher's
-                # direction; only the grading metric is informed.
-                V = np.load("results/CIFAR100/feature_pca_bases.npz")[span_mode.split("_")[1]]
-                base = torch.tensor(V[:, :k])
-            else:   # 'random' placebo / k-dose
-                g = torch.Generator().manual_seed(int(getattr(config, "featdir_span_seed", 0) or 0))
-                base = torch.randn(Wt.shape[1], k, generator=g)
+        # featdir_span_resample (2026-07-19, user q): every prior "which k dims" experiment
+        # (teacher-span, pca_natural, pca_robust, oracle) tied-or-lost to plain random -- content
+        # doesn't matter, only the count (dimensionality bottleneck). This is a DIFFERENT axis: a
+        # NEW random Q every epoch (instead of one Q fixed for the whole run via _Q_cache below)
+        # so the student can't just dump its unconstrained freedom into one fixed static 162-dim
+        # blind spot -- any given direction is graded in some epochs and free in others, closer to
+        # dropout than to subspace *selection*.
+        if span_mode == "random" and bool(getattr(config, "featdir_span_resample", False)):
+            g = torch.Generator().manual_seed(int(getattr(config, "featdir_span_seed", 0) or 0) + epoch)
+            base = torch.randn(Wt.shape[1], k, generator=g)
             Qm, _ = torch.linalg.qr(base.double().cpu())
-            train_feat_direction._Q_cache[ck] = Qm.float().cuda()
-            logging.info({"featdir_span": span_mode, "span_k": k})
-        Q = train_feat_direction._Q_cache[ck]
+            Q = Qm.float().cuda()
+            logging.info({"featdir_span": span_mode, "span_k": k, "resample_epoch": epoch})
+        else:
+            if ck not in train_feat_direction._Q_cache and span_mode == "decorr":
+                # decorr span (2026-07-19, user q): every content-based subspace pick (teacher/PCA/
+                # oracle) tied-or-lost to random -- but a DIFFERENT (per-dim, not per-direction)
+                # informed selection actually won once, in the old KL/carve pipeline
+                # (train_carve_decorr_l1 above): fragility=|Phi_t(x)-Phi_t(x_adv)| correlates with
+                # class_need=|W_t[pred]*Phi_t(x)| at only +0.49 -- decorr protects class-relevant
+                # dims and only touches vulnerable-AND-class-irrelevant ones. Ported here as a HARD
+                # channel selection (not a soft per-sample weight): estimate per-dim fragility/need
+                # once over a handful of batches, put the k dims with the LOWEST
+                # fragility*exp(-beta*need_rel) score (= safest to keep bound to the teacher) into
+                # Q; the remaining (512-k) highest-score dims (vulnerable & class-irrelevant) are
+                # left FREE, same slot the champion currently fills with a random pick.
+                beta_decorr = float(getattr(config, "featdir_decorr_beta", 1.0) or 1.0)
+                csteps = 2
+                lin_w = Wt   # origin_model's own head weight, [num_classes, feat_dim]
+                frag_sum = torch.zeros(Wt.shape[1], device=Wt.device)
+                need_sum = torch.zeros(Wt.shape[1], device=Wt.device)
+                n_seen = 0
+                n_batches = 10
+                probe_iter = iter(train_loader)
+                for _ in range(n_batches):
+                    try:
+                        xb, yb = next(probe_iter)
+                    except StopIteration:
+                        break
+                    xb, yb = xb.cuda(), yb.cuda()
+                    with torch.no_grad():
+                        feat_clean, logits_clean = origin_model(xb, feat=True)
+                        pred = logits_clean.argmax(dim=1)
+                    x_adv = xb.clone().detach()
+                    cstep = config.eps / csteps
+                    for _ in range(csteps):
+                        x_adv.requires_grad_(True)
+                        _, logits_adv = origin_model(x_adv, feat=True)
+                        ce = F.cross_entropy(logits_adv, yb)
+                        grad = torch.autograd.grad(ce, x_adv)[0]
+                        x_adv = x_adv.detach() + cstep * grad.sign()
+                        x_adv = torch.min(torch.max(x_adv, xb - config.eps), xb + config.eps).clamp(0.0, 1.0)
+                    with torch.no_grad():
+                        feat_adv, _ = origin_model(x_adv, feat=True)
+                        fragility = (feat_clean - feat_adv).abs()                       # [N, 512]
+                        class_need = (lin_w[pred] * feat_clean).abs()                   # [N, 512]
+                        need_rel = class_need / (class_need.mean(dim=1, keepdim=True) + 1e-8)
+                        frag_sum += fragility.sum(dim=0)
+                        need_sum += need_rel.sum(dim=0)
+                        n_seen += xb.shape[0]
+                frag_mean = frag_sum / n_seen
+                need_mean = need_sum / n_seen
+                score = frag_mean * torch.exp(-beta_decorr * need_mean)   # high = safe to free
+                keep_idx = torch.argsort(score)[:k]                       # k LOWEST score = kept/graded
+                Qm = torch.zeros(Wt.shape[1], k, dtype=torch.float64)
+                Qm[keep_idx, torch.arange(k)] = 1.0
+                train_feat_direction._Q_cache[ck] = Qm.float().cuda()
+                logging.info({"featdir_span": "decorr", "span_k": k, "decorr_beta": beta_decorr,
+                              "frag_mean": round(frag_mean.mean().item(), 4),
+                              "need_mean": round(need_mean.mean().item(), 4)})
+            if ck not in train_feat_direction._Q_cache:
+                if span_mode == "teacher":
+                    base = Wt.t()
+                elif span_mode.startswith("pca_"):    # pca_natural / pca_robust / pca_kdstudent(oracle)
+                    # top-k feature-PCA directions of the natural / ROBUST teacher (user's
+                    # "robust-important subspace" hypothesis; scripts/diag_feature_pca.py --
+                    # eff. rank: natural 57.2, robust 8.7(!)). Target stays the NATURAL teacher's
+                    # direction; only the grading metric is informed.
+                    V = np.load("results/CIFAR100/feature_pca_bases.npz")[span_mode.split("_")[1]]
+                    base = torch.tensor(V[:, :k])
+                else:   # 'random' placebo / k-dose
+                    g = torch.Generator().manual_seed(int(getattr(config, "featdir_span_seed", 0) or 0))
+                    base = torch.randn(Wt.shape[1], k, generator=g)
+                Qm, _ = torch.linalg.qr(base.double().cpu())
+                train_feat_direction._Q_cache[ck] = Qm.float().cuda()
+                logging.info({"featdir_span": span_mode, "span_k": k})
+            Q = train_feat_direction._Q_cache[ck]
 
     dir_sum, cos_sum, n_sum = 0.0, 0.0, 0
     for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
@@ -2138,7 +2233,15 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 # the TRADES form for direct comparison against the champion (k350+WA+lamda4).
                 target_logits = student_logits.detach() if bool(getattr(config, "featdir_cons_detach", False)) else student_logits
                 consistency_loss = criterion_kl(F.log_softmax(plus_logits, dim=1), F.softmax(target_logits, dim=1))
-                loss = loss + annealing * config.lamda * (consistency_loss).mean()
+                # featdir_lamda_noanneal (2026-07-19, user q): WA's decay keeps its own epoch
+                # ramp (annealing*(1-kappa)+kappa above), but lamda is doubly-damped by this SAME
+                # annealing=(ep/epochs)^2 factor -- full dose only at the very end (lamda4 with
+                # annealing =~ lamda0.03 for most of training, see lamda-scale note in memory).
+                # This flag applies config.lamda at FULL strength from epoch 0 instead -- sweep
+                # SMALL values here (0.1/0.3), not lamda4-scale, since the effective early-training
+                # dose is now ~30x higher than the annealed champion ever saw at the same lamda.
+                lamda_dose = config.lamda if bool(getattr(config, "featdir_lamda_noanneal", False)) else annealing * config.lamda
+                loss = loss + lamda_dose * (consistency_loss).mean()
 
             return loss, dir_loss, fs_hat, plus_logits
 

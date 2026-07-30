@@ -2,6 +2,7 @@ import torch
 import torch.optim as optim
 
 import os,time,pdb, logging
+from datetime import datetime
 import dataset
 import copy
 import numpy as np
@@ -76,6 +77,7 @@ def main(config,npt):
         "tau_meta_lr": getattr(config, "tau_meta_lr", None),
         "bilevel_start": getattr(config, "bilevel_start", None),
         "bilevel_end": getattr(config, "bilevel_end", None),
+        "train_eps": getattr(config, "train_eps", None),
         "kappa": config.kappa,
         "lr": config.lr,
         "load": config.load,
@@ -100,9 +102,31 @@ def main(config,npt):
     # pdb.set_trace()
 
 
-    if config.cyclic :
+    # lr_schedule: piecewise (2026-07-26) = ReBAT/RPAT's long-run recipe -- lr_max held flat, then
+    # divided by lr_factor at stage1 and by lr_factor^2 at stage2 (their small 1.5 factor, not the
+    # usual 10). Added so a 200-epoch scratch run can be schedule-matched to that baseline instead
+    # of FAT's OneCycle default. methods.* call scheduler.step() once per BATCH, so this is a
+    # per-iteration LambdaLR (t = fractional epoch), which is exactly how ReBAT computes it too.
+    if str(getattr(config, "lr_schedule", None) or "") == "piecewise":
+        steps_per_epoch = len(train_loader)
+        stage1 = int(getattr(config, "stage1", None) or config.epochs // 2)
+        stage2 = int(getattr(config, "stage2", None) or config.epochs * 3 // 4)
+        lr_factor = float(getattr(config, "lr_factor", None) or 1.5)
+
+        def _piecewise(step):
+            t = step / steps_per_epoch
+            if t < stage1:
+                return 1.0
+            elif t < stage2:
+                return 1.0 / lr_factor
+            return 1.0 / lr_factor ** 2
+
+        logger.info({"lr_schedule": "piecewise", "lr_max": config.lr, "stage1": stage1,
+                     "stage2": stage2, "lr_factor": lr_factor})
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, _piecewise)
+    elif config.cyclic :
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.lr, steps_per_epoch=len(train_loader), epochs=config.epochs, pct_start = 0.5)
-    else : 
+    else :
         scheduler = None
 
 
@@ -195,15 +219,17 @@ if __name__ == "__main__":
 
     if config.log:
         logger = logging.getLogger(__name__)
-        output_path = os.path.join(str(path.parent.absolute()), 'results', config.dataset, config.config_name.split('.')[0])
+        arch = str(getattr(config, "arch", "ResNet18") or "ResNet18")
+        output_path = os.path.join(str(path.parent.absolute()), 'results', config.dataset, arch, config.config_name.split('.')[0])
         os.makedirs(output_path, exist_ok=True)
-        logfile = os.path.join(output_path, 'result_summary.log')
-        if os.path.exists(logfile):
-            os.remove(logfile)
+        # timestamped filename (not the fixed 'output.log'): basicConfig's default filemode is
+        # 'a' (append), so sweep runs sharing one --config_name were silently interleaving into
+        # the same file instead of overwriting it -- this gives each run its own log.
+        logfile = os.path.join(output_path, datetime.now().strftime('%y%m%d%H%M') + '.log')
         logging.basicConfig(
                 format='[%(asctime)s] - %(message)s',
                 datefmt='%Y/%m/%d %H:%M:%S',
                 level=logging.INFO,
-                filename=os.path.join(output_path, 'output.log'))
+                filename=logfile)
 
     main(config,logger)

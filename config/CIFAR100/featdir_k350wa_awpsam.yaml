@@ -1,0 +1,43 @@
+# AWP-SAM cell (2026-07-18): champion (k350+WA+lamda4, tau16/beta1/eps8, eta350) + AWP, but
+# using the ADR-repo SAM-style port (utils.AdvWeightPerturbSAM / awp_style: sam) instead of the
+# proxy-model AdvWeightPerturb that was already tried and DROPPED (07-17, gamma sweep 0.005/
+# 0.01/0.02 all monotonically WORSE). Same reference (Wu et al. NeurIPS'20) but different
+# mechanics -- see methods.py train_feat_direction's AWP comment for the two ports' differences.
+# rho=0.005 matches ADR's own config/cifar100/resnet18_pgd_awp_adr.gin (build_awp_optimizer.rho)
+# verbatim -- "as ADR actually ran it", not a re-tuned value.
+# Bar to beat (kappa 0.999, no AWP): clean62.75/pgd20 33.96/pgd10 34.18/cw28.41, H(pgd)44.07/H(cw)39.11, AA26.29.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_gamma : 0.005
+awp_warmup : 5
+awp_style : sam
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

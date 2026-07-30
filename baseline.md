@@ -15,7 +15,10 @@ the download + extract + verify pipeline).
 | | clean | FGSM | PGD-20 | PGD-10 | PGD-50 | CW | AutoAttack |
 |---|-------|------|--------|--------|--------|----|------------|
 | **ADR (WA+AWP)** | 57.37 | 36.90 | 34.92 | 35.26 | 34.76 | 30.62 | 28.52* |
-| **Ours (champion, k350+WA+lamda4)** | 62.75 | — | 33.96 | 34.18 | — | 28.41 | 26.29 |
+| **Ours (champion, k350+WA+lamda4)** | 62.75 | 36.48 | 33.96 | 34.18 | 33.93 | 28.41 | 26.29 |
+| Ours, 100ep, no AWP (control) | 62.04 | 35.82 | 32.38 | 32.78 | 32.44 | 27.23 | 25.16 |
+| Ours, 100ep + AWP (proxy, g0.005) | 63.07 | 36.79 | 34.12 | 34.59 | 34.09 | 28.20 | 25.98 |
+| Ours, k512 (subspace mechanism OFF) | 63.23 | 35.54 | 32.85 | 33.16 | 32.67 | 28.43 | 25.98 |
 
 \* AA for ADR is the **published** number (paper/checkpoint README claims AA=28.52,
 clean=57.36 — matches our locally-reproduced clean=57.37 almost exactly, so the checkpoint/repro
@@ -33,3 +36,10 @@ calibration metric):
 Reading: ours trades clean accuracy up (+5.4) for a bit of robustness down (PGD H roughly
 ties, CW H −0.8, NRR −1.0 vs ADR using ADR's own published AA). See [`README.md`](README.md)
 for the champion's config/loss/repro command.
+
+**Caveat on the trade-off framing (2026-07-30):** at *matched clean* we lose outright. Our
+robust-leaning eps10 variant is 58.32 clean / AA 26.80 against ADR-full's 57.36 / 28.50 — a
+**−1.70 AA** deficit at the same clean accuracy. The like-for-like comparison that we do win is
+against `AT+ADR` (56.10 / AA 26.87 / NRR 36.34, no WA+AWP stack): NRR +0.72 at +6.65 clean.
+The entire remaining deficit is AWP, which contributes +1.63 AA in ADR's own ablation —
+see [`awp_memory.md`](awp_memory.md) for our AWP port and why it has not closed the gap yet.

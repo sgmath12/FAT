@@ -430,10 +430,21 @@ def get_model(config):
         mean = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
         std = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
 
-        from CIFAR10.models.resnet import ResNet18
-        from CIFAR10.models.resnet_z import ResNet18_z
-        model = ResNet18()
-        model_reform = ResNet18_z()
+        if str(getattr(config, "arch", "ResNet18")) == "WideResNet":
+            # WideResNet-34-10 (depth=34, widen=10). model = plain net (clean teacher / teacher_norm
+            # base); model_reform = WideResNet_z, the L2-normalized-feature student for featdir
+            # (student_norm=True). Same backbone keys, so a clean WideResNet checkpoint loads into
+            # either with strict=True.
+            from CIFAR10.models.WideResNet import WideResNet
+            from CIFAR10.models.WideResNet_z import WideResNet_z
+            model = WideResNet(depth=34, num_classes=10, widen_factor=10)
+            model_reform = WideResNet_z(depth=34, num_classes=10, widen_factor=10,
+                                        scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        else:
+            from CIFAR10.models.resnet import ResNet18
+            from CIFAR10.models.resnet_z import ResNet18_z
+            model = ResNet18()
+            model_reform = ResNet18_z()
 
         # student & teacher feature-normalization are INDEPENDENT toggles.
         # Fall back to config.reformation when the explicit flags are absent (old configs unchanged).
