@@ -77,10 +77,33 @@ and **AA 1.13**. AWP recovers all of the PGD/CW loss and more (+1.74 PGD, +0.97 
 over the control, beating even the 50ep champion on PGD and clean), and recovers **+0.82 of the
 1.13 AA** (~73%).
 
-**Standing conclusion: AWP is correctly implemented and does its stated job at long schedules —
-including on AA, where the 50ep null does not hold.** What it has NOT done is make a long schedule
-pay: 100ep+AWP is still 0.31 AA short of the 50ep champion, so the extra 2x compute buys nothing
-on the headline metric. The AA gap to ADR-full (28.50 / NRR 38.08 vs our 26.29 / 37.06) stays open.
+**AWP is correctly implemented and does its stated job at long schedules — including on AA, where
+the 50ep null does not hold.** At matched train_eps 8/255 it still does not make the long schedule
+pay (100ep+AWP is 0.31 AA short of the 50ep champion). What changes that is combining it with a
+stronger training attack.
+
+### AWP x strong training attack — this is where AWP pays (2026-07-31)
+Sweep at k512 / lamda1.5 / 100ep + AWP, varying **train_eps** (eval eps always 8/255):
+
+| cell | clean | PGD-20 | CW | AA | NRR |
+|---|---:|---:|---:|---:|---:|
+| champion, 50ep, train_eps 8 | 62.75 | 33.96 | 28.41 | 26.29 | 37.06 |
+| train_eps 10, 50ep, **no AWP** | 58.32 | 34.45 | 28.62 | 26.80 | 36.72 |
+| 100ep+AWP, train_eps 8 | 63.73 | 33.35 | 28.25 | 26.11 | 37.24 |
+| **100ep+AWP, train_eps 10** | 60.04 | **34.36** | **29.31** | **27.36** | **37.59** |
+| ADR-full (target) | 57.36 | 34.92 | 30.62 | 28.50 | 38.08 |
+
+**The two levers compound.** train_eps 10 alone was AA 26.80; adding 100ep+AWP takes it to 27.36
+(+0.56) **while clean also rises 58.32 -> 60.04**. This axis normally trades clean away for
+robustness — here both improved. CW 29.31 and AA 27.36 are both project records.
+
+Effect on the standing against the #1 baseline: the AA gap to ADR-full closes 2.21 -> **1.14** and
+NRR 1.02 -> **0.49**, with clean still +2.68 ahead. NRR 37.59 now beats the champion (37.06),
+DP-FAT (36.96), Consistency-AT+RPAT (36.64) and AT+ADR (36.34).
+
+Caveat kept honest: single seed. This project's own 3-seed paired runs move ~0.3-0.4 on these
+metrics, so the sub-0.3 comparisons above (e.g. lamda 0 vs 1.5 vs 4, k350 vs k512) are inside
+noise; the +0.56 train_eps effect and the +0.82 AWP effect are not.
 
 Note on a coincidence worth not misreading: the k=512 mechanism-ablation checkpoint also scored
 exactly 25.98. The control's 25.16 rules out an eval-path bug — the collision was chance.

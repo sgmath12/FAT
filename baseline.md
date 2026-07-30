@@ -19,6 +19,7 @@ the download + extract + verify pipeline).
 | Ours, 100ep, no AWP (control) | 62.04 | 35.82 | 32.38 | 32.78 | 32.44 | 27.23 | 25.16 |
 | Ours, 100ep + AWP (proxy, g0.005) | 63.07 | 36.79 | 34.12 | 34.59 | 34.09 | 28.20 | 25.98 |
 | Ours, k512 (subspace mechanism OFF) | 63.23 | 35.54 | 32.85 | 33.16 | 32.67 | 28.43 | 25.98 |
+| **Ours, 100ep+AWP, train_eps 10/255** | 60.04 | 36.56 | 34.36 | 34.59 | 34.37 | **29.31** | **27.36** |
 
 \* AA for ADR is the **published** number (paper/checkpoint README claims AA=28.52,
 clean=57.36 — matches our locally-reproduced clean=57.37 almost exactly, so the checkpoint/repro
@@ -32,6 +33,7 @@ calibration metric):
 |---|----------|-------|-----|
 | ADR (WA+AWP) | 43.42 | 39.93 | 38.08 (published) |
 | Ours (champion) | 44.07 | 39.11 | 37.06 |
+| **Ours (100ep+AWP, train_eps 10)** | **43.71** | **39.39** | **37.59** |
 
 Reading: ours trades clean accuracy up (+5.4) for a bit of robustness down (PGD H roughly
 ties, CW H −0.8, NRR −1.0 vs ADR using ADR's own published AA). See [`README.md`](README.md)

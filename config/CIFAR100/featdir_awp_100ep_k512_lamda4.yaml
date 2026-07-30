@@ -1,0 +1,41 @@
+# 2026-07-30 BRIDGE CELL. The k512+lamda{0,1.5} cells change TWO things at once vs the
+# 100ep+AWP reference (k350, lamda4: 63.07/34.12/cw28.20/AA25.98), so a win there could not
+# be attributed. This cell is k512 + lamda4, giving:
+#   (k350,l4) -> (k512,l4) = the DIMENSION effect ; (k512,l4) -> (k512,l0/1.5) = the LAMDA effect
+# 100ep + AWP proxy g0.005 warmup10, eval eps 8/255, aa: True.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 4.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

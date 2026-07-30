@@ -1,0 +1,45 @@
+# SWEEP 2026-07-30 (user): stronger TRAIN attack / lamda on the now-working long-schedule
+# AWP recipe. 100ep+AWP beat the 50ep champion (63.07/34.12/cw28.20 vs 62.75/33.96/28.41)
+# by recovering the robust overfitting the 100ep no-AWP control showed (32.38/27.23).
+# THIS CELL: epochs 100, train_eps 14/255. Added 2026-07-30: the 50ep eps curve PEAKED at 10
+# (AA 26.80) and fell at 12 (26.50), but that was without AWP. AWP suppresses exactly the
+# overfitting that strong-attack training induces, so the turning point may have moved right.
+# aa: True -- the user wants AA on every cell, so it runs at the end of each run.
+# Bars: champion AA 26.29 / NRR 37.06; ADR-full AA 28.50 / NRR 38.08.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 1.5
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.054901960784313725
+steps : 10
+step_size : 2/255/1
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
