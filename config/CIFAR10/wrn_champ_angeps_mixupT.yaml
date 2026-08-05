@@ -1,0 +1,52 @@
+# WRN-34-10 / CIFAR10, champion recipe + angeps (2026-08-04). Recipe is the ResNet18 champion
+# verbatim (100ep AdamW .021 one-cycle, freeze_lr .65, WA kappa .999 wa_start .2, proxy AWP .005
+# warmup 10, train_eps 8.8/255, k512, lamda 0, tau 16, aa True) with only arch and teacher changed.
+# ResNet18 reference on CIFAR10: 84.66 / 56.74 / CW 53.94 / AA 51.87 / NRR 64.33.
+# Measured WRN cost: ~0.13-0.15 h/epoch adversarial -> ~14 h for 100ep, plus a long AutoAttack.
+# THIS CELL (B): MIXUP teacher, the one that already exists (clean_mixup_200ep, WRN-34-10, 97.10 clean).
+# Caveat to state in the paper if this row is used: our ResNet18 rows use a PLAIN teacher, so this
+# row moves architecture AND teacher recipe at once. Cell A (plain WRN teacher) is queued after it
+# precisely to separate the two.
+# Open question this also answers: is a mixup teacher harmful here? mixup softens the teacher's
+# logits, and we already soften with tau=16 -- double smoothing. The method is sensitive to that
+# amount (tau 16->1 cost 0.9 AA on CIFAR100), so over-smoothing is a real risk, not a hypothetical.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: WideResNet
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR10/checkpoint/clean_mixup_200ep/clean_mixup_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_mixup_200ep/clean_mixup_last.pkl
+data_root : ./data
+featdir_angeps_p : 1.0

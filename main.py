@@ -78,6 +78,8 @@ def main(config,npt):
         "bilevel_start": getattr(config, "bilevel_start", None),
         "bilevel_end": getattr(config, "bilevel_end", None),
         "train_eps": getattr(config, "train_eps", None),
+        "freeze_lr_epoch": getattr(config, "freeze_lr_epoch", None),
+        "wa_start": getattr(config, "wa_start", None),
         "kappa": config.kappa,
         "lr": config.lr,
         "load": config.load,

@@ -1,0 +1,36 @@
+# Natural teacher, 200 epochs, NO mixup (method: clean, aug: none) -- 2026-08-01.
+# The other server's champion recipe was distilled from a 200ep clean teacher; this reproduces
+# that teacher here so the freeze_lr_epoch / train_eps / lamda comparison isn't confounded by a
+# different teacher. Same SGD/OneCycle recipe as clean_100ep / clean_150ep / clean_300ep.
+# Checkpoint lands in CIFAR100/checkpoint/clean_200ep/clean_last.pkl.
+method : clean
+dataset : CIFAR10
+arch: WideResNet
+optim : SGD
+
+lr : 0.1
+alpha : 0.0
+beta : 0.0
+gamma : 0.0
+eta : 0.0
+# attack Setting
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 200
+
+
+batch_size : 128
+interval : 5
+neptune : True
+load : False
+finetune : False
+evaluate : False
+reformation : False
+save : False
+exp_name: KD
+val : False
+aug : none
+log : True
+cyclic : True
+data_root : ./data

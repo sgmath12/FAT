@@ -1,0 +1,35 @@
+# 2026-07-23: clean natural teacher trained with input mixup (Zhang et al.) on CIFAR10, 200ep.
+# Goal = a higher-entropy natural teacher (mixup softens labels / raises predictive entropy),
+# feeds the featdir directional-distillation line. method=clean_mixup (methods.train_clean_mixup),
+# mixup_alpha=1.0 (standard CIFAR). Everything else mirrors the repo clean.yaml (SGD 0.1 OneCycle).
+method : clean_mixup
+dataset : CIFAR10
+arch: WideResNet
+optim : SGD
+
+lr : 0.1
+alpha : 0.0
+beta : 0.0
+gamma : 0.0
+eta : 0.0
+mixup_alpha : 1.0
+# attack Setting (unused for clean training, kept for schema completeness)
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 200
+
+batch_size : 128
+interval : 5
+load : False
+finetune : False
+evaluate : False
+reformation : False
+save : False
+val : False
+aug : none
+aa : False
+log : True
+cyclic : True
+weight_avg : False
+data_root : ./data

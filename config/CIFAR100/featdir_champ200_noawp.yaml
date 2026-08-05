@@ -1,0 +1,44 @@
+# CHAMPION MINUS AWP (2026-08-04). Only change: awp_style/awp_gamma/awp_warmup removed, so the
+# proxy AWP is off. Everything else is featdir_champ200_100ep verbatim -- WA stays on (kappa .999,
+# wa_start .2), freeze_lr .65, and train_eps stays at the harder 8.8/255 (deliberately NOT reverted
+# to 8/255; the point is to isolate AWP, not the attack radius).
+# Bar: 60.74 clean / 34.94 PGD-20 / 30.53 CW / 28.69 AA / NRR 38.97.
+# Context: AWP was ported in as part of the ADR stack and has never been ablated inside the champion.
+# The 50ep probes earlier in the project showed proxy AWP was a NULL (26.29 -> 25.88), so if it is
+# also a null at 100ep the method loses a component and gets simpler -- which is a good outcome.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

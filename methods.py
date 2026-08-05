@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 import torchattacks
 import logging
+import math
 import os
 import dataset as _dataset_mod
 from torch.func import functional_call
@@ -1613,6 +1614,13 @@ def train_temperature(model, train_loader, optimizer, origin_model, epoch, confi
     #   "proxy" (default) = utils.AdvWeightPerturb, the original AWP paper's proxy-network port.
     #   "sam"             = utils.AdvWeightPerturbSAM, the ADR-repo port (SAM-style, no proxy
     #                        network, perturbs all params via the model's own gradient).
+    # champion-stack knobs, ported from train_feat_direction (2026-08-02) so the no-feature-term
+    # ablation can be compared like-for-like against featdir_champ200_100ep. All three are inert
+    # when absent, so existing temperature configs are unchanged.
+    _eps_train_tmp = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+    _freeze_tmp = _resolve_epoch_arg(getattr(config, "freeze_lr_epoch", None), config.epochs)
+    _wa_start_tmp = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
+
     awp_style = str(getattr(config, "awp_style", "proxy") or "proxy")
     awp_gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
     use_awp = awp_gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
@@ -1637,7 +1645,7 @@ def train_temperature(model, train_loader, optimizer, origin_model, epoch, confi
             _, teacher_logits = origin_model(x, feat=True)      # raw teacher logits = linear(Phi)
             target = (teacher_logits / config.tau).detach()     # global temperature; tau=1 == raw teacher
 
-        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, config.eps, perturb_steps=config.steps)
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, _eps_train_tmp, perturb_steps=config.steps)
 
         def _step_loss():
             pl = model(x_pgd)
@@ -1679,9 +1687,12 @@ def train_temperature(model, train_loader, optimizer, origin_model, epoch, confi
             loss.backward()
             optimizer.step()
 
-        scheduler.step()
+        if _freeze_tmp is None or epoch < _freeze_tmp:
+            scheduler.step()
+        elif epoch == _freeze_tmp and batch_idx == 0:
+            logging.info({"freeze_lr_epoch": _freeze_tmp, "frozen_lr": optimizer.param_groups[0]["lr"]})
 
-        if config.weight_avg == True:
+        if config.weight_avg == True and epoch >= _wa_start_tmp:
             for key, value in model.state_dict().items():
                 exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
 
@@ -1881,6 +1892,34 @@ def _log_gain_stats(model, epoch):
                       "wnorm_eff_spread": round((eff.max() / eff.min()).item(), 4), "epoch": epoch})
 
 
+def _featdir_target_head(Wt, config):
+    """Optionally row-normalize the teacher head used to BUILD the featdir head-target.
+
+    featdir_normhead_target: True deletes the teacher's per-class ||w_c|| structure (every row set
+    to the same length) while preserving the mean row norm, so the target's overall sharpness --
+    and hence its effective temperature -- is unchanged and the cell isolates the *relative*
+    per-class weighting rather than confounding it with a global scale change."""
+    if not bool(getattr(config, "featdir_normhead_target", False)):
+        return Wt
+    return F.normalize(Wt, dim=1) * Wt.norm(dim=1).mean()
+
+
+def _resolve_epoch_arg(val, total_epochs):
+    """Schedule-length-portable epoch arg (2026-08-01): a value in (0,1) is a FRACTION of the run,
+    >=1 is an absolute epoch index, None/absent/negative -> None (feature off).
+
+    The other server's champion config carried these as absolute ints tuned at one schedule length
+    (wa_start 10 at 50ep = 0.2 of the run); replaying the same int at 100ep would land at 0.1 of
+    the run instead. Writing 0.2 keeps the RELATIVE position -- which is what the decay schedule
+    annealing=(epoch/epochs)^2 actually depends on -- fixed across schedule lengths."""
+    if val is None:
+        return None
+    v = float(val)
+    if v < 0:
+        return None
+    return int(round(v * total_epochs)) if 0 < v < 1 else int(v)
+
+
 def train_temperature_dirattack(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
     """train_temperature (baseline KL outer loss) but the INNER attack is the direction-max
     adversary (inner_featdir_only_return) -- completes the {outer: KL/dir} x {inner: KL/dir} 2x2
@@ -1969,6 +2008,75 @@ def train_temperature_gainhead(model, train_loader, optimizer, origin_model, epo
     _log_gain_stats(model, epoch)
 
 
+def _featdir_class_proto(origin_model, train_loader, config):
+    """Unit-norm class prototypes of the frozen teacher's DIRECTION field: c_k = normalize(mean_x
+    phi_t_hat(x) | y=k).  Computed once on the first call and cached -- the teacher never changes.
+    Averaging the NORMALIZED features (not the raw ones) keeps this a mean of directions, so a few
+    large-norm samples cannot dominate the prototype.  Used by featdir_proto_gamma."""
+    if getattr(_featdir_class_proto, "_cache", None) is not None:
+        return _featdir_class_proto._cache
+    n_cls = 100 if config.dataset == 'CIFAR100' else 10
+    dev = next(origin_model.parameters()).device
+    acc, cnt = None, torch.zeros(n_cls, device=dev)
+    with torch.no_grad():
+        for xb, yb in train_loader:
+            xb, yb = xb.to(dev), yb.to(dev)
+            f, _ = origin_model(xb, feat=True)
+            f = F.normalize(f, dim=1)
+            if acc is None:
+                acc = torch.zeros(n_cls, f.shape[1], device=dev)
+            acc.index_add_(0, yb, f)
+            cnt.index_add_(0, yb, torch.ones_like(yb, dtype=acc.dtype))
+    C = F.normalize(acc / cnt.clamp(min=1).unsqueeze(1), dim=1)
+    # diagnostics: how tight is each class, and how separated are the prototypes
+    off = (C @ C.t()) - torch.eye(n_cls, device=dev)
+    logging.info({"featdir_class_proto": n_cls,
+                  "proto_offdiag_cos_mean": round(off.sum().item() / (n_cls * (n_cls - 1)), 4),
+                  "proto_offdiag_cos_max": round(off.max().item(), 4)})
+    _featdir_class_proto._cache = C
+    return C
+
+
+def _featdir_etf_frame(origin_model, train_loader, config):
+    """TRICK B: simplex-ETF replacement for the teacher's CLASS geometry.
+
+    The natural teacher's class prototypes are far from equiangular -- measured off-diagonal cosine
+    on CIFAR100 is mean 0.32 / max 0.66, where a maximally separated frame gives -1/(K-1) = -0.01.
+    We build unit vectors E with exactly that pairwise cosine and rotate each class's direction field
+    onto them, so the ANGULAR MARGIN between classes is maximized while the instance residual is
+    carried along (trick A showed the residual is worth keeping).
+
+    Two deliberate choices:
+      * E is built inside span(C), not in a random subspace -- the class information already lives
+        there, so this changes separation without relocating the representation (minimal binding).
+      * Within that subspace E is Procrustes-aligned to C, i.e. we pick the ETF closest to what the
+        teacher already has. Every degree of freedom not needed for equiangularity is left alone.
+
+    A single global rotation cannot do this: orthogonal maps preserve inner products, so class
+    separation would be unchanged. The rotation has to be per-class, which is fine -- y is known at
+    training time and the teacher is frozen.
+    Returns (C, E), both [K, D] with unit rows.
+    """
+    if getattr(_featdir_etf_frame, "_cache", None) is not None:
+        return _featdir_etf_frame._cache
+    C = _featdir_class_proto(origin_model, train_loader, config)          # [K, D] unit rows
+    K, D = C.shape
+    U, _ = torch.linalg.qr(C.t().double())                               # [D, K] basis of span(C)
+    M = math.sqrt(K / (K - 1.0)) * (torch.eye(K, dtype=torch.float64, device=C.device)
+                                    - torch.ones(K, K, dtype=torch.float64, device=C.device) / K)
+    A = U.t() @ C.t().double()                                           # prototypes in U-coords
+    W, _, Vh = torch.linalg.svd(A @ M.t())                               # orthogonal Procrustes
+    E = (U @ (W @ Vh) @ M).t().float()                                   # [K, D] unit rows
+    E = F.normalize(E, dim=1)
+    off = (E @ E.t()) - torch.eye(K, device=E.device)
+    logging.info({"featdir_etf": K,
+                  "etf_offdiag_cos_mean": round(off.sum().item() / (K * (K - 1)), 4),
+                  "etf_offdiag_cos_max": round(off.max().item(), 4),
+                  "rotation_cos_c_to_e_mean": round((C * E).sum(dim=1).mean().item(), 4)})
+    _featdir_etf_frame._cache = (C, E)
+    return _featdir_etf_frame._cache
+
+
 def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
     """Feature-space DIRECTIONAL distillation (user, 2026-07-13) -- the loss-level version of the
     mechanism claim ("direction is the teacher's message, magnitude is the student's property"):
@@ -2024,6 +2132,52 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
     # 0.0392157 = 10/255) -- config.eps stays 8/255 so evaluate() still tests at the standard
     # radius. Robust-leaning frontier points train harder, get evaluated identically.
     eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+
+    # Direction-loss normalization switches (2026-08-01 grid). These scope to the DIRECTION LOSS and
+    # its matched attack ONLY -- the head always reads the normalized student feature, so that head
+    # logit scale stays identical across cells and the grid measures the backbone question rather
+    # than a head-temperature artifact. `phi_t` raw vs `phi_t_hat` differ by a factor ||phi_t||~11.2
+    # (std 2.1), so a mismatched pair (one side raw, one normalized) pins the student's feature norm.
+    raw_s = bool(getattr(config, "featdir_rawstudent", False))
+    raw_t = bool(getattr(config, "featdir_rawteacher", False))
+    # The HEAD's input follows the architecture (student_norm), not the direction-loss switch.
+    # ResNet18_z.forward normalizes before its linear layer while plain ResNet18 does not, so
+    # feeding head_from_feat anything else creates a train/eval mismatch: the head would be trained
+    # on phi_s_hat and then evaluated through forward() on the raw feature. Before 2026-08-02 the
+    # head term was hard-wired to phi_s_hat, which made student_norm:False unusable with featdir.
+    _snorm = getattr(config, "student_norm", None)
+    if _snorm is None:
+        _snorm = config.reformation
+    head_hat = bool(_snorm)
+
+    # featdir_freeze_head (2026-08-02): keep the student head EXACTLY as loaded from the teacher --
+    # no head loss, no head gradient. Direct test of Theorem 2: the student's feature distribution
+    # differs from the teacher's (measured cos_adv 0.69-0.79, i.e. 38-46 degrees apart), so a head
+    # calibrated on phi_t should be miscalibrated on phi_s(x_adv). A tie here kills Theorem 2 and
+    # simplifies the method; a large loss confirms that re-solving the head is the necessary part.
+    # NOTE: pair with feat_scale ~ mean||phi_t|| (11.23 on clean_200ep). The frozen head expects
+    # inputs on the teacher's scale, and its bias is NOT rescaled, so feeding a unit vector would
+    # let the bias dominate and confound "head is miscalibrated" with "input scale is wrong".
+    freeze_head = bool(getattr(config, "featdir_freeze_head", False))
+    if freeze_head:
+        for _p in enc.linear.parameters():
+            _p.requires_grad_(False)
+        for _n in ("log_g", "log_s"):
+            if hasattr(enc, _n):
+                getattr(enc, _n).requires_grad_(False)
+        if epoch == 0:
+            logging.info({"featdir_freeze_head": True, "feat_scale": scale})
+
+    # Ported from the other server's champion recipe (2026-08-01), both OFF unless set so existing
+    # configs are bit-identical to before:
+    #   freeze_lr_epoch -- stop stepping OneCycleLR at this epoch, run the tail at constant LR.
+    #   wa_start        -- don't touch the WA shadow before this epoch. main.py's
+    #                      `exp_avg = model.state_dict()` (a live-tensor reference, NOT a deepcopy)
+    #                      means the shadow tracks the model until the first update, so this
+    #                      initializes the average at wa_start for free.
+    # Both accept a fraction of the run (0.2) or an absolute epoch (20); see _resolve_epoch_arg.
+    freeze_lr_epoch = _resolve_epoch_arg(getattr(config, "freeze_lr_epoch", None), config.epochs)
+    wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
 
     span_mode = getattr(config, "featdir_span", None)
     Q = None
@@ -2134,6 +2288,30 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
         with torch.no_grad():
             phi_t, teacher_logits = origin_model(x, feat=True)          # raw teacher feat & logits
             phi_t_hat = F.normalize(phi_t, dim=1).detach()              # post-hoc directionalized teacher
+            # featdir_proto_gamma (2026-08-03, trick A): shrink the DIRECTION target toward its class
+            # prototype.  target <- normalize( (1-g) * phi_t_hat(x) + g * c_y ),  c_y = unit-norm mean
+            # of phi_t_hat over class y.  Motivation (Ilyas frame): the natural teacher's direction
+            # carries non-robust features, and those live in the INSTANCE-specific residual, not in
+            # the class-level direction.  g=0 is the champion; g=1 is a pure class prototype (all
+            # dark knowledge deleted).  Head target z_t/tau is deliberately left untouched -- this
+            # dial is about what the BACKBONE is anchored to, not about the head's soft labels.
+            _pg = float(getattr(config, "featdir_proto_gamma", 0.0) or 0.0)
+            if _pg > 0:
+                _C = _featdir_class_proto(origin_model, train_loader, config)
+                phi_t_hat = F.normalize((1.0 - _pg) * phi_t_hat + _pg * _C[y], dim=1).detach()
+            # featdir_etf_rotate (2026-08-03, trick B): per-class rotation c_y -> e_y applied to the
+            # whole direction, so class prototypes become equiangular while the instance residual
+            # rides along. R = I - ss^T/(1+u.v) + 2 v u^T  with u=c_y, v=e_y, s=u+v  (two reflections,
+            # orthogonal, R u = v). Composes with proto_gamma: shrink first, then rotate.
+            if bool(getattr(config, "featdir_etf_rotate", False)):
+                _C, _E = _featdir_etf_frame(origin_model, train_loader, config)
+                u, v = _C[y], _E[y]                                       # [N, D]
+                s = u + v
+                denom = (1.0 + (u * v).sum(dim=1, keepdim=True)).clamp(min=1e-6)
+                phi_t_hat = (phi_t_hat
+                             - s * ((s * phi_t_hat).sum(dim=1, keepdim=True) / denom)
+                             + 2.0 * v * (u * phi_t_hat).sum(dim=1, keepdim=True))
+                phi_t_hat = F.normalize(phi_t_hat, dim=1).detach()
             if bool(getattr(config, "featdir_normfeat_target", False)):
                 # user q (2026-07-17): head target from the NORMALIZED teacher feature through
                 # the teacher's own (raw, unnormalized) head, instead of z_t/tau. z_t/tau already
@@ -2142,7 +2320,17 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 # keeping the teacher head's per-class weight-norm structure (unlike costeacher's
                 # full W_t normalization, which already TIED at 41.61 vs 41.77 on 2026-07-08).
                 t_enc = origin_model.encoder if hasattr(origin_model, "encoder") else origin_model
-                target = F.linear(phi_t_hat, t_enc.linear.weight.detach(), t_enc.linear.bias.detach()).detach()
+                Wt_tg = _featdir_target_head(t_enc.linear.weight.detach(), config)
+                target = F.linear(phi_t_hat, Wt_tg, t_enc.linear.bias.detach()).detach()
+            elif bool(getattr(config, "featdir_normhead_target", False)):
+                # teacher-HEAD normalization for the featdir target (2026-08-01, normalization grid):
+                # rebuild z_t with row-normalized W_t (per-class ||w_c|| structure deleted) while the
+                # feature stays raw. Rows are rescaled to the original mean ||w_c|| so target
+                # sharpness is unchanged -- the same fair-start convention resnet_zcos uses. This is
+                # the featdir analogue of costeacher, which only ever ran on the baseline-KL method.
+                t_enc = origin_model.encoder if hasattr(origin_model, "encoder") else origin_model
+                Wt_tg = _featdir_target_head(t_enc.linear.weight.detach(), config)
+                target = (F.linear(phi_t, Wt_tg, t_enc.linear.bias.detach()) / config.tau).detach()
             else:
                 target = (teacher_logits / config.tau).detach()             # head-only soft target
 
@@ -2185,12 +2373,50 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             # method at baseline performance (the user's stated goal).
             x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, eps_train, perturb_steps=config.steps)
         else:
-            x_pgd = inner_featdir_only_return(model, phi_t_hat, x, optimizer, config.step_size, eps_train, perturb_steps=config.steps, Q=Q)
+            phi_t_dir = phi_t.detach() if raw_t else phi_t_hat            # direction-loss target
+            # ANGULAR-BUDGET EPS (featdir_angeps_p, 2026-08-04). Per-sample eps is an existing family
+            # -- IAAT (1910.08051), MMA (1812.02637), CAT (2002.06789) all assign a per-sample radius
+            # -- but all three set it from DIFFICULTY / input-space margin. Ours is set from the
+            # geometry the loss actually lives in: this method attacks a FEATURE ANGLE, and the same
+            # pixel radius rotates different samples by wildly different amounts. So equalize the
+            # angular budget instead of the pixel budget.
+            # First order, the angle moved under an L-inf ball of radius e is ~ e * ||grad_x L_dir||,
+            # so eps_i ~ (gbar / g_i)^p equalizes it (p=0 uniform = champion, p=1 full equalization).
+            # MEAN-PRESERVED after clipping: sum(eps_i) == N * eps_train, so this run and the champion
+            # spend the exact same total budget and any difference is ALLOCATION, not more attack.
+            eps_use, step_use = eps_train, config.step_size
+            _ap = float(getattr(config, "featdir_angeps_p", 0.0) or 0.0)
+            if _ap > 0:
+                _lo = float(getattr(config, "featdir_angeps_lo", 0.5) or 0.5)
+                _hi = float(getattr(config, "featdir_angeps_hi", 1.5) or 1.5)
+                model.eval()
+                _xg = x.clone().detach().requires_grad_(True)
+                with torch.enable_grad():
+                    _fs, _ = model(_xg, feat=True)
+                    _fsh = _fs if raw_s else F.normalize(_fs, dim=1)
+                    _d0 = _fsh - phi_t_dir
+                    _l0 = (_d0 @ Q).pow(2).sum() if Q is not None else _d0.pow(2).sum()
+                _g = torch.autograd.grad(_l0, [_xg])[0].detach()
+                model.train()
+                optimizer.zero_grad()
+                _gn = _g.flatten(1).norm(dim=1).clamp(min=1e-12)
+                _w = (_gn.mean() / _gn).pow(_ap).clamp(_lo, _hi)
+                _w = _w * (_w.numel() / _w.sum())                          # restore mean 1 AFTER clip
+                eps_use = eps_train * _w.view(-1, 1, 1, 1)
+                step_use = config.step_size * _w.view(-1, 1, 1, 1)         # keep steps-per-radius fixed
+                if batch_idx == 0:
+                    logging.info({"angeps_p": _ap, "w_min": round(_w.min().item(), 3),
+                                  "w_max": round(_w.max().item(), 3),
+                                  "w_std": round(_w.std().item(), 3),
+                                  "gradnorm_cv": round((_gn.std() / _gn.mean()).item(), 3),
+                                  "epoch": epoch})
+            x_pgd = inner_featdir_only_return(model, phi_t_dir, x, optimizer, step_use, eps_use, perturb_steps=config.steps, Q=Q, raw_student=raw_s)
 
         def _step_loss():
             feat_s, plus_logits = model(x_pgd, feat=True)                   # raw student feat (pre-norm)
-            fs_hat = F.normalize(feat_s, dim=1)
-            d_feat = fs_hat - phi_t_hat
+            fs_hat = F.normalize(feat_s, dim=1)                             # head input: ALWAYS normalized
+            fs_dir = feat_s if raw_s else fs_hat                            # direction-loss student side
+            d_feat = fs_dir - phi_t_dir
             if selfkl:
                 z_adv_m = F.linear(scale * fs_hat, W_det, b_det)            # metric head: params detached
                 dir_loss = criterion_kl(F.log_softmax(z_adv_m, dim=1), F.softmax(z_tdir, dim=1)).sum(dim=1)
@@ -2213,13 +2439,21 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             # featdir_alpha (2026-07-13 night): partial-undetach dial -- fraction alpha of the head-KL
             # gradient reaches the backbone (alpha 0 = pure firewall/current, 1 = full flow). Tests
             # whether TEACHER-confidence routing adds anything beyond the self-metric. (defined above)
-            feat_for_head = fs_hat if alpha >= 1.0 else (alpha * fs_hat + (1.0 - alpha) * fs_hat.detach())
+            # 2026-08-03: pick the head's input FIRST, then apply alpha. The old order applied the
+            # alpha mix to fs_hat and then discarded it whenever head_hat was False, so student_norm
+            # False silently bypassed the detach and the head KD kept pushing the backbone. alpha is
+            # 1.0 in every config run before this date, so no existing result changes.
+            _feat_head_in = fs_hat if head_hat else feat_s
+            feat_for_head = _feat_head_in if alpha >= 1.0 else (
+                alpha * _feat_head_in + (1.0 - alpha) * _feat_head_in.detach())
             head_logits = enc.head_from_feat(scale * feat_for_head)
             # featdir_head_ce (2026-07-17, user q): the backbone is already teacher-anchored (L_dir),
             # so does the head even need soft-target KD, or can it just fit the TRUE label directly
             # (hard CE on x_adv)? Loses teacher dark-knowledge, but removes the head's objective-eval
             # mismatch (KD divergence vs the CE/margin metrics AA/CW actually score).
-            if bool(getattr(config, "featdir_head_ce", False)):
+            if freeze_head:
+                pass                                     # head stays at the teacher's solution
+            elif bool(getattr(config, "featdir_head_ce", False)):
                 loss = loss + beta * F.cross_entropy(head_logits, y)
             else:
                 kl_loss = criterion_kl(F.log_softmax(head_logits, dim=1), F.softmax(target, dim=1))
@@ -2261,10 +2495,11 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             _awp_bn_enable(model)
             optimizer.step()
         elif use_awp:
-            def _awp_loss_fn(pm, _x_pgd=x_pgd, _phi_t_hat=phi_t_hat, _target=target):
+            def _awp_loss_fn(pm, _x_pgd=x_pgd, _phi_t_hat=phi_t_dir, _target=target):
                 p_enc = pm.encoder if hasattr(pm, "encoder") else pm
                 fs_, _ = pm(_x_pgd, feat=True)
                 fh_ = F.normalize(fs_, dim=1)
+                fd_ = fs_ if raw_s else fh_
                 if selfkl:
                     za_ = F.linear(scale * fh_, W_det, b_det)
                     dl_ = criterion_kl(F.log_softmax(za_, dim=1), F.softmax(z_tdir, dim=1)).sum(dim=1)
@@ -2277,7 +2512,7 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                     comp_ = fh_ - (fh_ @ Q) @ Q.T
                     l_ = l_ + supp * comp_.pow(2).sum(dim=1).mean()
                 ff_ = fh_ if alpha >= 1.0 else (alpha * fh_ + (1.0 - alpha) * fh_.detach())
-                hl_ = p_enc.head_from_feat(scale * ff_)
+                hl_ = p_enc.head_from_feat(scale * (ff_ if head_hat else fs_))
                 if bool(getattr(config, "featdir_head_ce", False)):
                     return l_ + beta * F.cross_entropy(hl_, y)
                 kl_ = criterion_kl(F.log_softmax(hl_, dim=1), F.softmax(_target, dim=1))
@@ -2294,9 +2529,13 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             loss.backward()
             optimizer.step()
 
-        scheduler.step()
+        if freeze_lr_epoch is None or epoch < freeze_lr_epoch:
+            scheduler.step()
+        elif epoch == freeze_lr_epoch and batch_idx == 0:
+            logging.info({"freeze_lr_epoch": freeze_lr_epoch,
+                          "frozen_lr": optimizer.param_groups[0]["lr"]})
 
-        if config.weight_avg == True:
+        if config.weight_avg == True and epoch >= wa_start:
             for key, value in model.state_dict().items():
                 exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
 

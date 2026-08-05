@@ -82,6 +82,12 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
+    def head_from_feat(self, out):
+        # classifier applied to a feature supplied by the caller (train_feat_direction builds the
+        # head term outside forward()). Added 2026-08-01 so the RAW-student cells can run: without
+        # it, student_norm:False crashed here and the plain-student configuration was unreachable.
+        return self.linear(out)
+
     def forward(self, x, feat = None):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)

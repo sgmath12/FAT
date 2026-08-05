@@ -50,6 +50,15 @@ class ResNetCos(nn.Module):
         w_hat = F.normalize(self.linear.weight, dim=1)
         return torch.exp(self.log_s) * self.scale * F.linear(feat_hat, w_hat)
 
+    def head_from_feat(self, out):
+        """Classifier applied to an already normalized(+scaled) feature, for methods that build the
+        head term separately from forward() (train_feat_direction). The cosine head is defined on the
+        unit direction, so the caller's scaling is renormalized away here and the logit scale comes
+        from the module's own scale * exp(log_s) -- making this bit-identical to forward()'s head.
+        Added 2026-08-01: without it the cosine-head cell cannot run under feat_direction at all,
+        which is why every previous coshead measurement came from the baseline-KL/madry_at methods."""
+        return self._head(F.normalize(out, dim=1))
+
     def forward(self, x, feat=None):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)

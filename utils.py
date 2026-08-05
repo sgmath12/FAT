@@ -107,7 +107,8 @@ def inner_featdir_only_return(model,
                 step_size=0.003,
                 epsilon=0.031,
                 perturb_steps=10,
-                Q=None):
+                Q=None,
+                raw_student=False):
     """Direction-space inner maximization (train_feat_direction, 2026-07-13): perturb x to
     maximize || Phi_hat_s(x_adv) - Phi_hat_t(x) ||^2 = 2 - 2 cos, i.e. rotate the student's
     feature direction away from the teacher's. Neither head is touched -- the attack sees the
@@ -121,12 +122,18 @@ def inner_featdir_only_return(model,
         x_adv.requires_grad_()
         with torch.enable_grad():
             feat_s, _ = model(x_adv, feat=True)
-            fs_hat = F.normalize(feat_s, dim=1)
+            # raw_student (2026-08-01): leave the student feature UNNORMALIZED, so the student must
+            # match the teacher's unit-direction guidance with its own raw feature (magnitude
+            # included). The teacher side stays normalized either way -- normalization is applied
+            # only when the teacher builds its guidance.
+            fs_hat = feat_s if raw_student else F.normalize(feat_s, dim=1)
             d = fs_hat - phi_t_hat
             # Q (512 x k, orthonormal): SUBSPACE-projected direction attack -- the adversary can
             # only score by rotating the feature within span(Q) (exists-and-unique cells, 2026-07-13).
             loss_dir = (d @ Q).pow(2).sum() if Q is not None else d.pow(2).sum()
         grad = torch.autograd.grad(loss_dir, [x_adv])[0]
+        # epsilon / step_size may be per-sample tensors of shape [N,1,1,1] (angular-budget eps,
+        # 2026-08-04). Broadcasting makes the scalar and per-sample cases identical code.
         x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
         x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
         x_adv = torch.clamp(x_adv, 0.0, 1.0)
@@ -452,7 +459,15 @@ def get_model(config):
         if student_norm is None: student_norm = config.reformation
         teacher_norm = getattr(config, "teacher_norm", None)
         if teacher_norm is None: teacher_norm = config.reformation
-        base_teacher = model_reform if teacher_norm else model
+        # teacher_cos_head (2026-08-01): build the TEACHER from ResNet18_zcos independently of the
+        # student's architecture, so a cosine-classifier-trained clean checkpoint can guide a plain
+        # normalized student. Without it cos_head sets model_reform for BOTH sides at once.
+        if bool(getattr(config, "teacher_cos_head", False)):
+            from CIFAR10.models.resnet_zcos import ResNet18_zcos as _RZC
+            base_teacher = _RZC(num_classes=(100 if config.dataset == 'CIFAR100' else 10),
+                                scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        else:
+            base_teacher = model_reform if teacher_norm else model
         base_student = copy.deepcopy(model_reform if student_norm else model)
 
         if config.convert is False:
@@ -499,7 +514,15 @@ def get_model(config):
         if student_norm is None: student_norm = config.reformation
         teacher_norm = getattr(config, "teacher_norm", None)
         if teacher_norm is None: teacher_norm = config.reformation
-        base_teacher = model_reform if teacher_norm else model
+        # teacher_cos_head (2026-08-01): build the TEACHER from ResNet18_zcos independently of the
+        # student's architecture, so a cosine-classifier-trained clean checkpoint can guide a plain
+        # normalized student. Without it cos_head sets model_reform for BOTH sides at once.
+        if bool(getattr(config, "teacher_cos_head", False)):
+            from CIFAR10.models.resnet_zcos import ResNet18_zcos as _RZC
+            base_teacher = _RZC(num_classes=(100 if config.dataset == 'CIFAR100' else 10),
+                                scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        else:
+            base_teacher = model_reform if teacher_norm else model
         base_student = copy.deepcopy(model_reform if student_norm else model)
 
         if config.convert is False:
@@ -743,8 +766,12 @@ def evaluate_final_aa(model, loader, args,  n_samples = 10000, full = False, eps
     l = [x for (x, y) in loader]
     x_test = torch.cat(l, 0)
     l = [y for (x, y) in loader]
-    y_test = torch.cat(l, 0)    
-    adv_complete, robust_acc = adversary.run_standard_evaluation(x_test[:], y_test[:], bs=args.batch_size)
+    y_test = torch.cat(l, 0)
+    # AA is per-sample, so bs only chunks the work. On deep nets under WSL2 the eval is
+    # kernel-launch bound (GPU util 100% but memory util 2%, power 21% of cap), so a larger
+    # bs cuts launches per sample. Defaults to batch_size = unchanged behaviour.
+    aa_bs = getattr(args, "aa_batch_size", None) or args.batch_size
+    adv_complete, robust_acc = adversary.run_standard_evaluation(x_test[:], y_test[:], bs=aa_bs)
     return robust_acc * 100
 
 def evaluate_pgd(model,loader, config = None):

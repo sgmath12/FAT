@@ -1,0 +1,53 @@
+# ANGULAR-BUDGET EPS (2026-08-04). Per-sample eps set so the FEATURE-ANGLE displacement is equal
+# across samples, not the pixel radius:  eps_i ~ (gbar/g_i)^p,  g_i = ||grad_x L_dir(x_i)||.
+# p = 0 is the champion (uniform eps); p = 1 fully equalizes the first-order angular budget.
+# Clipped to [0.5, 1.5] x eps and then MEAN-RESTORED, so total budget is identical to p=0 and any
+# difference is allocation, not attack strength. step_size scales with eps so steps-per-radius is fixed.
+#
+# Prior art is per-sample eps by DIFFICULTY: IAAT arXiv:1910.08051, MMA arXiv:1812.02637,
+# CAT arXiv:2002.06789. The signal here is different -- it comes from the direction loss's own
+# geometry and is only definable for a method that attacks a feature angle.
+# Signal is alive (unlike the dead per-sample signals in this repo): student margin CV 0.889,
+# cos(phi_s,phi_t) p05->p95 0.63->0.97. Watch the logged gradnorm_cv on epoch 0 -- if it is small,
+# w collapses to 1 and this cell is a no-op by construction.
+#
+# Regime: n2 fast -- 50ep / 10-step / eps 8 / WA off / AWP off / k512 / seed 0 / clean_200ep teacher.
+# Baseline p=0 = fg_plain_th_sh_kl 62.61 / 29.16 / 26.63. Rank on CW, not PGD.
+# THIS CELL: p = 0.5
+method : feat_direction
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+teacher_cos_head : False
+featdir_rawteacher : False
+featdir_rawstudent : False
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_angeps_p : 0.5
