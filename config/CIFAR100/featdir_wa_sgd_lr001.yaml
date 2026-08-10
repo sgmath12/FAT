@@ -1,0 +1,41 @@
+# SGD SWITCH, cell 3, added 20260729 21:30 (2026-07-29): champion recipe with the ONLY change being the optimizer,
+# AdamW lr0.021 -> SGD lr0.01 momentum0.9 wd5e-4 (still OneCycle/cyclic, 50ep finetune, lamda4).
+# `eta` (subspace dim) is passed on the CLI: the chain script picks 512 if the k=512 control
+# ties the champion, else 350. Purpose: (a) does the recipe survive a standard AT optimizer,
+# (b) prerequisite for the AWP retest -- the proxy-AWP null (26.29->25.88) is suspected to be an
+# AdamW interaction (2nd-moment state estimated at PERTURBED weights, applied at RESTORED ones).
+# Bar: clean 62.75 / pgd20 33.96 / cw 28.41 (AA 26.29).
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : SGD
+lr : 0.01
+weight_decay : 0.0005
+alpha : 1.0
+lamda : 4.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 350
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,46 @@
+# T.4 MECHANISM CELL 1b (2026-08-09): champion verbatim + featdir_norm_penalty 0.1.
+# The strong-binding member of the npen sweep -- see featdir_champ200_npen001.yaml for the full
+# rationale. At 0.1 the radial gradient dominates the norm drift by construction, so if ||phi_s||
+# is NOT pulled to ~11 in the log, that is a bug, not a weak penalty.
+# Interpretation is the same: clean drops -> capacity account; clean holds -> dynamics account.
+# Bar: champion (p=0) 60.74 clean / 34.94 PGD-20 / 30.53 CW; rawfeat 59.79 / 34.94 / 30.13.
+method : feat_direction
+featdir_norm_penalty : 0.1
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

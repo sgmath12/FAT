@@ -1,0 +1,61 @@
+# CHAMPION STACK x *FULL* RAW (2026-08-02). This is the honest port of the n2 grid winner.
+#
+# featdir_champ200_rawfeat already tried "raw", but only inside the direction loss -- it kept
+# student_norm: True, so the head input and the eval-time forward were still normalized. It landed
+# at 59.79 / 30.13 CW / 28.57 AA, i.e. a tie-to-slight-loss vs the champion. The n2 grid then showed
+# that the partial form is NOT where the gain lives: with student normalized, the result is pinned
+# to the reference regardless of the teacher side (62.66/29.21 and 62.53/29.27 vs ref 62.61/29.16),
+# and the only cell that moved was the one where the student is raw EVERYWHERE (62.86/32.36/27.18).
+# So this config flips the one remaining bit: student_norm: False.
+#
+# Everything else is featdir_champ200_100ep verbatim (tau 16, same as the grid).
+# Bar to beat: 60.74 clean / 34.94 PGD-20 / 30.53 CW / 28.69 AA / NRR 38.97.
+#
+# Expected failure mode to watch in the log: the raw student feature norm collapsing toward the
+# target scale. It did NOT happen at 50ep with a raw teacher (that pathology is specific to a
+# normalized teacher), but WA + AWP are new here. If clean drops into the 30s, that is the same
+# norm-crush and not a bug -- kill it rather than tuning it away.
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+teacher_cos_head : False
+featdir_normfeat_target : False
+featdir_head_ce : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

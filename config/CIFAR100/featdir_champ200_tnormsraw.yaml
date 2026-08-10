@@ -1,0 +1,53 @@
+# CHAMPION-REGIME 2x2, MISSING CELL (2026-08-09): teacher NORMALIZED, student RAW in the
+# direction loss. Head still reads the normalized student feature (student_norm True).
+# Completes the champion-regime normalization 2x2:
+#   snorm/tnorm  (champion)   60.74 / 34.94 / 30.53 / AA 28.69
+#   snorm/traw   (trawsnorm)  60.26 / 35.33 / 30.49 / AA 28.63   <- teacher-side raw: -0.48 clean, AA tie
+#   sraw/traw    (rawfeat)    59.79 / 34.94 / 30.13 / AA 28.57   <- both raw: -0.95 clean, AA tie
+#   sraw/tnorm   (THIS CELL)  ?
+# Sharp prediction (method_v2 §5.1 conjecture: the STUDENT side's scale-invariance is the
+# load-bearing one): this cell behaves like L2 -- clean down ~-1, robustness tie. If instead it
+# lands at the champion, the teacher side was the load-bearing one and §5.1's conjecture is wrong.
+# NOTE the mismatch pins ||phi_s|| toward ~1 (student chases a unit-norm target with a raw-side
+# loss); watch for the norm-crush failure mode flagged in fullraw's header.
+method : feat_direction
+featdir_rawteacher : False
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

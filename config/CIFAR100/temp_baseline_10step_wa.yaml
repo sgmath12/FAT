@@ -1,0 +1,32 @@
+# CONTROL for the WA breakthrough (2026-07-14 20:25): baseline 10-step + weight averaging.
+# k350+WA hit 62.61/33.67/cw28.00 H 43.79 (+1.6 over no-WA bar) -- claim requires this
+# control. If baseline+WA ~43.8 too -> WA is generic, our win evaporates; if it stays
+# ~42.5-43 -> k350xWA synergy is real.
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

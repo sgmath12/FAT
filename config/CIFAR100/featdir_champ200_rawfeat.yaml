@@ -1,0 +1,49 @@
+# CHAMPION STACK x RAW FEATURE MATCHING (2026-08-02). Identical to featdir_champ200_100ep in every
+# respect except the direction loss, which drops BOTH normalizations:
+#     || phi_s(x_adv) - phi_t(x) ||^2      instead of   || phi_s_hat - phi_t_hat ||^2
+# Motivated by the 16-cell grid: at 50ep / no WA / no AWP / eps 8, raw-vs-raw beat hat-vs-hat by
+# +1.35 PGD and +0.61 CW at tied clean (62.68/30.51/27.24 vs 62.61/29.16/26.63). That regime is
+# stripped, so this asks whether the ordering survives the full stack. Bar to beat:
+# 60.74 clean / 34.94 PGD-20 / 30.53 CW / 28.69 AA / NRR 38.97.
+# The head still reads the NORMALIZED student feature -- only the backbone target changes.
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

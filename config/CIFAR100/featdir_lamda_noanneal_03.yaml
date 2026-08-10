@@ -1,0 +1,40 @@
+# lamda-no-anneal cell (2026-07-19, user q): champion (k350+WA) but the CONSISTENCY term's
+# lamda skips the epoch^2 annealing ramp that WA's kappa-decay still uses -- lamda applies at
+# full strength from epoch 0 (featdir_lamda_noanneal: True, methods.py ~line 2139-2148). WA
+# annealing is untouched (still glides kappa as usual). Champion used lamda=4 WITH annealing
+# (effective early-training dose ~0.03); start SMALL here (--lamda 0.1 / 0.3 via CLI) since the
+# no-anneal dose is ~30x higher at the same lamda value for most of training.
+# Bar: champion clean62.75/pgd20 33.96/cw28.41 (k350+WA+lamda4, annealed).
+method : feat_direction
+featdir_span : random
+featdir_lamda_noanneal : True
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.3
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,64 @@
+# DETACHED-HEAD 2-CELL (2026-08-03, user design). Strips the experiment down to one comparison.
+# Head: ALWAYS the raw teacher's smoothed logits z_t/16, on a DETACHED student feature
+#   (alpha: 0.0 -> methods.py:2312 feeds fs_hat.detach(), so the head KD sends NO gradient to the
+#   backbone). Head learns alone; the backbone learns ONLY from the feature loss.
+# student_norm stays True in BOTH cells on purpose: the head must be identical across cells, and
+# with head_hat False methods.py:2313 uses feat_s and bypasses the alpha detach entirely.
+# featdir alpha != 1.0 has never been run before -- both cells are new.
+# Reference (same recipe, alpha 1.0): champion 60.74/34.94/30.53/AA 28.69 ; rawfeat 59.79/30.13/28.57.
+#
+# CELL A: raw L2. dir_loss = ||phi_s - phi_t||^2 -- magnitude AND direction.
+# OTHER-SERVER CHAMPION REPRODUCTION (2026-08-01) -- first attempt at the recipe recorded in
+# method2.py: 100ep, lamda 0, eta 512, train_eps 8/255*1.1, freeze_lr_epoch 65, wa_start 0.2,
+# on a 200ep clean teacher (that server used a 200ep teacher; ours is clean_200ep, 77.59%).
+# Their record: 60.67 clean / 28.42 AA (NRR 38.69). Our current best: 60.04 / 27.36 (NRR 37.59)
+# from featdir_awp_100ep_eps10 (train_eps 10/255, lamda 1.5, no freeze/wa_start, 300ep teacher).
+#
+# Deliberate confound: teacher AND the two new schedule flags AND train_eps/lamda all move at once.
+# This cell asks "does the whole recipe reproduce here", not "which lever did it". If it lands near
+# 28.4 the ablation is worth running; if it lands near 27.4 the delta is elsewhere (teacher init).
+#
+# NOTE on train_eps: method2 computes eps_train = train_eps * beta, so their "8/255*1.1" is the
+# product. beta is a mathematically dead dial here (AdamW scale-invariance; measured flat over
+# beta 0.25~4), so we fold the 1.1 into train_eps and keep beta 1.0 -- same attack radius.
+method : feat_direction
+featdir_rawstudent : True
+featdir_rawteacher : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 0.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

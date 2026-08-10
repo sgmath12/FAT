@@ -1,0 +1,52 @@
+# T.4 MECHANISM CELL 1a (2026-08-09): champion verbatim + featdir_norm_penalty 0.01.
+# Direction loss and attack are the champion's pure-cos ones, UNCHANGED; the only addition is
+#     0.01 * (||phi_s|| - ||phi_t||)^2
+# binding the raw student feature norm to the teacher's (~11.2). The champion's norm floats to
+# ~34.4; rawfeat's is pulled to ~8.7 and pays clean -0.95 at a robustness tie.
+# This cell separates T.4's two open accounts of that -0.95:
+#   - clean drops here too  -> binding the norm PER SE is the cost (capacity account)
+#   - clean holds           -> the cost was the raw L2 gradient's geometry/scale (dynamics account)
+# Sweep pair with npen01 (0.1). aa False per sweep policy -- AA only on whichever cell gets cited.
+# Bar: champion (p=0) 60.74 clean / 34.94 PGD-20 / 30.53 CW; rawfeat 59.79 / 34.94 / 30.13.
+# Log check at epoch ~50: if ||phi_s|| is not near 11 the penalty is too weak to adjudicate --
+# then only npen01 counts.
+method : feat_direction
+featdir_norm_penalty : 0.01
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

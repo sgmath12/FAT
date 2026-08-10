@@ -532,6 +532,44 @@ def get_model(config):
             teacher_model = Converter(base_teacher, mean, std)
             student_model = Converter(base_student, mean, std)
 
+    if config.dataset == 'TinyImageNet':
+        # Tiny-ImageNet-200: 64x64, 200 classes. Stats and, crucially, the ARCHITECTURE POLICY are
+        # taken from ADR (src/model/create_model.py) so the comparison is like-for-like: ADR does
+        # NOT swap in an ImageNet-style 7x7/stride-2 stem for this dataset. It keeps the very same
+        # CIFAR backbone (3x3 stem, stride 1, no maxpool) and absorbs the larger input purely by
+        # switching the final pooling to adaptive -- the last feature map is 8x8 here instead of
+        # CIFAR's 4x4, and adaptive pooling collapses either to 1x1. Our models now use
+        # F.adaptive_avg_pool2d(_, 1) for exactly this reason; on CIFAR that is bit-equivalent to
+        # the fixed avg_pool2d they replaced, so no CIFAR result is affected.
+        mean = (0.4802, 0.4481, 0.3975)
+        std = (0.2302, 0.2265, 0.2262)
+
+        if str(getattr(config, "arch", "ResNet18")) == "WideResNet":
+            from CIFAR10.models.WideResNet import WideResNet
+            from CIFAR10.models.WideResNet_z import WideResNet_z
+            model = WideResNet(depth=34, num_classes=200, widen_factor=10)
+            model_reform = WideResNet_z(depth=34, num_classes=200, widen_factor=10,
+                                        scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        else:
+            from CIFAR10.models.resnet import ResNet18
+            from CIFAR10.models.resnet_z import ResNet18_z
+            model = ResNet18(num_classes=200)
+            model_reform = ResNet18_z(num_classes=200, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+
+        student_norm = getattr(config, "student_norm", None)
+        if student_norm is None: student_norm = config.reformation
+        teacher_norm = getattr(config, "teacher_norm", None)
+        if teacher_norm is None: teacher_norm = config.reformation
+        base_teacher = model_reform if teacher_norm else model
+        base_student = copy.deepcopy(model_reform if student_norm else model)
+
+        if config.convert is False:
+            teacher_model = base_teacher
+            student_model = base_student
+        else:
+            teacher_model = Converter(base_teacher, mean, std)
+            student_model = Converter(base_student, mean, std)
+
 
     if config.load:
         path = Path(os.path.realpath(__file__))

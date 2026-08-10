@@ -1,0 +1,48 @@
+# NO-FEATURE-TERM ABLATION (2026-08-02, user q). The reviewer's first question: does the feature
+# term do anything at all, or is the smoothed teacher logit the whole method?
+#     loss = KL( softmax(z_t(x)/16) || softmax(f_s(x_adv)) )        <- this cell, logits only
+# vs  loss = ||phi_s(x_adv) - phi_t(x)||^2 + beta*KL(head(...)||z_t/16)   <- champion
+# Everything else is held at the champion stack: same 200ep teacher, 100ep, AdamW 0.021 one-cycle,
+# freeze_lr_epoch 0.65, wa_start 0.2, WA kappa 0.999, AWP proxy 0.005/warmup10, train_eps 8.8/255,
+# PGD-10 2/255, lamda 0, seed 0. train_eps/freeze_lr_epoch/wa_start were added to train_temperature
+# today so this comparison is like-for-like; they were previously featdir-only.
+# NOTE the attack differs by construction: this cell's inner max is KL-to-target (inner_loss_only_
+# return), the champion's is feature-direction. That is not a confound to remove -- each method
+# needs its matched adversary (measured: mismatched attack/loss pairs collapse, KL/dir 37.41).
+# Bar: 60.74 clean / 34.94 PGD-20 / 30.53 CW / 28.69 AA / NRR 38.97.
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

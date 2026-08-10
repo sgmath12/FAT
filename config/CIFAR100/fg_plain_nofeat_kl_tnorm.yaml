@@ -1,0 +1,50 @@
+# NO-FEATURE-TERM 2x2 (2026-08-02, user q). Pure logit KD -- loss = KL(softmax(z_t/16) || student)
+# -- with no feature-matching term at all, in the 50ep grid regime on the clean_200ep teacher.
+# The 2x2 is over POST-HOC normalization of each side's feature before it reaches its own head:
+#   teacher  : teacher_norm False -> z_t = W_t phi_t     |  True -> z_t = W_t phi_t_hat
+#   student  : student_norm False -> plain ResNet18      |  True -> ResNet18_z (head reads phi_s_hat)
+# TAU FIX (2026-08-02): tau 16 -> 1. With teacher_norm True the target is W_t phi_t_hat, whose
+# logits are ~||phi_t||=11.2x smaller than the raw ones; dividing by 16 on top makes the target
+# indistinguishable from uniform (measured max prob 0.0106 vs uniform 0.0100 -- no learning signal).
+# Not dividing matches the convention train_feat_direction already uses in its normfeat_target
+# branch, and lines the sharpness up with the raw cells: logit std 0.148 here vs 0.109 for raw/16.
+# Residual 36% sharpness gap is accepted for convention-consistency; tau 1.43 would match exactly.
+# THIS CELL: teacher normalized, student normalized.
+#
+# Why this matrix matters. Measured end-of-training ||phi_s|| with a feature term present:
+#   raw matching  8.7-9.4 (pinned near the teacher's 11.20)   direction matching  26-35 (drifts free)
+# So the feature term already controls the feature scale, which is what the student's architectural
+# normalization otherwise protects the head from. With the feature term removed, nothing controls
+# the scale -- the prediction is that student_norm False blows up, and that the blow-up is visible
+# as a large ||phi_s||, not merely as a bad accuracy number. Check the norm before interpreting.
+# Reference points, same regime: fg_plain_th_sh_kl 62.61/29.16/26.63 (feature term + student norm).
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 1
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

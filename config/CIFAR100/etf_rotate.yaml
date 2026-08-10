@@ -1,0 +1,56 @@
+# TRICK B (2026-08-03): per-class rotation of the direction target onto a simplex ETF.
+#   target <- R_y phi_t_hat(x),   R_y = minimal rotation taking c_y -> e_y
+# The natural teacher's class prototypes are NOT equiangular -- measured on CIFAR100 the off-diagonal
+# cosine is mean 0.3212 / max 0.6611, where a maximally separated frame gives -1/(K-1) = -0.0101.
+# So the teacher's class geometry is far from max-margin, and margin is what robustness should care
+# about. This rotates each class's whole direction field onto an ETF vertex, maximizing angular
+# separation while CARRYING THE INSTANCE RESIDUAL ALONG (verified: the rotation preserves the angle
+# between phi and its own prototype to 1e-7). That matters because trick A showed the residual is
+# worth keeping: proto_g05 lost on all three metrics (60.66/28.93/26.37 vs 62.61/29.16/26.63).
+#
+# ETF is built inside span(C) and Procrustes-aligned to C -- closest ETF to what the teacher has, so
+# nothing moves except what equiangularity requires. Mean rotation is ~45 deg per class.
+# Run STANDALONE (featdir_proto_gamma absent = 0): trick A hurt on its own, so composing them first
+# would confound a B result with a known-negative A.
+#
+# Regime: n2 fast regime, 50ep / 10-step / eps 8 / WA off / AWP off / k512 / seed 0 / clean_200ep.
+# Baseline (no rotation) = fg_plain_th_sh_kl 62.61 / 29.16 / 26.63.  aa: False (screening).
+# Rank on CW, not PGD -- PGD margins do not transfer to AA in this regime.
+# THIS CELL: featdir_etf_rotate only.
+method : feat_direction
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+teacher_cos_head : False
+featdir_rawteacher : False
+featdir_rawstudent : False
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_etf_rotate : True

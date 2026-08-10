@@ -1,0 +1,53 @@
+# 2026-07-26: the champion recipe on the RPAT/ReBAT *training protocol* instead of ours.
+# Three deliberate changes vs featdir_mixupT_wa (the 50ep CIFAR10 champion port):
+#   1. finetune: False  -- student starts from RANDOM init, not the natural teacher's weights.
+#      (The ECCV reviewers' "fine-tuning initialization advantage" objection: this run answers it.)
+#      load stays True, so the TEACHER is still the natural net -- only the student init changes.
+#   2. optim SGD 0.1 / momentum 0.9 / wd 5e-4 + lr_schedule piecewise (flat, /1.5 at 100, /1.5^2
+#      at 150) = exactly ReBAT/RPAT's schedule. AdamW 0.021 + OneCycle would not survive lr 0.1.
+#   3. epochs 200 (their budget) instead of 50.
+# Everything else is the champion verbatim: k (--eta, CIFAR10 best = 200 from the 07-23 sweep:
+# eta200 82.68/56.45 vs eta350 82.52/55.90 vs eta512 83.15/55.72), lamda 4.0, tau 16, beta 1.0,
+# 10-step attack, eps 8/255, student_norm on / teacher_norm off, WA (kappa 0.999, annealed).
+# Teacher = 200ep mixup clean net (clean 95.76), same as the 50ep runs.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: ResNet18
+optim : SGD
+lr : 0.1
+weight_decay : 0.0005
+lr_schedule : piecewise
+stage1 : 100
+stage2 : 150
+lr_factor : 1.5
+cyclic : False
+alpha : 1.0
+eta : 200
+lamda : 4.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 200
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+weight_avg : True
+# NOT clean_mixup_last.pkl: the WRN sweep (2026-07-25) reuses the clean_mixup_200ep config name,
+# so it overwrote _last/_best with a 185MB WideResNet state dict. This 44MB file is the surviving
+# ResNet-18 mixup teacher (clean 95.76 = the one the 07-23 CIFAR10 eta sweep actually used).
+checkpoint : CIFAR10/checkpoint/clean_mixup_200ep/clean_mixup_95.7600_best.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_mixup_200ep/clean_mixup_95.7600_best.pkl
+data_root : ./data

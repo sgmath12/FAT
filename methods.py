@@ -2104,6 +2104,7 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
     scale = float(getattr(config, "feat_scale", 1.0) or 1.0)
     supp = float(getattr(config, "featdir_suppress", 0.0) or 0.0)      # moved up: needed by the AWP loss closure too
     alpha = float(getattr(config, "featdir_alpha", 0.0) or 0.0)
+    npen = float(getattr(config, "featdir_norm_penalty", 0.0) or 0.0)  # T.4 mechanism cell: see _step_loss
 
     # AWP (Wu et al. NeurIPS'20) -- optional, config.awp_gamma>0 and epoch>=awp_warmup. Off by
     # default (awp_gamma None/0): behavior identical to before this cell. config.awp_style
@@ -2399,18 +2400,57 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 _g = torch.autograd.grad(_l0, [_xg])[0].detach()
                 model.train()
                 optimizer.zero_grad()
-                _gn = _g.flatten(1).norm(dim=1).clamp(min=1e-12)
-                _w = (_gn.mean() / _gn).pow(_ap).clamp(_lo, _hi)
-                _w = _w * (_w.numel() / _w.sum())                          # restore mean 1 AFTER clip
+                # SENSITIVITY NORM.  The first-order angle moved inside an L-INF ball of radius e is
+                #   max_{||d||_inf <= e} <grad, d> = e * ||grad||_1   (the dual norm of L-inf is L1),
+                # so equalizing the ANGULAR budget needs the L1 gradient norm.  featdir_angeps_gnorm
+                # defaults to 2 (the 2026-08-04 champion used the L2 norm, and every logged angeps
+                # run must stay reproducible); set it to 1 for the allocation the derivation
+                # actually describes.
+                _gp = int(getattr(config, "featdir_angeps_gnorm", 2) or 2)
+                _gn = _g.flatten(1).norm(dim=1, p=_gp).clamp(min=1e-12)
+                _r = (_gn.mean() / _gn).pow(_ap)
+                if bool(getattr(config, "featdir_angeps_exact_budget", False)):
+                    # EXACT box-constrained budget.  The plain "clip then rescale to mean 1" below
+                    # rescales the clipped entries too, so they leave [lo,hi] again -- the champion
+                    # log shows w_min 0.40 against a configured lo of 0.5.  Solving instead for the
+                    # scale t with  sum_i clip(t*r_i, lo, hi) == N  keeps BOTH constraints exactly:
+                    # f(t) is continuous and nondecreasing from N*lo to N*hi, so bisect.  With no
+                    # clip active the solution is t = N/sum(r), i.e. this strictly generalizes the
+                    # mean-restore.  Requires lo <= 1 <= hi for feasibility.
+                    # bisect on log t: t=lo/max(r) saturates everything low (f=N*lo<=N) and
+                    # t=hi/min(r) saturates everything high (f=N*hi>=N), so the root is bracketed;
+                    # r spans orders of magnitude when CV(g) is large, hence log space.
+                    _N = _r.numel()
+                    _a = torch.log(_lo / _r.max())
+                    _b = torch.log(_hi / _r.min())
+                    _logr = torch.log(_r)
+                    for _ in range(60):
+                        _t = 0.5 * (_a + _b)
+                        _s = torch.exp(_t + _logr).clamp(_lo, _hi).sum()
+                        _a, _b = torch.where(_s < _N, _t, _a), torch.where(_s < _N, _b, _t)
+                    _w = torch.exp(0.5 * (_a + _b) + _logr).clamp(_lo, _hi)
+                else:
+                    _w = _r.clamp(_lo, _hi)
+                    _w = _w * (_w.numel() / _w.sum())                      # restore mean 1 AFTER clip
                 eps_use = eps_train * _w.view(-1, 1, 1, 1)
                 step_use = config.step_size * _w.view(-1, 1, 1, 1)         # keep steps-per-radius fixed
                 if batch_idx == 0:
-                    logging.info({"angeps_p": _ap, "w_min": round(_w.min().item(), 3),
+                    logging.info({"angeps_p": _ap, "gnorm": _gp,
+                                  "exact_budget": bool(getattr(config, "featdir_angeps_exact_budget", False)),
+                                  "w_min": round(_w.min().item(), 3),
                                   "w_max": round(_w.max().item(), 3),
+                                  "w_mean": round(_w.mean().item(), 4),
                                   "w_std": round(_w.std().item(), 3),
                                   "gradnorm_cv": round((_gn.std() / _gn.mean()).item(), 3),
                                   "epoch": epoch})
-            x_pgd = inner_featdir_only_return(model, phi_t_dir, x, optimizer, step_use, eps_use, perturb_steps=config.steps, Q=Q, raw_student=raw_s)
+            # featdir_attack_full_rank (2026-08-08): Q normally projects BOTH the outer loss and the
+            # inner attack, so sweeping k confounds "how many directions are SUPERVISED" with "how
+            # many directions the adversary may rotate in" -- and the two push clean accuracy in
+            # opposite directions, which makes the k sweep uninformative unless it comes out one
+            # particular way.  Setting this True leaves the attack at full rank so that k varies the
+            # supervision rank alone.  Default False = unchanged behaviour.
+            _Q_atk = None if bool(getattr(config, "featdir_attack_full_rank", False)) else Q
+            x_pgd = inner_featdir_only_return(model, phi_t_dir, x, optimizer, step_use, eps_use, perturb_steps=config.steps, Q=_Q_atk, raw_student=raw_s)
 
         def _step_loss():
             feat_s, plus_logits = model(x_pgd, feat=True)                   # raw student feat (pre-norm)
@@ -2425,6 +2465,16 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             else:
                 dir_loss = d_feat.pow(2).sum(dim=1)                        # 2 - 2cos per sample
             loss = dir_loss.mean()
+
+            # featdir_norm_penalty (2026-08-09, theory_v1 T.4 mechanism cell 1): direction loss
+            # UNCHANGED (pure cos, attack unchanged), plus an explicit penalty binding the raw
+            # student feature norm to the teacher's: npen * (||phi_s|| - ||phi_t||)^2 per sample.
+            # Separates the two open accounts of rawfeat's clean -0.95: if binding the norm PER SE
+            # is the cost (capacity account), this cell drops clean too; if the cost was the raw
+            # L2 gradient's geometry/scale (dynamics account), this cell holds clean -- the
+            # direction gradient here is still the pure cos one.
+            if npen > 0:
+                loss = loss + npen * (feat_s.norm(dim=1) - phi_t.detach().norm(dim=1)).pow(2).mean()
 
             # Mechanism cell (5): FORBID USE of the free subspace (2026-07-14 evening) — energy
             # penalty on the complement of span(Q): the student is still ungraded there wrt the

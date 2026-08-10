@@ -1,0 +1,73 @@
+# CHAMPION STACK x *FULL* RAW x SENSITIVITY-MATCHED eps  (2026-08-10).
+#
+# The p=1 partner of featdir_champ200_fullraw. Sole diff vs it: featdir_angeps_p 0 -> 1.0.
+#
+# NAMING -- the flag is called `angeps` but in a FULL RAW config it does NOT allocate by angle.
+# The sensitivity is measured on whatever direction-loss the config selects:
+#     methods.py:  _fsh = _fs if raw_s else normalize(_fs);  _d0 = _fsh - phi_t_dir
+# so with featdir_rawstudent/rawteacher True the gradient is that of the RAW feature loss, and
+# what gets equalized is the FEATURE DISPLACEMENT (angle AND magnitude), not the angle. Same
+# principle -- spend the eps budget in the metric the loss actually uses -- different instance.
+# Direction design = angular budget; raw design = feature-displacement budget.
+#
+# WHY: the champion-stack row is the one place the direction design beats full raw
+# (28.69 vs 28.04 AA, +2.96 clean). angeps is off (p=0) in BOTH cells of that row, so it is not
+# the source of the gap -- but a reviewer will ask whether raw simply never got the same
+# treatment. This is that control, and it is the missing 4th cell of:
+#            p=0                p=1
+#   dir      60.74 / 28.69      62.17 / 28.59
+#   raw      57.78 / 28.04      THIS RUN
+#
+# angeps sub-knobs deliberately left at their defaults (gnorm 2, exact_budget False) so this is
+# matched to the 2026-08-04 champion+angeps cell rather than to a tuned variant.
+#
+# WATCH IN THE LOG: raw constrains magnitude too, so CV(grad) may be far above the direction
+# design's measured 0.65-0.74. If it is, the [0.5,1.5] clip saturates and eps degenerates to two
+# levels -- that would be "the clip blocked it", NOT "angeps does not transfer to raw". The first
+# batch of each epoch logs gradnorm_cv / w_min / w_max / w_std; check epoch 0 before trusting a
+# full run.
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+teacher_cos_head : False
+featdir_normfeat_target : False
+featdir_head_ce : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_angeps_p : 1.0

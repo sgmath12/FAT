@@ -1,0 +1,50 @@
+# TRICK A (2026-08-03): class-prototype shrinkage of the DIRECTION target.
+#   target <- normalize( (1-g) * phi_t_hat(x) + g * c_y ),  c_y = unit-norm class mean of phi_t_hat
+# Rationale (Ilyas frame): the natural teacher's direction carries non-robust features, and those
+# live in the INSTANCE residual rather than the class-level direction. Shrinking toward c_y deletes
+# dark knowledge but should also delete the non-robust part -- if robustness RISES the frame's
+# prediction holds; if it falls, instance-level teacher detail is genuinely load-bearing.
+# The HEAD target (z_t/16) is deliberately untouched: this dial is about the backbone's anchor only.
+#
+# Regime: the n2 fast regime -- 50ep / 10-step / eps 8 / WA off / AWP off / k512 / lamda 0 / seed 0 /
+# clean_200ep teacher. g=0 is ALREADY MEASURED: fg_plain_th_sh_kl = 62.61 / 29.16 / 26.63.
+# aa: False (screening). NOTE the standing caveat: in this regime PGD margins do NOT transfer to AA
+# (featdir-normalization-2x2) -- read CW, not PGD, when ranking these cells.
+# THIS CELL: gamma = 1.0
+method : feat_direction
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+teacher_cos_head : False
+featdir_rawteacher : False
+featdir_rawstudent : False
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_proto_gamma : 1.0

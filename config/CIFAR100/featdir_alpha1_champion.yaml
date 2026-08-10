@@ -1,0 +1,38 @@
+# Head-loss routing on the CURRENT champion (2026-07-17, user q): identical to k350+WA+lamda4
+# but featdir_alpha:1.0 -- head-KL gradient fully undetached into the backbone (baseline-
+# style routing). Prior test (2026-07-14, on OLD k=512/no-free-space pipeline) found alpha
+# flat/no-effect; NOW there's a free 162-dim subspace for routed class signal to fill,
+# a genuinely different question. Compare vs champion NRR 37.06.
+method : feat_direction
+featdir_alpha : 1.0
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

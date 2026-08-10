@@ -1,0 +1,47 @@
+# BETA SWEEP (2026-08-04): relative weight of the head KD term against the direction loss.
+#   loss = dir_loss.mean() + beta * (1/N) * KL(head_logits, z_t/tau)
+# EVERY featdir config to date used beta 1.0 -- this dial has never been swept for this method.
+# featdir_champ200_100ep's header calls beta "a mathematically dead dial (AdamW scale-invariance,
+# measured flat over 0.25~4)", but that measurement came from method2, where beta also entered
+# eps_train = train_eps * beta. Here beta scales ONLY the head term, so it sets the RATIO between
+# the two losses -- scale invariance kills a global factor, not a relative one. The comment does not
+# transfer, and the claim is untested for featdir.
+# Regime: n2 fast -- 50ep / 10-step / eps 8 / WA off / AWP off / k512 / seed 0 / clean_200ep.
+# beta=1.0 baseline = fg_plain_th_sh_kl 62.61 / 29.16 / 26.63, H(CW) 37.37. Rank on CW, not PGD.
+# THIS CELL: beta = 2.0
+method : feat_direction
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 2.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+teacher_cos_head : False
+featdir_rawteacher : False
+featdir_rawstudent : False
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

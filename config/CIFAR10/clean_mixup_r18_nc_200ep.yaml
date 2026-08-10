@@ -1,0 +1,42 @@
+# 2026-07-27: clean natural ResNet18 trained with input mixup, 200ep, on RAW [0,1].
+# Purpose = alternative natural INITIALIZATION for CURE (methods.train_cure), alongside the
+# existing clean_no_convert/clean_last.pkl (94.48%) control arm.
+#
+# Differs from clean_mixup_200ep.yaml in exactly two fields:
+#   arch    : WideResNet -> ResNet18   (CURE ResNet18-CIFAR10 arm)
+#   convert : <absent>   -> False      (absent => dotdict.get returns None => utils.py:458 takes
+#                                       the Converter branch, i.e. NORMALIZED inputs, which is
+#                                       incompatible with CURE's clamp(x,0,1) + eps=8/255)
+# Output: CIFAR10/checkpoint/clean_mixup_r18_nc_200ep/clean_mixup_last.pkl
+method : clean_mixup
+dataset : CIFAR10
+arch: ResNet18
+optim : SGD
+
+lr : 0.1
+alpha : 0.0
+beta : 0.0
+gamma : 0.0
+eta : 0.0
+mixup_alpha : 1.0
+# attack setting (unused for clean training, kept for schema completeness)
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 200
+
+batch_size : 128
+interval : 5
+load : False
+finetune : False
+evaluate : False
+reformation : False
+convert : False        # raw [0,1], no normalization -> matches CURE (norm_std=False)
+save : False
+val : False
+aug : none
+aa : False
+log : True
+cyclic : True
+weight_avg : False
+data_root : ./data

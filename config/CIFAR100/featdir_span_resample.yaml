@@ -1,0 +1,41 @@
+# span-resample cell (2026-07-19, user q "지금 랜덤하게 350차원을 고르잖아, 뭐 또 아이디어 없음?"):
+# every prior "which k dims" experiment (teacher-span, pca_natural, pca_robust, oracle) tied-or-
+# lost to plain random -- content doesn't matter, only the count (dimensionality bottleneck,
+# see dpfat-current-work memory). This is a DIFFERENT axis: instead of one Q fixed for the whole
+# run, redraw a fresh random 350-dim Q EVERY EPOCH (featdir_span_resample: True, methods.py
+# ~line 2013-2020) so no single 162-dim blind spot is permanently ungraded -- dropout-style
+# regularization on the grading, not a smarter subspace pick. Otherwise identical to the
+# champion (k350+WA+lamda4). Bar: clean62.75/pgd20 33.96/cw28.41.
+method : feat_direction
+featdir_span : random
+featdir_span_resample : True
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 4.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

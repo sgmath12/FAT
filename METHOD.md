@@ -16,8 +16,11 @@ a $(\mathcal{F}_t,w_t)$ pair whose feature set was selected by $\rho$ alone, and
 to keep $\mathcal{F}_t$ (which is what supplies clean accuracy) while structurally discarding
 $w_t$ and the unreachable non-robust component (which is what the adversarial term supplies
 $\gamma$ against). $\rho$ comes from the teacher, $\gamma$ comes from the inner maximization, and
-the two sources are separated by construction — so a *robust* teacher is not merely unavailable
-here, it is **unnecessary**.
+the two sources are separated by construction — so **the method does not depend on the teacher being
+robust**. *(Scope: this is a mechanism statement at matched teacher capacity, not a ranking claim
+against robust-teacher KD — that line buys its numbers substantially from* stronger *teachers
+(large robust WRNs), an axis we do not compete on. Our comparison class is methods without a robust
+teacher — ADR, TRADES-family — and §7 reports it as such.)*
 
 **(P2) The target is the clean/robust operating point, not AA alone.**
 The method buys $+2.7$ clean at a cost of $-1.1$ AA against the strongest baseline (§7), a corner

@@ -1,0 +1,49 @@
+# ARCHITECTURE-NORMALIZATION cells (2026-08-02, user q). The gap in the 16-cell grid: every one of
+# those cells held student_norm True, so the HEAD always read phi_s_hat and only the DIRECTION LOSS
+# varied. These two turn the architecture normalization off, so the student is raw end to end --
+# direction loss, head input, and forward() at evaluation all use the raw feature.
+# (Before today this could not run: the head term was hard-wired to phi_s_hat while forward() used
+# the raw feature, i.e. a train/eval mismatch. methods.py now ties the head input to student_norm.)
+#
+# Prediction from the nofeat measurement: without a feature term and without normalization the
+# representation COLLAPSES -- ||phi_s|| fell 11.20 -> 0.28 because shrinking the feature is the
+# cheapest way to match a small soft target (logit std 0.109). WITH a feature term the scale is
+# already pinned (tr_sr_kl measured ||phi_s|| = 9.40), so removing normalization should be roughly
+# free here. If instead it collapses, the feature term does not actually protect the scale.
+# Same 50ep grid regime otherwise. Compare: tr_sr_kl 62.68/30.51/27.24, th_sh_kl 62.61/29.16/26.63.
+method : feat_direction
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+teacher_cos_head : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

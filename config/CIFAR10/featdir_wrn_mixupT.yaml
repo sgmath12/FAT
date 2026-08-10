@@ -1,0 +1,37 @@
+# 2026-07-25: WideResNet port of the CIFAR10 featdir line (was featdir_mixupT_wa on ResNet18).
+# Teacher = the 200ep WideResNet-34-10 mixup clean net (CIFAR10/checkpoint/clean_mixup_200ep/
+# clean_mixup_last.pkl, best ~97.1 clean), a higher-entropy natural teacher. Student = WideResNet_z
+# (feature L2-normalized, the confirmed featdir lever). WA is OFF (weight_avg: False) per user.
+# k (subspace dim) from --eta, lamda from --lamda (both CLI, like the CIFAR100 champion).
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: WideResNet
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR10/checkpoint/clean_mixup_200ep/clean_mixup_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_mixup_200ep/clean_mixup_last.pkl
+data_root : ./data

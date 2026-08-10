@@ -1,0 +1,42 @@
+# ATTACK-ISOLATION cell (2026-07-13): featdir training loss (dir-L2 backbone + detached-KL head)
+# but the ORIGINAL KL-max inner attack. If this recovers toward 41.77 -> the featdir -1.8 was the
+# weaker direction-max adversary, and THIS is the story-faithful method at baseline performance.
+# Feature-space DIRECTIONAL distillation (user, 2026-07-13), FREE head control cell.
+#   Backbone loss = ||Phi_hat_s(x_adv) - Phi_hat_t(x)||^2 (both L2-normalized; teacher post-hoc)
+#   Head loss     = beta * KL(head(scale * Phi_hat_s.DETACHED) || z_t/tau)  -> head-only gradients
+#   Attack        = maximize the direction loss (inner_featdir_only_return); teacher head w_t is
+#   deleted from backbone path AND attack. This cell keeps the ordinary free linear head (gain_head
+#   False) so the pipeline change is isolated before adding the gain-only head (featdir_gainhead).
+#   3-step; bar = temp_studentNorm_teacherRaw tau16 H 41.77 (seed0). Sweep beta via --beta.
+method : feat_direction
+featdir_attack : kl
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,58 @@
+# NORMALIZATION 2x2, done properly (2026-08-02). Earlier fg_* cells only toggled normalization
+# INSIDE the direction loss while student_norm stayed True everywhere, so the head and the eval-time
+# forward were always normalized -- that was not the intended experiment. Here "normalized" applies
+# to that side EVERYWHERE at once:
+#   student normalized -> direction loss uses phi_s_hat, head reads phi_s_hat, forward() normalizes
+#   student raw        -> all three use the raw feature (needs the 2026-08-02 methods.py fix; before
+#                         it the head was hard-wired to phi_s_hat, giving a train/eval mismatch)
+#   teacher normalized -> direction target is phi_t_hat AND the head target is W_t phi_t_hat, not
+#                         divided by tau (dividing a normalized-feature logit by 16 leaves a target
+#                         indistinguishable from uniform: measured max prob 0.0106 vs 0.0100)
+#   teacher raw        -> direction target phi_t, head target z_t/16
+#
+# THIS CELL: teacher raw, student normalized.
+# Head training is unchanged from the champion: a detached KD term, backbone gradient comes only
+# from the feature loss. Regime: 50ep / 10-step / WA off / AWP off / eps 8 / lamda 0 / k512 / seed 0
+# / clean_200ep teacher. Reference: fg_plain_th_sh_kl 62.61 / 29.16 / 26.63.
+#
+# Expect cell (teacher normalized, student raw) to COLLAPSE: a raw feature chasing a unit-norm
+# target has its norm crushed toward 1. Already observed twice -- th_sr reached ||phi_s|| 0.60 with
+# clean 39.31, and the no-feature-term raw cell reached 0.28. That is a property of the combination,
+# not a bug, and it should be reported as such rather than tuned away.
+method : feat_direction
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+teacher_cos_head : False
+featdir_normfeat_target : False
+featdir_rawteacher : True
+featdir_rawstudent : False
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

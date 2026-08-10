@@ -1,0 +1,37 @@
+# Feature-space directional distillation + GAIN-ONLY head = the FULL decomposition cell
+# (user, 2026-07-13): teacher sends ONLY its normalized feature direction (backbone L2 + direction-
+# max attack; teacher classifier head deleted everywhere), student magnitude lives ONLY in 100
+# per-class gains w_s,c = exp(log_g_c) * w_t,c learned from the detached-feature KL (z_t/tau).
+# Run AFTER its two isolations: featdir.yaml (pipeline change, free head) and temp_gainhead.yaml
+# (head change, KL pipeline). 3-step; bar = 41.77 H (tau16 seed0). Sweep beta via --beta.
+method : feat_direction
+gain_head : True
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,56 @@
+# MISSING CELL of the alpha-1.0 2x2 (2026-08-03): PLAIN architecture + COSINE loss.
+# The 2x2 is {architecture normalization on/off} x {loss = cosine / raw L2}, all at alpha 1.0:
+#   arch on  + cosine = featdir_champ200_100ep  60.74 / 30.53 / AA 28.69
+#   arch on  + L2     = featdir_champ200_rawfeat 59.79 / 30.13 / AA 28.57
+#   arch off + L2     = featdir_champ200_fullraw 57.78 / 29.68 / AA 28.04
+#   arch off + cosine = THIS CELL
+# It is the only cell that separates the two axes. Architecture normalization pins the student logit
+# scale (which is why a raw student cannot eat a z_t/16 target -- nofeat_raw AA 22.66) AND makes any
+# feature loss automatically directional. This cell keeps the plain architecture but restores the
+# directional loss, so:
+#   ~28.6 -> the architecture's contribution is logit scaling only; a cosine loss substitutes for it
+#   ~28.0 -> the architecture buys something the loss form cannot, independent of directionality
+# alpha stays 1.0 so it is comparable to the three cells above (the lossgeo_* pair uses alpha 0.0 and
+# forms a separate row). Blow-up risk is low: fullraw is the same plain+alpha1 setting and warm-started
+# fine at 38.95, because a live feature loss holds the backbone while the head KD is scale-mismatched.
+method : feat_direction
+featdir_rawstudent : False
+featdir_rawteacher : False
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

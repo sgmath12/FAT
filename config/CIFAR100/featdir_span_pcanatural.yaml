@@ -1,0 +1,36 @@
+# PCA-SUBSPACE cell (2026-07-14): grade the direction error only on the top-k feature-PCA
+# directions of the NATURAL teacher (k via --eta). Target stays the natural teacher's Phi_hat.
+# vs random at same k: informed > random at k < r -> selection content matters (user's
+# robust-important-subspace hypothesis; eff rank natural 57.2 / robust 8.7).
+method : feat_direction
+featdir_span : pca_natural
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 3
+step_size : 4/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

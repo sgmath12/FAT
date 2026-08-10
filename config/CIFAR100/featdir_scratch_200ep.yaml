@@ -1,0 +1,43 @@
+# 2026-07-26: CIFAR100 twin of config/CIFAR10/featdir_scratch_200ep.yaml -- the champion recipe
+# run on the RPAT/ReBAT training protocol (scratch init + SGD 0.1 piecewise + 200 epochs).
+# Base = featdir_span_random_10step_wa.yaml (the pinned champion: 62.75 / 33.96 pgd20 / 28.41 cw
+# / 26.29 AA at 50ep with finetune init). Changes: finetune False, SGD+piecewise, 200 epochs.
+# k stays 350 (the CIFAR100 k-curve interior optimum) and lamda 4.0, as in the champion command.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : SGD
+lr : 0.1
+weight_decay : 0.0005
+lr_schedule : piecewise
+stage1 : 100
+stage2 : 150
+lr_factor : 1.5
+cyclic : False
+alpha : 1.0
+eta : 350
+lamda : 4.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 200
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

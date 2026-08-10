@@ -1,0 +1,36 @@
+# ROBUST-LEANING frontier point (2026-07-14 night): k350+WA 10-step, TRAIN eps 12/255
+# (eval stays 8/255). Preempts 'robustness lower than X' reviews with a clean->robust
+# trade point on the same method. Base: k350+WA 43.79/43.82 (s0/s1).
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+train_eps : 0.047058823529411764
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,47 @@
+# FEATURE/HEAD GRID cell cos_th_sr_ce (2026-08-01). CIFAR100, 50ep, 10-step, lamda 0, NO AWP, NO WA, seed 0.
+#   teacher training : clean 200ep trained WITH a cosine classifier
+#   direction loss   : || phi_s(x_adv) - phi_t_hat(x) ||^2
+#   head loss        : CE(head(x_adv), y)
+# The head INPUT is identical in all 16 cells (normalized student feature, detached) so head logit
+# scale cannot confound the backbone comparison; only the head TARGET varies. ||phi_t|| = 11.23
+# (std 2.09) on the plain teacher, so a mismatched direction pair pins the student's feature norm.
+# WA and AWP are both off: this grid isolates the loss design, and both are orthogonal training
+# tricks. Consequence to remember when reading the table -- final-epoch snapshots are noisier than
+# the WA-averaged numbers everything else in this project reports.
+# Filenames use r/h (raw/hat) rather than case: /mnt/d is case-insensitive and T/t collided.
+method : feat_direction
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+teacher_cos_head : True
+featdir_rawteacher : False
+featdir_rawstudent : True
+featdir_head_ce : True
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_cos200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_cos200ep/clean_last.pkl
+data_root : ./data

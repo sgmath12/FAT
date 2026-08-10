@@ -1,0 +1,31 @@
+method : clean
+dataset : CIFAR100
+arch: ResNet18
+optim : SGD
+
+lr : 0.1
+alpha : 0.0
+beta : 0.0
+gamma : 0.0
+eta : 0.0
+# attack Setting
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 300
+
+
+batch_size : 128
+interval : 5
+neptune : True
+load : False
+finetune : False
+evaluate : False
+reformation : False
+save : False
+exp_name: KD
+val : False
+aug : none
+log : True
+cyclic : True
+data_root : ./data

@@ -1,0 +1,40 @@
+# PAPER-BASE 2x2, cell sraw/tnorm (2026-08-09, theory_experiment_necessary.md Phase 1).
+# ||phi_s - t_hat||^2 = ||phi_s||^2 - 2||phi_s||cos + 1: the unit-vector target becomes a
+# magnitude command ||phi_s|| -> cos(theta) <= 1 when the student side is raw. Predicted (bottom
+# row): clean down at AA tie, ||phi_s|| crushed toward ~1. Watch for the norm-crush failure mode
+# (fullraw header); if clean collapses into the 30s that is the pathology, not the effect.
+method : feat_direction
+featdir_rawteacher : False
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

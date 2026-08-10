@@ -1,0 +1,56 @@
+# "WHY DO YOU NEED THE FEATURE LOSS AT ALL?" -- NORMALIZED version, champion recipe (2026-08-03).
+# This is the champion (featdir_champ200_100ep, 60.74/34.94/30.53/AA 28.69) with the feature loss
+# deleted and nothing else changed. At 50ep the normalized nofeat cell BEAT its featdir counterpart
+# on PGD and CW, so this is the run that can actually falsify the method. Companion: nofeat_champ200_raw.
+# Reviewer's obvious attack on featdir: if the student is raw and the teacher target is just z_t/16,
+# the feature term may be doing nothing that plain logit KD doesn't already do. This is featdir
+# deleted (method: temperature = pure KD at tau, no direction loss, no subspace) with EVERYTHING
+# else held at the champion schedule.
+#
+# At 50ep the answer already leans our way, but only in the raw regime:
+#   raw student  : featdir 62.86/32.36/27.18  vs  nofeat 58.43/31.98/26.70  -> featdir +4.43 clean, +0.48 CW
+#   norm student : featdir 62.61/29.16/26.63  vs  nofeat 61.69/31.44/27.05  -> nofeat WINS (+2.28 PGD, +0.42 CW)
+# i.e. under normalization the feature loss does not earn its keep. That is the real threat, and it
+# is why nofeat_champ200_norm.yaml is queued alongside this one.
+#
+# Bar: featdir champion 60.74/34.94/30.53/AA 28.69, and featdir_champ200_fullraw (running).
+# NOTE on scale: train_temperature (methods.py:1651) does NOT divide the student logits by tau,
+# same convention as train_feat_direction (:2323), so the two methods stay comparable -- but with a
+# raw student both carry the ~11x sharpness mismatch vs the z_t/16 target. Do not read a clean drop
+# here as "no-feature-loss is unstable" without checking that first.
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

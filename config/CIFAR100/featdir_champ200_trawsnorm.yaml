@@ -1,0 +1,52 @@
+# MISMATCHED PAIR at the champion recipe (2026-08-03): teacher RAW, student NORMALIZED.
+# Direction loss is ||phi_s_hat - phi_t||^2, head reads phi_s_hat, head target z_t/16.
+# = the n2 grid's traw_snorm cell (50ep: 62.66/29.21/26.77, a tie with the reference) lifted onto
+# the champion schedule. Everything else is featdir_champ200_100ep verbatim.
+#
+# WHY: the direction term looks INERT here -- ||phi_s_hat - phi_t||^2 is floored by ||phi_t||^2~125,
+# and at 50ep dir_loss moved only 133.7 -> 129.1 (-3.5%) while the matched raw/raw cell moved
+# 97.3 -> 57.0 (-41%). Prediction: this lands on nofeat_champ200_norm (AA 28.71), i.e. the feature
+# term contributes nothing. If it lands materially off that, the "inert" reading is wrong.
+# Bar: champion 60.74/34.94/30.53/AA 28.69 ; nofeat_norm 58.92/35.10/30.03/AA 28.71.
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : False
+featdir_normfeat_target : False
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

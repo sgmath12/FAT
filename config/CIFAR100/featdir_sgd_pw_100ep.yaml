@@ -1,0 +1,44 @@
+# SGD + PIECEWISE, 100ep, WARM START (2026-07-29 night). The 50ep SGD sweep died at the
+# OneCycle PEAK (lr0.1 -> clean 1.6% at ep15-25; lr0.05 same shape one step later), so the
+# fix under test is the SCHEDULE, not the epoch count: constant lr then /10 at 50%,75% --
+# what ADR/standard AT actually use, no mid-run peak to blow up on.
+# Bar: champion (AdamW, 50ep) 62.75 / 33.96 / 28.41.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : SGD
+lr : 0.1
+alpha : 1.0
+lamda : 4.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 350
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 100
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : False
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data
+
+weight_decay : 0.0005
+lr_schedule : piecewise
+lr_factor : 10
+stage1 : 50
+stage2 : 75

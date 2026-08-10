@@ -1,0 +1,39 @@
+# NO-FEATURE-TERM, NO ARCHITECTURE NORMALIZATION (2026-08-02, user q). Third point of the
+# decomposition, same 50ep grid regime and clean_200ep teacher throughout:
+#   fg_plain_th_sh_kl      feature term + arch norm   62.61 / 29.16 / 26.63
+#   fg_plain_nofeat_kl     no feature   + arch norm   (running)
+#   fg_plain_nofeat_kl_raw no feature   + NO norm     <- this cell
+# 1<->2 isolates the feature term, 2<->3 isolates the student's architectural normalization.
+# Expect 3 to be poor: an early diagnostic in this project measured the KL blowing up ~740x without
+# student feature normalization (the raw feature norm inflates the logits). If it is poor, that is
+# a normalization effect and must NOT be read as evidence about the feature term.
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : False
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
