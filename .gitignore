@@ -9,6 +9,7 @@ data/
 # Checkpoints / model weights
 CIFAR10/checkpoint/
 CIFAR100/checkpoint/
+TinyImageNet/checkpoint/
 *.pkl
 *.pt
 *.pth

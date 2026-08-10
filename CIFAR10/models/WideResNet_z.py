@@ -92,7 +92,7 @@ class WideResNet_z(nn.Module):
         out = self.block2(out)
         out = self.block3(out)
         out = self.relu(self.bn1(out)) # N,C,8,8
-        out = F.avg_pool2d(out, 8)
+        out = F.adaptive_avg_pool2d(out, 1)
         original_out = out.view(-1, self.nChannels[3])                  # raw feature (pre-norm)
         out = self.scale * original_out/original_out.norm(dim = 1).reshape([-1,1]) #add
         # feat=True -> (raw feat, logits on normalized feat); train_feat_direction normalizes the
@@ -121,7 +121,7 @@ class WideResNet_z(nn.Module):
         out = out * 2*torch.sigmoid(beta_layer3[:,:,None,None])
         # out = out * 2*torch.sigmoid(alpha[:,:,None,None])
         out = self.relu(self.bn1(out)) # N,C,8,8
-        out = F.avg_pool2d(out, 8)
+        out = F.adaptive_avg_pool2d(out, 1)
         out = out.view(-1, self.nChannels[3])
         return self.fc(out)
     # def get_bn_before_relu(self):
@@ -141,7 +141,7 @@ class WideResNet_z(nn.Module):
         feat2 = self.block2(feat1)
         feat3 = self.block3(feat2)
         feat4 = self.relu(self.bn1(feat3))
-        feat5 = F.avg_pool2d(feat4, 8)
+        feat5 = F.adaptive_avg_pool2d(feat4, 1)
         out = feat5.view(-1, self.nChannels[3])
         out = self.fc(out)
 
@@ -151,12 +151,12 @@ class WideResNet_z(nn.Module):
 
 
     def layer_out(self, feat):
-        # out = F.avg_pool2d(z, 8)
+        # out = F.adaptive_avg_pool2d(z, 1)
         pdb.set_trace()
         feat2 = self.block2(feat)
         feat3 = self.block3(feat2)
         feat4 = self.relu(self.bn1(feat3))
-        feat5 = F.avg_pool2d(feat4, 8)
+        feat5 = F.adaptive_avg_pool2d(feat4, 1)
         out = feat5.view(-1, self.nChannels[3])
         out = self.fc(out)
 

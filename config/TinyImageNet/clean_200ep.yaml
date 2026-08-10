@@ -1,0 +1,49 @@
+# Natural teacher for Tiny-ImageNet-200, 200 epochs, NO mixup (method: clean, aug: none).
+# Mirrors config/CIFAR100/clean_200ep.yaml one-for-one -- same SGD/OneCycle recipe -- so the
+# featdir distillation on this dataset is not confounded by a differently-trained teacher.
+#
+# Architecture note: ResNet18 with num_classes=200, CIFAR-style 3x3 stem kept as-is. This matches
+# ADR, which also feeds 64x64 into the CIFAR backbone and only switches the final pooling to
+# adaptive (see the TinyImageNet branch of utils.get_model). Do NOT swap in an ImageNet stem --
+# that would break comparability with ADR's published Tiny-ImageNet numbers.
+#
+# Baseline to beat eventually (ADR, 80 epochs, adversarially trained -- not this clean teacher):
+#   ResNet-18  ADR+WA+AWP  clean 48.27 / AA 20.10
+#   WRN-34-10  ADR+WA+AWP  clean 51.44 / AA 23.35
+#
+# Data: 100k train / 10k eval. The 10k comes from the LABELLED official val/ split, which is what
+# ADR and the AT literature report on; the shipped test/ split is unlabelled and unused.
+# Run `python scripts/prepare_tiny_imagenet.py --root ./data` once before training.
+#
+# Checkpoint lands in TinyImageNet/checkpoint/clean_200ep/clean_last.pkl.
+method : clean
+dataset : TinyImageNet
+arch: ResNet18
+optim : SGD
+
+lr : 0.1
+alpha : 0.0
+beta : 0.0
+gamma : 0.0
+eta : 0.0
+# attack Setting (unused by method: clean, kept for config-shape compatibility)
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 200
+
+
+batch_size : 128
+interval : 5
+neptune : True
+load : False
+finetune : False
+evaluate : False
+reformation : False
+save : False
+exp_name: KD
+val : False
+aug : none
+log : True
+cyclic : True
+data_root : ./data

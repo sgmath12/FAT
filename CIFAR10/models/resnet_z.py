@@ -95,7 +95,7 @@ class ResNet(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         out = self.layer4(out)
-        out = F.avg_pool2d(out, 4)
+        out = F.adaptive_avg_pool2d(out, 1)
         original_out = out.view(out.size(0), -1)
         out = self.scale * original_out/original_out.norm(dim = 1).reshape([-1,1]) #add
 
@@ -110,7 +110,7 @@ class ResNet(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         out = self.layer4(out)
-        feat = F.avg_pool2d(out, 4)
+        feat = F.adaptive_avg_pool2d(out, 1)
         feat = feat.view(feat.size(0), -1)
         feat = self.scale * feat/feat.norm(dim = 1).reshape([-1,1]) #add
         out = self.linear(feat)
@@ -126,7 +126,7 @@ class ResNet(nn.Module):
             out = self.layer2(out)
             out = self.layer3(out)
             out = self.layer4(out)
-            feat = F.avg_pool2d(out, 4)
+            feat = F.adaptive_avg_pool2d(out, 1)
             feat = feat.view(out.size(0), -1)
             feat = self.scale * feat/feat.norm(dim = 1).reshape([-1,1]) #add
             feat = feat * score
