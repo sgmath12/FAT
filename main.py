@@ -179,6 +179,14 @@ def main(config,npt):
     if "clean" in config.method:
         torch.save(model.state_dict(),last_model_save_path)
     else :
+        # test_model is only refreshed inside the `epoch % interval` block, so before this fix it
+        # held the weights from the LAST INTERVAL EPOCH (e.g. epoch 45 of a 50ep run with
+        # interval 5) -- every `_last.pkl` on disk was up to `interval - 1` epochs stale, while the
+        # last_*_acc logged below (which loads exp_avg first) described the real final model.
+        # Found 2026-08-17: AA re-evaluated from the n2_* checkpoints reported clean 61.75/62.20,
+        # matching those runs' epoch-45 interval line exactly instead of their 62.86/62.53 finals.
+        # Refresh from exp_avg here so the saved checkpoint IS the model the final eval reports.
+        test_model.load_state_dict(exp_avg)
         torch.save(test_model.state_dict(),last_model_save_path)
 
     epoch_time = np.array(epoch_time)
