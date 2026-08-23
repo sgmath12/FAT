@@ -1,0 +1,51 @@
+# STACK DECOMPOSITION, step 2 (2026-08-18).  WA alone did NOT flip the direction-vs-L2
+# order: with WA only, L2 still wins AA by +1.00 (26.55 vs 25.55), against +1.44 with no
+# WA at all -- WA pays both designs almost equally (+2.65 dir / +2.21 L2).  The flip is
+# therefore produced by the THREE things still left in the champion stack: AWP proxy,
+# train_eps 8.8/255, and freeze_lr_epoch, which together buy direction +3.14 AA but L2 only
+# +1.49.  This pair adds ONLY train_eps 8.8/255 on top of WA -- AWP and freeze_lr stay off --
+# so a flip here indicts the training radius and clears AWP, and no flip indicts AWP.
+#
+# Reference (C100 / ResNet18 / 100ep / seed 0, direction vs L2 clean/AA):
+#   no WA      61.52 / 22.90  vs  62.40 / 24.34   -> L2 +1.44
+#   WA only    61.34 / 25.55  vs  61.58 / 26.55   -> L2 +1.00
+#   full stack 60.74 / 28.69  vs  57.78 / 28.04   -> direction +0.65
+#
+# THIS CELL: direction (normalized L2), WA + train_eps 8.8/255 (no AWP, no freeze_lr)
+method : feat_direction
+featdir_rawteacher : False
+featdir_rawstudent : False
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

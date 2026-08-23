@@ -1,0 +1,52 @@
+# WA DECOMPOSITION (2026-08-17). Which element of the champion stack flips the direction-vs-raw
+# order?  no-stack: raw wins AA on both datasets (C10 50ep +0.41 full raw, C100 +0.25); +full stack:
+# direction wins (C100 +0.65, C10 +0.45 at angeps p=0).  The stack bundles FOUR things -- WA, AWP
+# proxy, train_eps 8.8/255, freeze_lr_epoch -- and none of them has been isolated.  Prime suspect is
+# WA (2026-08-09 hypothesis: the direction gradient is pure rotation, so its trajectory is aligned
+# with weight averaging).  These cells keep WA ONLY and strip AWP / 8.8 / freeze_lr, at 100ep, with
+# angeps OFF (p=0) so they sit on the same axis as the 60.74-vs-57.78 comparison.
+#
+# 2x2 per dataset: {direction, FULL raw} x {no WA, WA}.  "FULL raw" = student_norm False, so the
+# inference path is raw too -- NOT the partial-raw (student_norm True) cells that contaminated the
+# 2026-08-09 grid twice.
+#
+# KNOWN CONFOUND, deliberately kept: the raw cells match logits of norm ~11-13 against the smoothed
+# target z_t/16, a ~12x sharpness mismatch the direction cells do not have.  Left in place so these
+# stay comparable to the existing p=0 numbers; removing it is a separate cell.
+#
+# THIS CELL: FULL raw (student_norm False), no WA -- control
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

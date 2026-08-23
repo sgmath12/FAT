@@ -1,0 +1,49 @@
+# TEMPERATURE SWEEP, plain pure-KD, RAW design, base regime (2026-08-22 v3).
+# 50ep, WA off, AWP off, eps 8/255, student_norm False, NO feat_scale.
+#
+# v2 of these cells carried feat_scale = 1/||Phi_t||, added earlier to keep the raw KD baseline from
+# destabilizing at warm start.  Removed: it is an intervention of ours, it pinned the student's
+# logit scale to whatever suited tau=16, and it makes the sweep measure tau-plus-a-fixed-scale
+# rather than tau.  Plain is the right experiment.
+#
+# Note what tau does here with no scale knob.  The student warm-starts from the teacher, so at step
+# 0 its logits ARE z_t while the target is z_t/tau: tau = 1 is exactly scale-matched and larger tau
+# is progressively mismatched.  So this sweep varies smoothing and scale together, which is simply
+# what plain logit distillation from a natural teacher does -- there is no way to separate them
+# without adding a knob, and that inseparability is itself the point.
+#
+# Reference, same regime: feature anchor `n2_traw_sraw` 62.86 / PGD 32.36 / CW 27.18 (AA not run).
+# Known: `fg_plain_nofeat_kl_raw` (this cell at tau 16) crashed to clean 1.37 at step 0 and was
+# still climbing at the end -- 58.43 / 31.98 / 26.70, unconverged.
+#
+# THIS CELL: pure KD, tau = 4, no feat_scale
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 4
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,60 @@
+# STACK DECOMPOSITION, step 3 (2026-08-18).  AWP is the element that reverses direction-vs-L2 --
+# this pair separates it from freeze_lr_epoch, the only other thing still bundled with it.
+#
+# C100 / ResNet18 / 100ep / seed 0, direction vs L2 (clean / AA), gap = AA advantage:
+#   nothing        61.52 / 22.90  vs  62.40 / 24.34   -> L2 +1.44
+#   +WA            61.34 / 25.55  vs  61.58 / 26.55   -> L2 +1.00   (WA: dir +2.65, L2 +2.21)
+#   +WA +eps8.8    59.96 / 26.30  vs  60.09 / 27.00   -> L2 +0.70   (eps: dir +0.75, L2 +0.45)
+#   full stack     60.74 / 28.69  vs  57.78 / 28.04   -> dir +0.65  (AWP+freeze: dir +2.39, L2 +1.04)
+#
+# 1.35 of the 2.09 total gap swing lands in that last step, and so does most of the 2.96 clean gap
+# (AWP+freeze pays direction +0.78 clean but costs L2 -2.31).  These cells add AWP proxy ONLY, with
+# freeze_lr_epoch still off, so the reversal can be attributed to AWP alone or not at all.
+#
+# Registered hypothesis (theory_v1 T.6, budget dilution): AWP's weight perturbation has fixed norm
+# (utils.py:159 rescales it to ||w||); under the L2 target part of the loss it ascends lives on the
+# magnitude coordinate, which Prop. 4 shows the decision reads with weight exactly zero -- so a
+# fixed-size adversarial weight perturbation spends part of itself where it cannot change any
+# prediction.  Prediction: AWP alone reproduces the reversal.
+#
+# THIS CELL: L2 on raw features, WA + train_eps 8.8/255 + AWP proxy (no freeze_lr)
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

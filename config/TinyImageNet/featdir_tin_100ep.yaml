@@ -1,0 +1,67 @@
+# Tiny-ImageNet-200, our method (2026-08-23).  Third dataset; the clean teacher finished 2026-08-22
+# at 65.97 and nothing has used it yet.
+#
+# Transferred from the CIFAR-100 recipe `l2_bestrecipe_angeps` with only what the dataset forces:
+# dataset name and teacher checkpoint.  Epochs stay at 100 -- an earlier version of this file used
+# 80 to match ADR's budget on this dataset, but changing the schedule per dataset is exactly the
+# per-dataset tuning the transfer claim is about not doing.  ADR uses 80 here (200 elsewhere), so we
+# train longer than the baseline and that has to be stated with the result rather than hidden by
+# quietly matching it.  Everything else -- lr, optimizer, eps, train_eps, angeps p, WA, AWP -- is
+# byte-identical to CIFAR-100.
+#
+# Cost: 782 iterations/epoch at ~1.49 s/it, so ~19 min/epoch and ~32 h for the run, against 7.4
+# min/epoch for the clean teacher (the 10-step PGD and AWP account for the rest).
+#
+# The head-KD term is DELETED (featdir_freeze_head), following the 2026-08-23 base-regime sweep:
+# with the feature anchor in place, no head term (NRR 36.64) beat the best temperature (36.35), beat
+# a bad one (34.58), and beat every form of head re-training (36.42 / 36.39 / 36.40 / 35.90).  So
+# there is no tau and no beta in this run at all.
+#
+# Architecture policy is ADR's: keep the CIFAR backbone (3x3 stem, stride 1, no maxpool) and absorb
+# the larger input with adaptive final pooling only.  Evaluation split is the labelled official
+# val/, per the AT literature's convention.
+#
+# The bar: ADR ResNet-18 clean 48.27 / AA 20.10.
+#
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : TinyImageNet
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : TinyImageNet/checkpoint/clean_80ep/clean_last.pkl
+finetune_checkpoint : TinyImageNet/checkpoint/clean_80ep/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,59 @@
+# CLOSING THE 2x2 (2026-08-21): design x freeze_lr, both at angeps p = 1.
+#
+# Giving each design its own best schedule erased the directional advantage:
+#   direction + freeze_lr (champion)  62.17 / AA 28.59 / NRR 39.17
+#   L2 - freeze_lr (its own best)     62.35 / AA 28.68 / NRR 39.29   <- 2026-08-21
+# all three margins inside the noise band, i.e. a tie.  freeze_lr alone had been costing L2 NRR 0.46
+# (38.83 -> 39.29), and that was the whole of the gap the champion recipe used to show.
+#
+# But "each at its own best" is only half established: direction's optimum was verified to include
+# freeze_lr at p=0 (+0.48 AA), never at p=1.  This cell is the missing corner.
+#
+#   p = 1        freeze_lr on            freeze_lr off
+#   direction    62.17 / 28.59 / 39.17   THIS CELL
+#   L2           60.51 / 28.59 / 38.83   62.35 / 28.68 / 39.29
+#
+# If direction also prefers no freeze_lr, the champion is not direction's optimum either and the
+# whole comparison has to be redone at the new pair.  If direction does prefer freeze_lr, the tie
+# above stands as the honest final answer on the design axis.
+#
+# THIS CELL: direction, WA + eps 8.8 + AWP + angeps p=1, NO freeze_lr.
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_angeps_p : 1.0

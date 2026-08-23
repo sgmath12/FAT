@@ -1,0 +1,67 @@
+# PURE-KD DESIGN AXIS, SMOOTHING HELD FIXED (2026-08-21).
+#
+# `nofeat_champ200_{norm,raw}` are the design axis in its simplest form: one KL term, no feature
+# loss, differing only in student_norm.
+#   direction (student_norm True)   58.92 / AA 28.71 / NRR 38.61
+#   L2        (student_norm False)  45.84 / AA 22.66 / NRR 30.33   <- diverged at step 0
+#
+# The raw cell diverges because the student warm-starts from the natural teacher: at step 0 its
+# logits ARE z_t while the target is z_t/16, a 16x mismatch.  The normalized student starts at
+# W.Phi_hat_t = z_t/||Phi_t|| ~ z_t/11.2, already within 1.43x of the same target.
+#
+# An earlier attempt fixed this by lowering tau for the raw cell.  That is the wrong control: it
+# changes the TARGET, so the two designs would no longer be reading the same guidance.  Smoothing
+# must be identical.  Instead this cell scales the raw student's own logits by a constant,
+# feat_scale = 1/||Phi_t|| = 1/11.217 = 0.08915 (measured on clean test data), which puts its head
+# input at norm ~1 -- exactly where the normalized design's is -- with tau untouched at 16.
+#
+# What is isolated: both designs now hand the classifier a norm-~1 feature and chase the same
+# z_t/16 target.  The ONLY remaining difference is that direction divides by ||Phi_s(x)|| PER
+# SAMPLE while this divides by one constant.  So:
+#   raw+scale ~ 58.92 / 28.71  -> normalization's benefit here is the global scale, and a constant
+#                                buys it; per-sample invariance is not doing the work.
+#   raw+scale <  58.92 / 28.71 -> the per-sample part matters on its own.
+#   raw+scale still diverges   -> the scale was not the mechanism at all, and the divergence account
+#                                (in RESULTS.md and theory_v1) has to be rewritten.
+#
+# Requires the 2026-08-21 resnet.py change that gives the plain student a feat_scale at all
+# (ResNet18_z always had one).  Default 1.0, so every earlier raw run is bit-identical to before --
+# verified max|diff| 0.0.
+#
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+feat_scale : 0.08915
+kappa : 0.999
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

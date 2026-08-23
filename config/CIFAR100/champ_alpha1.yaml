@@ -1,0 +1,61 @@
+# PROP. 0 TEST (2026-08-22): does the head's objective have to be kept OFF the backbone?
+#
+# `featdir_alpha` defaults to 0, so the head KD reads a detached feature and trains the head alone;
+# the backbone is fit by the feature loss only.  The obvious alternative -- and how such a loss is
+# normally written -- is alpha 1, letting the head KD train the backbone too.  That choice has never
+# been measured at the champion recipe.
+#
+# NOT to be confused with `featdir_alpha1_champion`, which despite the name is a 2026-07-era config:
+# 50 epochs, no AWP, no freeze_lr, no train_eps override, a different teacher checkpoint
+# (`clean/` rather than `clean_200ep/`) and aa off.  Nothing in it is comparable to the champion.
+# This cell is the champion with ONE line added.
+#
+# Champion (p=0): 60.74 / PGD 34.94 / CW 30.53 / AA 28.69 / NRR 38.97.
+#
+# Context for reading it: the companion cell `featdir_champ200_freezehead` (head frozen at the
+# teacher's solution, so the head does not train at all) came in at 60.45 / 30.71 / 30.54 / AA 28.63
+# -- AA, CW and clean all within noise of the champion, only PGD down 4.23.  So NOT training the
+# head costs nothing here, because the backbone adapts to whatever head it is given.  If alpha 1
+# also lands on the champion, then the routing is not load-bearing either and Prop. 0 is a
+# description of the implementation rather than a claim about it.
+#
+method : feat_direction
+featdir_alpha : 1.0
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

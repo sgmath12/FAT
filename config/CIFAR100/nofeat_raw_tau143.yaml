@@ -1,0 +1,61 @@
+# PURE-KD (single loss) DESIGN AXIS, with the raw cell made FAIR (2026-08-21).
+#
+# nofeat_champ200_{norm,raw} are `method: temperature` -- one KL term, no feature loss -- differing
+# only in student_norm, so they are the design axis in its simplest possible setting:
+#   direction (student_norm True)   58.92 / AA 28.71 / NRR 38.61
+#   L2        (student_norm False)  45.84 / AA 22.66 / NRR 30.33   <- DIVERGED, not a fair number
+#
+# The raw cell diverges for a reason that is the whole point.  The student warm-starts from the
+# natural teacher, so at step 0 its logits ARE z_t, while the target is z_t/16 -- a 16x mismatch.
+# The normalized student starts at W.Phi_hat_t = z_t/||Phi_t|| ~ z_t/11.2, i.e. within 1.43x of the
+# same target.  Normalization's job here is to place the student's initial logit scale next to the
+# smoothed target's.
+#
+# So with a RAW student, target softness (tau) and student logit scale are COUPLED: smooth the
+# target and the scale is wrong, match the scale and the smoothing is gone.  Normalization decouples
+# them -- ||Phi_hat|| = 1 pins the scale, leaving tau free to be chosen for softness alone.  These
+# cells price that coupling: tau 1.43 gives the raw student the SAME 1.43x initial mismatch the
+# normalized cell enjoys, and tau 4 is an intermediate.
+#
+# Read against nofeat_champ200_norm (58.92 / 28.71 / 38.61):
+#   raw@1.43 ~ norm@16  -> normalization is convenience; retuning tau recovers it.
+#   raw@1.43 <  norm@16 -> the smoothing itself is worth something, and only the normalized design
+#                          can have smoothing and a matched scale at once.
+#
+# THIS CELL: raw student (student_norm False), tau = 1.43
+method : temperature
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 1.43
+kappa : 0.999
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,57 @@
+# STACK DECOMPOSITION, step 5 (2026-08-18).  freeze_lr_epoch WITHOUT AWP.
+# The cumulative chain never separated these two: freeze_lr was only ever measured sitting on top of
+# AWP.  Attribution so far (C100 / ResNet18 / 100ep / seed 0, direction vs L2, clean / AA / NRR):
+#   nothing          61.52/22.90/33.38  vs  62.40/24.34/35.02   -> L2 ahead, both axes
+#   +WA              61.34/25.55/36.07  vs  61.58/26.55/37.10   -> L2 ahead, both axes
+#   +WA+eps8.8       59.96/26.30/36.56  vs  60.09/27.00/37.26   -> L2 ahead, both axes
+#   +WA+eps8.8+AWP   61.41/28.07/38.53  vs  60.21/28.14/38.35   -> AA TIE (+0.07), dir clean +1.20
+#   + freeze_lr      60.62/28.55/38.82  vs  57.96/28.13/37.88   -> direction +0.42 AA
+# (the last row is a 2026-08-18 reproduction of the 08-01/08-02 champion cells 60.74/28.69 and
+# 57.78/28.04 -- all four values within the 0.25 AA noise band, so those runs were sound.)
+#
+# freeze_lr is the element that changes the sign, and it does so by HURTING L2, not by helping
+# direction: it pays direction +0.48 AA for -0.79 clean (NRR +0.29) while paying L2 -0.01 AA for
+# -2.25 clean (NRR -0.47).  These cells drop AWP and keep freeze_lr, to decide whether that penalty
+# is intrinsic to the frozen-LR tail or an AWP x freeze_lr interaction.  If the L2 clean penalty
+# survives without AWP it is a schedule property; if it vanishes, no single element is responsible
+# and the champion recipe's advantage for the directional design is a two-way interaction.
+#
+# THIS CELL: L2 on raw features, WA + train_eps 8.8/255 + freeze_lr_epoch 0.65 (NO AWP)
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

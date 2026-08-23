@@ -1,0 +1,65 @@
+# EACH DESIGN AT ITS OWN BEST RECIPE (2026-08-21) -- the comparison the paper actually needs.
+#
+# Every direction-vs-L2 number so far puts BOTH designs on the champion recipe, which was developed
+# on the directional design.  One of its elements, freeze_lr_epoch, is a net loss for L2:
+#   L2 + WA + eps8.8 + AWP                60.21 / AA 28.14 / NRR 38.35
+#   L2 + WA + eps8.8 + AWP + freeze_lr    57.96 / AA 28.13 / NRR 37.88   <- champion recipe
+# so L2 has been compared while carrying a knob that only costs it.  Its own best recipe drops
+# freeze_lr, and there it closes to 0.47 NRR of the p=0 directional champion (38.82) instead of 0.94.
+#
+# The missing cell is that recipe PLUS angeps, which L2 has never been given outside the champion
+# recipe.  On the champion recipe angeps paid L2 clean +2.55 and AA +0.46 (57.96/28.13 ->
+# 60.51/28.59).  The same delta from 60.21/28.14 would land near 62.8 / 28.6 = NRR ~39.3, i.e.
+# slightly PAST the directional champion's 39.17 (62.17 / 28.59).
+#
+# THIS CELL: L2 (full raw, student_norm False), WA + train_eps 8.8/255 + AWP proxy, NO freeze_lr,
+# angeps p = 1.  Built from wadec_raw_wa_eps88_awp by adding one line.
+#
+# Read against featdir_champ200_angeps (62.17 / 28.59 / 39.17):
+#   L2 NRR >= 39.17 -> the design advantage does not survive giving each design its own schedule,
+#                      and every "direction is better" statement reduces to a tuning artifact.
+#   L2 NRR <  39.17 -> direction wins even at each design's own optimum, which is the strongest
+#                      claim available and answers the "isn't it just your schedule" objection.
+# The extrapolation says the first; it is an extrapolation, and either answer is worth the 2 hours.
+#
+method : feat_direction
+featdir_angeps_p : 1.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

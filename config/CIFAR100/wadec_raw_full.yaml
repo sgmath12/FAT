@@ -1,0 +1,60 @@
+# STACK DECOMPOSITION, step 4 / REPRODUCTION CHECK (2026-08-18).  Closes the chain by adding
+# freeze_lr_epoch, so this cell should reproduce the champion-regime numbers -- and that is the
+# point: the champion-regime row is the ONE row of the decomposition that was not produced by this
+# chain.  `featdir_champ200_100ep` ran 2026-08-01 and `featdir_champ200_fullraw` 2026-08-02, and
+# methods.py / utils.py / the models have changed since (angeps knobs, the adaptive-pooling switch,
+# the design-axis commit).  The L2 row is the suspicious one: freeze_lr alone appears to cost it
+# -2.43 clean (60.21 -> 57.78) while costing direction only -0.67, which is what makes the sign
+# flip.  If these cells land on the old numbers the decomposition stands; if the L2 cell instead
+# lands near 60 / 28.1, the champion-regime L2 row was stale and the "stack reverses the order"
+# reading dies with it.
+#
+# Chain so far (C100 / ResNet18 / 100ep / seed 0, direction vs L2, clean / AA, gap = L2 ahead):
+#   nothing            61.52 / 22.90  vs  62.40 / 24.34   -> +1.44
+#   +WA                61.34 / 25.55  vs  61.58 / 26.55   -> +1.00
+#   +WA+eps8.8         59.96 / 26.30  vs  60.09 / 27.00   -> +0.70
+#   +WA+eps8.8+AWP     61.41 / 28.07  vs  60.21 / 28.14   -> +0.07  (tie)
+#   + freeze_lr (old)  60.74 / 28.69  vs  57.78 / 28.04   -> -0.65  (direction) <- being rechecked
+#
+# THIS CELL: L2 on raw features, full champion recipe (WA + eps 8.8 + AWP + freeze_lr), angeps off.
+method : feat_direction
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

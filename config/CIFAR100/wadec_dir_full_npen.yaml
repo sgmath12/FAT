@@ -1,0 +1,64 @@
+# NORM-GAUGE TEST (2026-08-21).  Does the directional design's advantage come from the fact that it
+# leaves the feature norm UNCONSTRAINED, and uses that free coordinate as an implicit learning-rate
+# dial on the angle?
+#
+# Measured 2026-08-21 (clean test, teacher ||Phi_t|| = 11.22):
+#   direction ||Phi_s||:  bare 20.29 (1.81x) -> +WA 22.99 -> +AWP 26.79 -> +freeze_lr 36.22 (3.23x)
+#   raw L2    ||Phi_s||:  bare  9.39 (0.84x) -> +WA  8.84 -> +AWP  8.48 -> +freeze_lr  9.26 (0.83x)
+# The L2 cells sit on the value their loss commands, ||Phi_t|| cos(theta) = 9.19-9.43, in every
+# regime.  The directional cells float, and grow MOST exactly where the LR is frozen (+30% against
+# the L2 cells' +2.6%).  Since L_dir depends on Phi only through Phi_hat,
+#   dL/dPhi = (1/||Phi||) (I - Phi_hat Phi_hat^T) dL/dPhi_hat,
+# a 3x larger norm is a 3x smaller effective step on the ANGLE: growing the norm is self-annealing.
+# That would explain why a frozen-LR tail pays the directional design (+0.48 AA) and not the raw one
+# (-0.01) -- only one of them can compensate internally for the LR that stopped decaying.
+#
+# THE TEST is not npen in isolation, it is the freeze_lr DELTA with and without npen.  Welding the
+# dial (npen ties ||Phi_s|| to ||Phi_t||) should remove the benefit:
+#   without npen:  +AWP 61.41 / 28.07  ->  +freeze 60.62 / 28.55   (AA +0.48, clean -0.79)
+#   with npen:     prediction -- that +0.48 shrinks toward zero or reverses.
+# Both npen cells may be worse in absolute terms; the delta is what is being read, so that is fine.
+#
+# THIS CELL: wadec_dir_full + featdir_norm_penalty 0.01
+method : feat_direction
+featdir_norm_penalty : 0.01
+featdir_rawteacher : False
+featdir_rawstudent : False
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

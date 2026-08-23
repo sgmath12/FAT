@@ -1,0 +1,61 @@
+# ANGULAR TOLERANCE (featdir_angtol, 2026-08-19) -- sibling of angeps, at the BASE regime.
+#
+# The principle both share: put the intervention in the geometry the loss actually measures.
+#   angeps  -> the ATTACK budget: equalize the angle each sample is rotated, not the pixel radius.
+#   angtol  -> the LOSS effort:   stop pulling a sample once its angle is already inside tolerance.
+#
+# Motivating measurement (train, matched attack, n=2048, 2026-08-19): the no-stack direction run
+# ends up BETTER aligned than the champion -- mean cos_adv 0.842 (p25/p50/p75 0.780/0.891/0.937)
+# vs the champion's 0.750 (0.637/0.743/0.871) -- and is 5.8 AA worse (22.90 vs 28.69).  Aligning
+# harder to a natural, non-robust teacher is a cost, and today the only thing preventing it is the
+# stack: WA, AWP and the frozen-LR tail each buy the directional design far more than they buy the
+# raw-L2 one (AA +2.65 / +1.77 / +1.84 vs +2.21 / +1.14 / +0.78), which is why direction only wins
+# once they are on.  angtol tries to make that brake a property of the LOSS instead.
+#
+# Regime: BASE -- no WA, no AWP, eps_train = eps_eval = 8/255, 100ep, angeps off.  That is where the
+# directional design currently LOSES (61.52 / AA 22.90 against raw L2's 62.40 / 24.34), so it is
+# where the knob has to prove itself.  Beating AA 24.34 here would move the design advantage out of
+# the stack and into the loss.
+#
+# Threshold: samples with cos < m keep the ordinary 2-2cos loss, samples above it are released
+# (loss shape unchanged, one intervention only).  Released fraction at convergence of the base run:
+#   m 0.85 -> 64%   m 0.90 -> 46%   m 0.95 -> 17%
+# Early in training almost nothing is released (cos is low), so this acts as a late-training brake.
+#
+# THIS CELL: m = 0.85
+method : feat_direction
+featdir_angtol : 0.85
+featdir_rawteacher : False
+featdir_rawstudent : False
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
