@@ -56,7 +56,7 @@ class Bottleneck(nn.Module):
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10):
+    def __init__(self, block, num_blocks, num_classes=10, scale=1.0):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
@@ -67,6 +67,17 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
         self.linear = nn.Linear(512*block.expansion, num_classes)
+        # feat_scale (2026-08-21): a CONSTANT multiplier on the feature before the classifier, for
+        # the plain (un-normalized) student.  ResNet18_z has always had one -- it is the `s` in
+        # s * Phi/||Phi|| -- but the raw student had no way to set its logit scale at all, which
+        # made one comparison impossible to run fairly.  Warm-starting from the natural teacher, a
+        # raw student's logits ARE z_t at step 0 while a KD target is z_t/tau, a tau-fold mismatch
+        # (it diverges outright at tau 16); the normalized student starts at z_t/||Phi_t||, already
+        # within 1.43x of that target.  Setting scale = 1/||Phi_t|| gives the raw student the same
+        # starting point WITHOUT touching tau, so target smoothing stays identical across the two
+        # designs and only the per-sample-vs-constant nature of the rescaling differs.
+        # Default 1.0, so every existing raw run is bit-identical to before.
+        self.scale = scale
         self.nChannels = [64,128,256,512]
         self.nWidths = [32,16,8,4]
         self.nHeights = [32,16,8,4]
@@ -96,10 +107,13 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         out = F.adaptive_avg_pool2d(out, 1)
         out = out.view(out.size(0), -1)
-        if feat : 
-            return out, self.linear(out)
-    
-        return self.linear(out)
+        # `feat` is returned UNSCALED (it is the representation); the classifier sees scale * feat,
+        # matching how train_feat_direction calls head_from_feat(scale * feat), so train and eval
+        # agree for any scale.
+        if feat :
+            return out, self.linear(self.scale * out)
+
+        return self.linear(self.scale * out)
 
 
     def extract_feature(self, x, only_feature = False):
@@ -134,8 +148,8 @@ class ResNet(nn.Module):
                 return None,out
         
 
-def ResNet18(num_classes=10):
-    return ResNet(BasicBlock, [2,2,2,2], num_classes)
+def ResNet18(num_classes=10, scale=1.0):
+    return ResNet(BasicBlock, [2,2,2,2], num_classes, scale=scale)
 
 def ResNet34(num_classes=10):
     return ResNet(BasicBlock, [3,4,6,3], num_classes)

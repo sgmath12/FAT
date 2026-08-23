@@ -524,6 +524,14 @@ def get_model(config):
         else:
             base_teacher = model_reform if teacher_norm else model
         base_student = copy.deepcopy(model_reform if student_norm else model)
+        # feat_scale on the RAW student ONLY (2026-08-21).  ResNet18_z takes its scale at
+        # construction, but the plain student shares its object with the teacher whenever
+        # teacher_norm is False -- scaling at construction scales z_t too and cancels out, which is
+        # exactly how the first attempt at this silently did nothing (warm-start clean stayed 77.4
+        # at every scale, and the raw KD cell diverged just as before).  Set it after the deepcopy
+        # so only the student carries it.  Default 1.0 leaves every earlier run bit-identical.
+        if not student_norm:
+            base_student.scale = float(getattr(config, "feat_scale", 1.0) or 1.0)
 
         if config.convert is False:
             teacher_model = base_teacher

@@ -2151,6 +2151,20 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
         _snorm = config.reformation
     head_hat = bool(_snorm)
 
+    # ANGULAR TOLERANCE / deadband (featdir_angtol, 2026-08-19).  Sibling of angeps: angeps spends
+    # the ATTACK budget where the loss's geometry says it matters, this spends the LOSS effort the
+    # same way -- a sample already inside the tolerance is released instead of being dragged further
+    # onto the natural teacher's direction.  Motivation is measured, not assumed: at convergence the
+    # no-stack run is BETTER angularly aligned than the champion (mean cos_adv 0.842 vs 0.750, train,
+    # matched attack, n=2048) and 5.8 AA worse, i.e. over-alignment to a non-robust anchor is a cost
+    # and the stack is what currently prevents it.  This makes that brake intrinsic to the loss.
+    # Implementation is deliberately ONE change: the 2-2cos value is kept exactly for active samples
+    # and zeroed for released ones, so the loss shape is untouched (a hinge would change both).  The
+    # ATTACK is left unmasked -- it still opens the angle for every sample; the mask only decides
+    # what is learned from the resulting x_adv, and it is evaluated at x_adv, after the attack.
+    angtol = float(getattr(config, "featdir_angtol", 0.0) or 0.0)
+    _logged_angtol = []
+
     # featdir_freeze_head (2026-08-02): keep the student head EXACTLY as loaded from the teacher --
     # no head loss, no head gradient. Direct test of Theorem 2: the student's feature distribution
     # differs from the teacher's (measured cos_adv 0.69-0.79, i.e. 38-46 degrees apart), so a head
@@ -2400,6 +2414,24 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 _g = torch.autograd.grad(_l0, [_xg])[0].detach()
                 model.train()
                 optimizer.zero_grad()
+                # BASELINE SIGNAL (featdir_eps_signal, 2026-08-22).  T.5 differentiates this rule
+                # from the existing per-sample-eps family (IAAT 1910.08051, MMA 1812.02637,
+                # CAT 2002.06789) by WHAT the radius is allocated from: the input-sensitivity of the
+                # training loss, rather than the sample's difficulty or input-space margin.  That
+                # distinction had never been measured -- reimplementing those methods end-to-end
+                # would compare whole recipes, not allocation rules, so instead this swaps the
+                # per-sample signal in place and changes nothing else: same exponent p, same
+                # [lo, hi] clamp, same mean restoration, same everything downstream.
+                #   "grad"       (default) g_i = ||grad_x L_dir||_p    -- ours
+                #   "difficulty"           g_i = per-sample CE on clean x, so easy samples (low
+                #                          loss) receive the larger radius, which is the direction
+                #                          IAAT/CAT assign it.
+                _sig = str(getattr(config, "featdir_eps_signal", "grad") or "grad")
+                if _sig in ("difficulty", "difficulty_rank"):
+                    with torch.no_grad():
+                        _ce = F.cross_entropy(model(x), y, reduction="none")
+                    if _sig == "difficulty":
+                        _g = None        # marks the grad path as unused below
                 # SENSITIVITY NORM.  The first-order angle moved inside an L-INF ball of radius e is
                 #   max_{||d||_inf <= e} <grad, d> = e * ||grad||_1   (the dual norm of L-inf is L1),
                 # so equalizing the ANGULAR budget needs the L1 gradient norm.  featdir_angeps_gnorm
@@ -2407,7 +2439,8 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 # run must stay reproducible); set it to 1 for the allocation the derivation
                 # actually describes.
                 _gp = int(getattr(config, "featdir_angeps_gnorm", 2) or 2)
-                _gn = _g.flatten(1).norm(dim=1, p=_gp).clamp(min=1e-12)
+                _gn = (_ce.clamp(min=1e-12) if _sig == "difficulty"
+                       else _g.flatten(1).norm(dim=1, p=_gp).clamp(min=1e-12))
                 _r = (_gn.mean() / _gn).pow(_ap)
                 if bool(getattr(config, "featdir_angeps_exact_budget", False)):
                     # EXACT box-constrained budget.  The plain "clip then rescale to mean 1" below
@@ -2432,10 +2465,28 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 else:
                     _w = _r.clamp(_lo, _hi)
                     _w = _w * (_w.numel() / _w.sum())                      # restore mean 1 AFTER clip
+                if _sig == "difficulty_rank":
+                    # RANK-MATCHED DIFFICULTY BASELINE.  Feeding a difficulty score through the same
+                    # (gbar/g)^p formula does not work here: the student reads a unit-norm feature,
+                    # so its logits are small, its softmax is near uniform, and per-sample CE sits at
+                    # ln(100) for everyone -- measured CV 0.027 (epoch 0) / 0.041 (epoch 1) against
+                    # the gradient signal's 0.68, i.e. an essentially uniform allocation that would
+                    # reproduce p=0 for a reason having nothing to do with difficulty.
+                    # Instead keep the gradient rule's weight MULTISET exactly -- same values, same
+                    # clamp, same mean, so the same total budget -- and only re-assign which sample
+                    # gets which, ordering by difficulty so the easiest sample receives the largest
+                    # radius (the direction IAAT/CAT assign it).  The two runs then differ in nothing
+                    # but the ordering, which is exactly the claim under test: that allocating by the
+                    # loss's input-sensitivity is not the same as allocating by difficulty.
+                    _hard = torch.argsort(_ce, descending=True)            # hardest first
+                    _wsorted, _ = torch.sort(_w)                           # smallest first
+                    _wperm = torch.empty_like(_w)
+                    _wperm[_hard] = _wsorted                               # hardest <- smallest
+                    _w = _wperm
                 eps_use = eps_train * _w.view(-1, 1, 1, 1)
                 step_use = config.step_size * _w.view(-1, 1, 1, 1)         # keep steps-per-radius fixed
                 if batch_idx == 0:
-                    logging.info({"angeps_p": _ap, "gnorm": _gp,
+                    logging.info({"angeps_p": _ap, "gnorm": _gp, "signal": _sig,
                                   "exact_budget": bool(getattr(config, "featdir_angeps_exact_budget", False)),
                                   "w_min": round(_w.min().item(), 3),
                                   "w_max": round(_w.max().item(), 3),
@@ -2464,6 +2515,16 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 dir_loss = (d_feat @ Q).pow(2).sum(dim=1)                   # subspace-projected direction loss
             else:
                 dir_loss = d_feat.pow(2).sum(dim=1)                        # 2 - 2cos per sample
+            if angtol > 0:
+                with torch.no_grad():
+                    _cos_i = F.cosine_similarity(fs_dir, phi_t_dir, dim=1)
+                    _act = (_cos_i < angtol).float()
+                dir_loss = dir_loss * _act
+                if batch_idx == 0 and not _logged_angtol:
+                    logging.info({"angtol": angtol, "active_frac": round(_act.mean().item(), 3),
+                                  "cos_mean": round(_cos_i.mean().item(), 4),
+                                  "epoch": epoch})
+                    _logged_angtol.append(1)
             loss = dir_loss.mean()
 
             # featdir_norm_penalty (2026-08-09, theory_v1 T.4 mechanism cell 1): direction loss
