@@ -43,11 +43,15 @@ confident to begin with, which is why the logit route is comfortable there and a
    the perturbation makes it non-zero, which is precisely the quantity to be trained.
 
 > **What is new here, stated carefully.** Feature-space distillation is not new, and in ordinary
-> (non-adversarial) KD the choice between matching features and matching logits is a well-worn axis
-> on which the two are broadly comparable. The claim is that this choice, minor there, becomes
-> **decisive** when the teacher is natural and the setting adversarial — §3 measures the size of the
-> gap and §2 gives the four reasons. ⚠ *The characterization of the ordinary-KD literature above is
-> asserted, not verified here; a related-work pass must confirm it before this framing is final.*
+> (non-adversarial) KD the choice between matching features and matching logits is a well-worn axis.
+> The two are not identical there either — but they are not separated by margins like the ones in
+> §3, where the same switch is worth **+3.33 clean, +1.40 AA, +1.97 NRR** at a matched budget, and
+> where the logit route's best temperature still loses on every axis. The claim is about that
+> magnitude: a choice that is a tuning decision in ordinary KD becomes a **structural** one when the
+> teacher is natural and the setting adversarial, for the four reasons in §2.
+> ⚠ *The characterization of the ordinary-KD literature is asserted, not verified here. The framing
+> needs a related-work pass to establish what the feature-vs-logit gap normally is, since the claim
+> is comparative and rests entirely on ours being far larger.*
 
 ---
 
