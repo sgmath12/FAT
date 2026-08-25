@@ -242,16 +242,26 @@ $$x^{(j+1)}=\Pi_{\mathcal{B}(x,\varepsilon_{\mathrm{tr}})}\Big(x^{(j)}+\alpha\,\
 Champion: $m=10$, $\alpha=2/255$, $\varepsilon_{\mathrm{tr}}=8.8/255$, $\varepsilon=8/255$ at evaluation.
 **No label and no head — either network's — appears in (1).**
 
-### 3.2a Angular budget allocation (`featdir_angeps_p`, 2026-08-04)
+### 3.2a Sensitivity-matched $\varepsilon$ (`featdir_angeps_p`, 2026-08-04)
 
-Equation (1) maximizes a **feature angle**, but the constraint set $\mathcal{B}(x,\varepsilon_{\mathrm{tr}})$
-is a **pixel** ball, and that is a mismatch. The same radius rotates different samples by wildly
-different amounts, so a uniform $\varepsilon$ delivers a highly non-uniform *angular* attack — the
-quantity the loss is actually written in. We therefore equalize the angular budget rather than the
-pixel budget.
+⚠ **Renamed 2026-08-25; the knob keeps its old name for log reproducibility.** This was called
+"angular budget allocation", which is not what the rule does. What it equalizes is the first-order
+movement of the **loss**; for $L_{\mathrm{dir}}=2-2\cos\theta$ that is $\Delta\cos\theta$, and
+converting to $\Delta\theta$ carries a per-sample factor $1/\sin\theta$, so the angle is equalized
+only approximately even in the directional design. Two further reasons the old name misleads: the
+rule is not specific to a directional objective — it reads whatever loss is configured and has been
+run on the raw-$L_2$ one, where it equalizes a feature *displacement* — and $g_i$ is measured by one
+backward pass at the **clean** $x_i$, so it is the sensitivity at the starting point of a multi-step
+PGD rather than along it.
 
-To first order the angle moved under an $\ell_\infty$ ball of radius $\varepsilon$ is
-$\;\approx\varepsilon\cdot\lVert\nabla_x L_{\mathrm{dir}}(x)\rVert$, so with
+The mismatch it addresses is real regardless of the name: the constraint set
+$\mathcal{B}(x,\varepsilon_{\mathrm{tr}})$ is a **pixel** ball while the loss measures something
+else, and the same radius moves that something by wildly different amounts across samples. So we
+equalize the loss's movement rather than the pixel budget.
+
+Inside an $\ell_\infty$ ball of radius $\varepsilon$ the first-order change of any loss is
+$\max_{\lVert\delta\rVert_\infty\le\varepsilon}\langle\nabla_xL,\delta\rangle=\varepsilon\lVert\nabla_xL\rVert_1$
+(the dual norm of $\ell_\infty$ being $\ell_1$), so with
 $g_i=\lVert\nabla_x L_{\mathrm{dir}}(x_i)\rVert_2$ and $\bar g$ the batch mean,
 
 $$\tilde w_i=\mathrm{clip}\Big(\big(\bar g/g_i\big)^{p},\,w_{\lo},\,w_{\hi}\Big),\qquad
@@ -401,7 +411,7 @@ evaluate θ̄
 
 $$E=100,\ \ \text{AdamW},\ \eta_{\max}=0.021,\ \ \beta=1,\ \ \tau=16,\ \ \sigma=1,\ \ k=d=512,\ \ \lambda=0,$$
 $$m=10,\ \ \alpha=2/255,\ \ \varepsilon_{\mathrm{tr}}=8.8/255,\ \ \varepsilon=8/255,\ \ \kappa=0.999,\ \ e_{\mathrm{wa}}=0.2E,\ \ e_{\mathrm{fr}}=0.65E,$$
-$$\text{AWP: } \gamma=0.005,\ e_{\mathrm{awp}}=10,\qquad \text{angular budget: } p=1,\ w_{\lo}=0.5,\ w_{\hi}=1.5 .$$
+$$\text{AWP: } \gamma=0.005,\ e_{\mathrm{awp}}=10,\qquad \text{sensitivity-matched }\varepsilon\text{: } p=1,\ w_{\lo}=0.5,\ w_{\hi}=1.5 .$$
 
 `config/CIFAR10/featdir_champ200_angeps.yaml` and `config/CIFAR100/featdir_champ200_angeps.yaml`
 differ **only** in `dataset` and the teacher checkpoint path — every knob above is shared. There is
@@ -498,7 +508,7 @@ earlier robust-PCA cell for the same reason.
 
 ## 7. Current numbers
 
-### 7.0 Champion — angular budget on both datasets (2026-08-04)
+### 7.0 Champion — sensitivity-matched $\varepsilon$ on both datasets (2026-08-04)
 
 `featdir_champ200_angeps`, ResNet-18, seed 0, `last` checkpoint. Same recipe on both datasets
 (§3.10), no re-tuning.

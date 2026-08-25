@@ -1,0 +1,62 @@
+# Tiny-ImageNet with train_eps 10/255 instead of 8.8/255 (2026-08-25).
+#
+# The 8.8/255 run gave clean 57.08 / CW 20.91 / AA 18.96 / NRR 28.46 against ADR's 48.27 / 20.10 /
+# 28.42: clean +8.81, AA -1.14, NRR a tie.  The shape is the method's usual one but tilted further
+# toward clean than on CIFAR, where AA came out level.  8.8/255 was chosen on CIFAR-100, and the
+# measured effect of raising the radius there was AA +0.75 for clean -1.38 -- consistent with this
+# dataset wanting a larger one.
+#
+# Head-KD is not the explanation: refitting the head with KD at tau 16 on the finished backbone
+# moved AA 18.96 -> 19.00 and PGD 22.25 -> 28.10, i.e. it removes the CE-attack masking and changes
+# nothing AutoAttack can see.
+#
+# ⚠ This cell is an ABLATION, not the headline.  Tuning eps per dataset is exactly the per-dataset
+# tuning the transfer claim is about not doing, so the headline stays at 8.8/255 and this is
+# reported separately -- and it doubles as the eps sweep Corollary 2 asks for (clean should
+# saturate in eps_train past the threshold rather than fall steadily).
+#
+# Everything else is unchanged from featdir_tin_100ep: L2 target, WA on, AWP proxy on, no
+# freeze_lr, angeps p = 1, no head-KD term, 100 epochs.
+#
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : TinyImageNet
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.0392156862745098
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : TinyImageNet/checkpoint/clean_80ep/clean_last.pkl
+finetune_checkpoint : TinyImageNet/checkpoint/clean_80ep/clean_last.pkl
+data_root : ./data

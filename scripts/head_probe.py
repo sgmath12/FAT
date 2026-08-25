@@ -97,14 +97,30 @@ def main():
     # supplies a soft target with no teacher in it at all, so it separates "the teacher's head is
     # special" from "any adequately soft target will do".
     ap.add_argument('--ls', type=float, default=0.0)
+    # --kd tau: train the head by KL to the teacher's softened logits instead of on labels, i.e.
+    # reproduce the head the shipped recipe's head-KD term would have produced.  This is a valid
+    # substitute for re-training the whole run with the head term switched on, because that term is
+    # detached (featdir_alpha defaults to 0) and the attack is computed from the feature loss alone:
+    # the backbone trajectory and the x_adv sequence are identical with the head term on or off, and
+    # only the head's weights differ.  0 = off (use CE).
+    ap.add_argument('--kd', type=float, default=0.0)
+    ap.add_argument('--dataset', default='')
+    # --reset 0 keeps the head as loaded (the teacher's) instead of re-initializing it.  Required
+    # whenever --kd is used: the shipped recipe never resets the head, it warm-starts it from the
+    # teacher and lets the KD term adjust it.  Starting from random against a softened target does
+    # not work and is not what the recipe does -- on Tiny-ImageNet (200 classes, uniform = 0.005)
+    # the KL to z_t/16 begins at 0.0132 and the head never leaves chance, clean 9.06.
+    ap.add_argument('--reset', type=int, default=1)
     a = ap.parse_args()
 
-    cfg = load_config(make_args(a.cell + '.yaml'))
+    _args = make_args(a.cell + '.yaml')
+    if a.dataset: _args.dataset = a.dataset
+    cfg = load_config(_args)
     eps = float(getattr(cfg, 'train_eps', 0.0) or 0.0) or cfg.eps
     raw = not bool(getattr(cfg, 'student_norm', True))
     scale = float(getattr(cfg, 'feat_scale', 1.0) or 1.0)
 
-    _, student = get_model(cfg)
+    teacher, student = get_model(cfg)
     student.load_state_dict(torch.load(a.ckpt, map_location='cpu'))
     student = student.to(DEV).eval()
     for p in student.parameters():
@@ -114,6 +130,12 @@ def main():
         root=f'./data/{cfg.dataset}', download=False, batch_size=cfg.batch_size, val=False, config=cfg)
 
     net = ProbeNet(student, raw, scale).to(DEV)
+    if a.kd > 0:
+        tsd = torch.load(cfg.checkpoint, map_location='cpu')
+        teacher.load_state_dict(tsd)
+        teacher = teacher.to(DEV).eval()
+        for p_ in teacher.parameters():
+            p_.requires_grad_(False)
 
     with torch.no_grad():                            # mean head-input norm on clean train data
         tot, seen = 0.0, 0
@@ -128,7 +150,8 @@ def main():
           f'mean_head_input_norm={net.gs:.4f} wd={a.wd}', flush=True)
 
     torch.manual_seed(0)
-    net.linear.reset_parameters()
+    if a.reset:
+        net.linear.reset_parameters()
     for p in net.linear.parameters():
         p.requires_grad_(True)
 
@@ -142,7 +165,13 @@ def main():
             xa = ce_pgd(net, x, y, eps, cfg.step_size, cfg.steps) if a.adv else x
             net.eval()                                # backbone frozen, BN stats frozen
             logits = net(xa)
-            loss = F.cross_entropy(logits, y, label_smoothing=a.ls)
+            if a.kd > 0:
+                with torch.no_grad():
+                    tgt = teacher(x) / a.kd
+                loss = F.kl_div(F.log_softmax(logits, 1), F.softmax(tgt, 1),
+                                reduction='batchmean')
+            else:
+                loss = F.cross_entropy(logits, y, label_smoothing=a.ls)
             opt.zero_grad(); loss.backward(); opt.step()
             run += loss.item() * y.size(0); tot += y.size(0)
             corr += (logits.argmax(1) == y).sum().item()
