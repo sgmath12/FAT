@@ -600,3 +600,248 @@ new 200ep), `freeze_lr_epoch`, `wa_start`, $\varepsilon_{\mathrm{tr}}$ (10 → 8
 suspect: it is the only one that had no implementation at all before today, and freezing the LR at
 79 % of peak for the last 35 epochs turns the tail into a constant-LR phase that WA then averages
 over — textbook SWA, which is exactly the kind of thing that moves AA. Single seed.
+
+---
+
+# 260825 — Why the anchor buys **clean accuracy**
+
+*Written 2026-08-25, argument revised twice and reordered 2026-08-26. This is the section
+theory_v1 T.8 asks for. Closed-form numbers reproduce with `python scripts/theory_spectrum.py`;
+measured numbers with `python scripts/diag_retention_within_family.py`.*
+
+## 8.0 The thesis, and the ladder that states it
+
+T.8's verdict on the existing theory is correct and blunt: **Theorem 1 explains why the method does
+not fail, not why it works.** Inside T.1's model the anchored optimum equals plain AT's classifier,
+so the headline — clean $57.36\to62.17$ at AA $28.50\to28.59$ — is not merely unexplained there, it
+is impossible there.
+
+The thesis is the intuitive one, and it is measurable:
+
+> **Clean accuracy is how much of the teacher's representation the student still uses.** The
+> method's content is that it can keep almost all of it without paying robustness.
+
+Every cell below starts from the **same** teacher checkpoint, runs the same 100-epoch recipe, and
+differs in one term, so initialization and schedule are held fixed and all of them share the
+teacher's coordinate basis — which is what makes $\cos(\hat\Phi_s(x),\hat\Phi_t(x))$ a meaningful
+number. CIFAR-100, full test set, each cell attacked by its own PGD-10 CE at $\varepsilon=8/255$;
+AA quoted from §7/T.3–T.4.
+
+| how the clean teacher is used | clean | PGD-10 | AA | $\cos$ vs teacher |
+|---|---:|---:|---:|---:|
+| not at all — ADR self-anchors | 57.37 | 35.18 | 28.50 | *(different net)* |
+| as an **initialization only**, then label-CE AT | 58.38 | 28.28 | — | **0.4703** |
+| through its **logits** (`nofeat`) | 58.94 | 35.45 | 28.71 | **0.0968** |
+| through its **features** (champion $p{=}0$) | 60.76 | 35.17 | 28.69 | **0.8245** |
+| + sensitivity-matched $\varepsilon$ (champion) | **62.16** | 35.06 | 28.59 | **0.8345** |
+| the teacher itself | 77.65 | 0.00 | ≈0 | 1.0000 |
+
+**Read the two columns against each other.** Among the four cells trained at the shipped regime,
+"how well the clean teacher is used" is a monotone axis, $\cos$ vs teacher is its gauge, and
+**robustness is constant along the whole of it** — PGD $35.06$–$35.45$, a range of $0.39$, AA within
+$\pm0.11$ of $28.60$.
+
+**Warm-starting at the teacher is not what keeps a student there.** Rows two and three both begin
+*at* the teacher checkpoint and both walk away from it: label-CE adversarial training ends at
+$\cos=0.470$, logit distillation at $\cos=0.097$. Only the feature anchor stays ($0.82$–$0.83$).
+Both feature maps are non-negative — post-ReLU global pool — so a cosine of $0.097$ means
+near-disjoint support: the logit-distilled student ends up using *different coordinates* from the
+teacher it was distilled from. **A logit target names the teacher without keeping the student inside
+it**, and an initialization does not hold on its own. That is the whole gap between "uses a clean
+teacher" and "uses it well," and between the two regime-matched cells it is worth $+1.8$ clean at
+$-0.02$ AA.
+
+⚠ *The AT clean-init row is a `cos` control, not a clean-accuracy comparison: that checkpoint is from
+the 2026-07 3-step / no-WA era (§5's regime warning) and sits at PGD $28.28$ against $\approx35$ for
+every other row. It answers "does starting at the teacher keep you there" and nothing else.*
+
+**Two questions follow, and only the second needs theory.** *Why does keeping the teacher buy clean?*
+— it is what the ladder measures, and the teacher is at $77.65$. *Why is keeping a **non-robust**
+teacher free on robustness?* — that is the surprising half, it is the objection ADR's self-anchoring
+exists to avoid, and §8.1 is the answer. §8.2 then asks why plain AT does not simply do this.
+
+## 8.1 Why it is free: the anchor is evaluated at the clean point
+
+Two results already in this file, read together.
+
+**Theorem 1 (T.1): the adversarial term is an $\ell_1$ penalty on the non-robust coefficient.** With
+$\Phi_s=ax_1+b\,m(z)$ and the inner maximum taken exactly,
+$J(a,b)=\mathbb{E}[R^2]+2\varepsilon\lvert b\rvert\mathbb{E}\lvert R\rvert+\varepsilon^2b^2$ is
+kinked at $b=0$ with subgradient jump $2\varepsilon\mathbb{E}\lvert R\rvert$, so past a threshold
+$\varepsilon_0$ the minimizer has $b^\star=0$ **exactly** — and by Cor. 2 the solution is then
+$\varepsilon$-independent. The teacher supplies the *value* to be matched; the inner maximization
+discards the route the teacher took to it. The non-robust component is not inherited, because it
+cannot be reproduced at $x_{\mathrm{adv}}$ and the $\ell_1$ kink zeroes it rather than shrinking it.
+
+**Proposition 2 (T.2b): the one term is fidelity plus stability.** $L\le F+O\le3L$ by the triangle
+inequality, with $F=\lVert\Phi_s(x)-\Phi_t(x)\rVert$ and $O$ the oscillation of the student's own
+map on the ball. $\Phi_t$ is evaluated at $x$ and nowhere else, so **the teacher's instability never
+enters the objective**. The student is not asked to imitate the teacher under attack; it is asked to
+hold the teacher's clean value while under attack — which is exactly what the teacher cannot do.
+
+Together: $F$ is what keeps the student in the teacher's coordinates (the ladder's $\cos$ column),
+$O$ is what makes it stable, one term delivers both, and neither asks the student to reproduce
+anything the teacher does *off* the clean point. That is why the clean axis and the robust axis move
+independently — the paper's standing observation that every anchor-side intervention lands at an AA
+tie and moves only clean (T.4) is this decomposition seen in the ablation table.
+
+## 8.2 Why plain AT does not do this: stability by deletion
+
+If keeping the teacher's geometry is free, why does adversarial training give it up? Because it is
+never asked to keep it, and the cheapest route to stability is to stop reading the volatile
+directions. The following is a model, and it is used for the shape of the answer, not its size.
+
+**Setup.** $x\mid y\sim\mathcal N(\eta y,I)$ on $\mathbb{R}^D$, $\eta\ge0$; $\ell_\infty$ adversary
+of radius $\varepsilon$ per coordinate. Coordinate $j$ has **reliability** $\eta_j$, and
+$\eta_j/\varepsilon$ is the only thing that matters. For a linear readout $c^\top x$,
+$M_c=c^\top\eta/\lVert c\rVert_2$ and $M_r=(c^\top\eta-\varepsilon\lVert c\rVert_1)/\lVert c\rVert_2$
+— the $\ell_\infty$/$\ell_1$ duality T.5 already uses.
+
+**Proposition A1 (AT is a hard threshold).** $\arg\max_c M_r\propto(\eta-\varepsilon)_+$.
+*Proof.* Signs may be taken non-negative; then $c^\top(\eta-\varepsilon)\le c^\top(\eta-\varepsilon)_+\le\lVert c\rVert_2\lVert(\eta-\varepsilon)_+\rVert_2$
+by Cauchy–Schwarz, with equality iff $c\propto(\eta-\varepsilon)_+$. $\square$
+Not an artifact of optimizing accuracy instead of a surrogate: minimizing the adversarial **logistic**
+loss returns the same solution (support $64$ vs $64$, $\mathrm{corr}=1.0000$, identical accuracies).
+
+**So every coordinate with $\eta_j\le\varepsilon$ gets weight exactly zero, however close $\eta_j$ is
+to $\varepsilon$.** Usefulness is continuous; the robust treatment of it is not.
+
+**Proposition A2 (what the discontinuity costs).** Restoring weight to a deleted coordinate trades at
+$$\frac{dM_c}{-dM_r}=\frac{\eta_j}{\varepsilon-\eta_j}\ \xrightarrow[\eta_j\uparrow\varepsilon]{}\ \infty .$$
+Verified against finite differences (predicted / measured: $67.28/67.22$ at $\eta_j/\varepsilon=0.986$,
+$15.30/15.30$ at $0.943$, $4.01/4.01$ at $0.812$). Relaxing the threshold to
+$c_\lambda=(\eta-\lambda)_+$ traces a frontier on which, just below the AT solution, clean rises
+several points for a robustness cost inside any realistic noise band ($\lambda/\varepsilon=0.9$:
+$+3.71$ clean, $-0.20$ robust; the rate is $\approx18$ across four unrelated spectra, while the
+*size* of the gain varies by two orders of magnitude — the rate is threshold geometry, the size is
+how much reliability mass sits near $\varepsilon$).
+
+**Why the existing theory could not see any of this.** T.1's spectrum has two atoms —
+$\eta_1/\varepsilon=\infty$ and bulk at $1/2$ — and **no mass near $1$**, where the entire effect
+lives. On that spectrum, relaxing the threshold changes nothing at all until it crosses $0.5$, at
+which point the whole bulk returns at once and robustness collapses 22 points:
+
+| $\lambda/\varepsilon$ | 1.00 | 0.90 | 0.70 | 0.50 | 0.00 |
+|---|---:|---:|---:|---:|---:|
+| clean | 69.09 | 69.09 | 69.09 | 69.09 | 77.40 |
+| robust | 67.31 | 67.31 | 67.31 | 67.31 | 45.04 |
+
+**T.1 rules out the paper's effect by construction, and so does any two-atom model.** That is a
+property of the data model, not of the objective, and it is the precise reason Theorem 1 finds
+anchoring and AT to be the same classifier. This is the diagnosis T.8 asked for.
+
+⚠ **Proposition C, and the limit of every re-weighting account.** For a linear readout,
+$$M_c(c)-M_r(c)=\varepsilon\,\frac{\lVert c\rVert_1}{\lVert c\rVert_2}\in[\varepsilon,\varepsilon\sqrt D],$$
+exactly: reading a coordinate and being exposed on it are the *same* parameter, so deletion is the
+only gap-reducing move a linear map has. Consequently no re-allocation of feature weight reproduces
+the measured signature — across four spectra $\times$ six radii the anchored objective's own optimum
+trades clean for robust at $0.46$–$2.6$, against a measured rate $\ge12$. **A nonlinear map escapes
+this** because its exposure is $O$, which is not a function of how many coordinates it reads: it can
+depend on an attackable coordinate and still be locally constant in it. That is what §8.1's $F+O$
+asks for and what adversarial CE does not.
+
+## 8.3 The full within-family measurement
+
+The ladder of §8.0 in full; same protocol; effective rank is the participation ratio of the **unit**
+feature covariance (on raw features it is confounded by the unconstrained norm under a normalized
+head); probe is a linear probe from frozen clean features to labels, 5 000 fit / 5 000 scored. Log:
+`results/CIFAR100/retention_within_family_20260826.log`.
+
+| cell | clean | PGD-10 | feature angle | $\cos$ vs teacher | eff. rank | label probe |
+|---|---:|---:|---:|---:|---:|---:|
+| teacher (natural) | 77.65 | 0.01 | 63.8° | 1.0000 | 62.4 | 77.14 |
+| champion, $p{=}1$ | **62.16** | 35.08 | 14.6° | **0.8345** | 32.8 | 62.14 |
+| `alpha1` (head grad reaches backbone) | 61.03 | 35.27 | 13.1° | 0.8245 | 31.5 | 60.66 |
+| champion, $p{=}0$ | 60.76 | 35.17 | 13.1° | 0.8245 | 31.5 | 60.32 |
+| `rawfeat` (raw target) | 59.78 | 35.10 | 12.3° | 0.8178 | 30.7 | 58.56 |
+| `nofeat` (**anchor deleted**) | 58.94 | 35.45 | 6.3° | **0.0968** | **2.1** | 57.76 |
+| AT clean-init ⚠ *other regime* | 58.38 | 28.28 | 15.7° | **0.4703** | 48.1 | 51.52 |
+
+*Every cell reproduces its documented clean accuracy to within $0.02$ ($62.17/61.03/60.74/59.79/58.92$
+in §7 and T.3–T.4); the teacher's $63.8°$ rotation and $\times2.45$ norm inflation reproduce §1's
+independently measured $62°$ and $\times2.47$; and the champion's $\cos$ comes out $0.8345$, matching
+T.3's $0.8345$ exactly.*
+
+Two geometry observables order the anchored cells exactly as clean accuracy does — $\cos$
+$0.8178<0.8245\approx0.8245<0.8345$ and effective rank $30.7<31.5=31.5<32.8$ — while robustness does
+not move. This reproduces T.3's 17-cell correlation and adds the column T.3 never had.
+
+⚠ **The relation is an ordering, not a dose–response.** Among the anchored cells a $\cos$ change of
+$0.017$ accompanies $+2.4$ clean; the $0.73$ collapse to `nofeat` accompanies only $-1.8$. A
+representation with essentially nothing in common with the teacher still reaches $58.94$ clean and
+$35.34$ PGD. So the anchor is demonstrably what holds the representation in the teacher's geometry,
+and holding it is worth clean accuracy at no robustness cost — but §8.2's model does not predict the
+*size* of that payment and must not be quoted as if it did. Effective rank is variance concentration,
+not information dimension: `nofeat` probes at $57.76$ with a participation ratio of $2.1$, so its
+class information lives in low-variance directions.
+
+**A cross-method comparison was also run and is reported only as context.** Against ADR + WA + AWP
+(clean $57.37$, PGD $35.18$, angle $15.1°$, CKA vs teacher $0.537$ against ours $0.619$, label probe
+$55.12$ against ours $62.14$; `results/CIFAR100/delete_vs_stabilize_20260826.log`) our backbone
+retains more of the teacher's clean geometry at matched oscillation. **It should not be used as
+evidence for the mechanism**: our student is warm-started *at* the teacher and ADR is not, so higher
+alignment is what initialization alone predicts, and the label probe lands within noise of each
+model's own clean accuracy ($62.14/62.16$, $55.12/57.37$), so on that axis it re-measures the
+headline. What it does add cleanly is that **the head is not where the gap lives** — consistent with
+the head ablation, where refitting the head moves clean by $0.00$ ($62.72/62.77/62.70$).
+
+## 8.4 Predictions
+
+**8.4-1 (reliability mass near the threshold).** On the teacher, the histogram of
+(per-coordinate class signal)/(per-coordinate attack displacement) should be unimodal across $1$
+rather than two-atom. Decides how *large* the available gain is, not whether the mechanism is right.
+Checkpoints on disk.
+
+**8.4-2 (deletion is cheap for CE and forbidden by $F$).** Sweep a label-CE weight $\alpha$ on the
+backbone: clean should fall monotonically at roughly constant AA as CE re-opens the deletion route.
+One point already exists in the right direction and on the right axis — `alpha1`, clean $-1.14$ at
+AA $28.59\to28.58$, with $\cos$ falling $0.8345\to0.8245$.
+
+**8.4-3 (a second AT baseline). ✅ DONE 2026-08-26 — confirmed.** Clean-initialized label-CE AT
+(`at_ce_freehead`) shares the teacher's basis, so its retention is not confounded by warm start. It
+ends at $\cos=0.470$ against the anchor's $0.82$–$0.83$: **the initialization does not hold a student
+in the teacher's coordinates; the anchor term does.** ⚠ That checkpoint is from a different (3-step,
+no-WA) regime, so only its $\cos$ is usable. A regime-matched label-CE AT run started from the same
+teacher would remove the last caveat and is one training run.
+
+**8.4-4 (the trajectory).** $(\text{clean},\text{AA})$ along the finetune from the teacher should
+trace a one-dimensional curve with $\cos$ falling monotonically. Partial support: $50\to100$ epochs
+costs the directional design $1.86$ AA in the bare regime (T.6).
+
+## 8.5 What is assumed, and what is not claimed
+
+**Assumed.** §8.2 only: Gaussian coordinates with diagonal covariance, a linear readout, a
+per-coordinate $\ell_\infty$ adversary — the setting T.1 and §2b already use, and used here mostly
+to derive a *negative* result (Prop. C), which is the direction in which strong assumptions are
+safe. §8.1 assumes nothing beyond Theorem 1's model and the triangle inequality; §8.0 and §8.3 are
+measurements.
+
+**Not claimed.**
+
+1. **A quantitative prediction of the clean gain.** §8.2 gives the shape and sign of the trade, not
+   its size; §8.3's caveat says why the measured relation cannot carry one either.
+2. **That the anchored objective provably reaches the favourable operating point.** In the linear
+   model it does not — it overshoots toward the teacher and pays roughly one for one (§8.2). Where a
+   run lands is a question about the recipe and about nonlinear capacity the model does not
+   represent.
+3. **That freezing the head is the mechanism.** Head refit moves clean by $0.00$. ⚠ **This
+   contradicts §2b Claim 2 ("the head must be re-solved"), the title of theory_v1 T.2, and T.2b's
+   *Scope* sentence, which says the head is "fitted rather than inherited in the shipped recipe" —
+   the shipped recipe inherits it.** Reconcile before printing; the surviving head statement is
+   Prop. 0 / `featdir_alpha`$=0$ (routing).
+4. **Any fit to the CIFAR numbers.** An earlier reverse-engineering matched to $0.3$ points only in
+   a parametrization where the natural teacher's robust accuracy is at chance rather than near zero,
+   and broke by $8$–$17$ points once that endpoint was corrected.
+5. **That AT provably deletes in a real network.** A1 is about a robust-optimal linear readout.
+   §8.3 measures the consequence inside our own family, where the objective is the only thing that
+   changes, and 8.4-3 adds a label-CE AT run started from the same teacher ($\cos=0.470$) — but that
+   run is from another regime, so the AT side of the comparison is still one regime-matched run
+   short.
+
+**One-line summary.** *Clean accuracy is how much of the teacher's representation the student still
+uses. Starting at the teacher does not keep you there — label-CE AT drifts to $\cos=0.47$ and logit
+distillation to $0.10$ — and only the feature anchor stays inside it ($\cos=0.83$); the ladder from
+the logit route to the anchor is worth $3.2$ clean points at $0.39$ PGD. It is free because the anchor is evaluated at the clean point only, so the
+teacher's instability never enters the objective; and it is available because adversarial training,
+asked only that the decision survive the ball, buys stability the cheap way — by deleting the
+directions the attack can move.*
