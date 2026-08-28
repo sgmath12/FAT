@@ -913,17 +913,29 @@ apart, and the student copies that.** $r(\text{teacher gap},\ \text{student gap}
 
 ## 9.2 Why one change moves both axes in opposite directions
 
-**Clean falls because the transferable structure is what shrinks relative to the class scale.**
-The sample-specific part of the target — the part that distinguishes a hard cat from an easy one,
-i.e. the dark knowledge a feature target carries and a label does not — is the within-class
-variation. As the class means separate, that variation is a smaller fraction of the representation,
-so the anchor transmits proportionally less of it. Measured: $r(\text{student }S_w/S_b,\
-\text{student clean}) = +0.987$, and $r(\text{teacher }S_w/S_b,\ \text{student }S_w/S_b) = +0.989$.
+**Clean falls because the student cannot follow.** The teacher's class means spread by $9.2°$
+across the ladder; the student's spread by only $4.4°$ — **48% of it** — and the shortfall widens
+(student/teacher gap ratio $0.711\to0.664$). So the further the teacher separates, the worse the
+student reproduces it: $\cos(\hat\Phi_s,\hat\Phi_t)$ falls $0.8607\to0.8311$. Clean accuracy tracks
+that fidelity, $r = \mathbf{+0.994}$.
 
-**AA rises because the attack has further to travel.** Naively one would look at the student's own
-oscillation, and that reading is **wrong** — the attack rotates the student's feature *more* as the
-teacher gets longer ($16.8°\to18.7°$), giving $r(\text{rotation},\text{AA}) = +0.83$, the wrong sign.
-What matters is rotation measured against the angular margin it has to cross:
+The reason it cannot follow is the other half of its own objective: it has to hold the teacher's
+clean value **while under attack**. Producing a large class separation and being locally constant
+on $\varepsilon$-balls pull against each other, so the robustness requirement caps how much of the
+teacher's separation the student can realize.
+
+⚠ *An earlier version of this subsection attributed the clean drop to within-class "dark knowledge"
+shrinking as the class scale grows. That was a guess. What the data shows is the simpler thing —
+the student's fidelity to its own teacher falls — and it has the advantage of being the observable
+this project already uses everywhere else: T.3's 17-cell correlation ($r=+0.83/+0.87$), §8.0's
+three-objective ladder ($0.10/0.47/0.83$), and this ladder ($r=+0.994$) are all the same statement,
+**clean accuracy is fidelity to the teacher**. The teacher ladder is a new handle on that one
+quantity, not a second mechanism.*
+
+**AA rises because the partial separation still outpaces the attack.** The student gains $+4.4°$ of
+margin while the attack's rotation grows only $+1.9°$ ($16.8°\to18.7°$). Note the naive reading is
+wrong: rotation and AA move *together* here, $r(\text{rotation},\text{AA}) = +0.83$. What tracks AA
+is rotation priced against the margin it has to cross:
 
 | teacher | attack rotation | class-mean gap | **rotation / (gap/2)** | AA |
 |---|---:|---:|---:|---:|
@@ -933,15 +945,14 @@ What matters is rotation measured against the angular margin it has to cross:
 | 200ep | 18.1° | 28.8° | 1.259 | 25.88 |
 | 300ep | 18.7° | 29.8° | 1.258 | 25.80 |
 
-$r(\text{rotation}/\text{margin},\ \text{AA}) = \mathbf{-0.991}$, **and the saturation points agree**:
-the ratio flattens at 150ep ($1.254/1.259/1.258$) and so does AA ($25.78/25.88/25.80$). The rotation
-grows, the margin grows faster, and robustness follows the ratio.
+$r(\text{rotation}/\text{margin},\ \text{AA}) = \mathbf{-0.991}$, **and the saturation points agree** —
+the ratio flattens at 150ep ($1.254/1.259/1.258$) and so does AA ($25.78/25.88/25.80$).
 
-So one underlying change — the teacher's class means separating — produces both halves:
+So one underlying change produces both halves:
 
 $$\text{teacher class separation}\ \uparrow\ \Rightarrow\ \begin{cases}
-\text{within-class structure relative to class scale}\ \downarrow &\Rightarrow\ \text{clean}\ \downarrow\\
-\text{student angular margin}\ \uparrow\ \text{faster than the attack rotates} &\Rightarrow\ \text{AA}\ \uparrow
+\text{student falls further behind it} &\Rightarrow\ \text{fidelity}\ \downarrow\ \Rightarrow\ \text{clean}\ \downarrow\\
+\text{the margin it does gain outpaces the attack} &\Rightarrow\ \text{AA}\ \uparrow
 \end{cases}$$
 
 ## 9.3 Three readings that were tested and are wrong
