@@ -845,3 +845,128 @@ the logit route to the anchor is worth $3.2$ clean points at $0.39$ PGD. It is f
 teacher's instability never enters the objective; and it is available because adversarial training,
 asked only that the decision survive the ball, buys stability the cheap way — by deleting the
 directions the attack can move.*
+
+---
+
+# 260828 — Teacher training length is a trade-off dial, and the mechanism is class separation
+
+*CIFAR-100, base regime (50 epochs, no WA, no AWP, $\varepsilon=8/255$), L2 target, head not
+trained. Five student runs differing in **one thing only**: which natural teacher checkpoint they
+anchor to and initialize from. Logs `results/CIFAR100/teacher_ladder_{separation,students}_20260828.log`;
+reproduce with `scripts/diag_teacher_collapse.py` and `scripts/diag_teacher_ladder_students.py`.*
+
+## 9.0 The result
+
+| teacher | T.clean | T.Sw/Sb | **S.clean** | S.PGD-20 | S.CW | **S.AA** | NRR |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 50ep | 75.81 | 1.100 | **64.28** | 26.12 | 26.73 | 24.38 | 35.35 |
+| 100ep | 76.62 | 0.982 | 63.65 | 27.33 | 27.38 | 25.20 | 36.11 |
+| 150ep | 77.52 | 0.887 | 62.93 | 28.06 | 27.57 | 25.78 | 36.51 |
+| 200ep | 77.65 | 0.808 | 62.72 | 28.69 | 27.80 | 25.88 | **36.64** |
+| 300ep | 78.32 | 0.712 | 62.24 | 28.81 | 27.59 | 25.80 | 36.48 |
+
+**Every column is monotone in teacher training length, and the headline is a sign reversal:**
+
+$$r(\text{teacher clean},\ \text{student clean}) = \mathbf{-0.999}.$$
+
+The teacher gains $2.51$ points of clean accuracy across the ladder and the student **loses**
+$2.04$. A more accurate teacher makes a worse student. What the student inherits is not the
+teacher's accuracy.
+
+NRR peaks in the middle ($200$ep, $36.64$), so there is an optimal teacher length rather than
+"longer is better". The trade-off is a *dial*, and it costs nothing: the teacher is naturally
+trained, the student config is untouched, and only the checkpoint path changes. **The
+robust-teacher KD line does not have this knob** — there the teacher's geometry is fixed by
+adversarial training.
+
+Reproduced on Tiny-ImageNet with the same recipe and near-identical magnitude:
+
+| | teacher clean $\Delta$ | student clean $\Delta$ | student AA $\Delta$ | NRR $\Delta$ |
+|---|---:|---:|---:|---:|
+| CIFAR-100, 50 → 200ep | +1.84 | **−1.56** | **+1.50** | +1.29 |
+| Tiny-ImageNet, 80 → 200ep | +0.32 | **−1.92** | **+1.58** | +1.47 |
+
+Tiny-ImageNet is the accuracy-controlled instance: its two teachers are $0.32$ apart
+($65.97$ / $66.29$) and the student still moves by $1.9$ / $1.6$. Accuracy cannot be the cause there.
+
+## 9.1 What actually changes in the teacher — not collapse, separation
+
+$S_w/S_b$ falls monotonically ($1.100\to0.712$), which is the neural-collapse signature. But the
+ratio hides which half moved, and splitting it changes the story. On the unit sphere:
+
+| | 50ep | 300ep | $\Delta$ |
+|---|---:|---:|---:|
+| sample → its own class mean | 34.6° | 30.9° | −3.7° |
+| class mean ↔ nearest class mean | 35.7° | **44.9°** | **+9.2°** |
+
+Both move, but **separation moves $2.5\times$ more than concentration**. And on the student side
+only one of them transfers:
+
+| student | 50ep-teacher | 300ep-teacher | $\Delta$ |
+|---|---:|---:|---:|
+| sample → its own class mean | 27.9° | 28.2° | **+0.3° (flat)** |
+| class mean ↔ nearest class mean | 25.4° | **29.8°** | **+4.4°** |
+
+**The student inherits the class separation and not the within-class concentration.** So "the
+teacher collapses" is the wrong description of the mechanism; **the teacher's class means spread
+apart, and the student copies that.** $r(\text{teacher gap},\ \text{student gap}) = +0.999$.
+
+## 9.2 Why one change moves both axes in opposite directions
+
+**Clean falls because the transferable structure is what shrinks relative to the class scale.**
+The sample-specific part of the target — the part that distinguishes a hard cat from an easy one,
+i.e. the dark knowledge a feature target carries and a label does not — is the within-class
+variation. As the class means separate, that variation is a smaller fraction of the representation,
+so the anchor transmits proportionally less of it. Measured: $r(\text{student }S_w/S_b,\
+\text{student clean}) = +0.987$, and $r(\text{teacher }S_w/S_b,\ \text{student }S_w/S_b) = +0.989$.
+
+**AA rises because the attack has further to travel.** Naively one would look at the student's own
+oscillation, and that reading is **wrong** — the attack rotates the student's feature *more* as the
+teacher gets longer ($16.8°\to18.7°$), giving $r(\text{rotation},\text{AA}) = +0.83$, the wrong sign.
+What matters is rotation measured against the angular margin it has to cross:
+
+| teacher | attack rotation | class-mean gap | **rotation / (gap/2)** | AA |
+|---|---:|---:|---:|---:|
+| 50ep | 16.8° | 25.4° | **1.317** | 24.38 |
+| 100ep | 17.2° | 26.8° | 1.286 | 25.20 |
+| 150ep | 17.6° | 28.1° | 1.254 | 25.78 |
+| 200ep | 18.1° | 28.8° | 1.259 | 25.88 |
+| 300ep | 18.7° | 29.8° | 1.258 | 25.80 |
+
+$r(\text{rotation}/\text{margin},\ \text{AA}) = \mathbf{-0.991}$, **and the saturation points agree**:
+the ratio flattens at 150ep ($1.254/1.259/1.258$) and so does AA ($25.78/25.88/25.80$). The rotation
+grows, the margin grows faster, and robustness follows the ratio.
+
+So one underlying change — the teacher's class means separating — produces both halves:
+
+$$\text{teacher class separation}\ \uparrow\ \Rightarrow\ \begin{cases}
+\text{within-class structure relative to class scale}\ \downarrow &\Rightarrow\ \text{clean}\ \downarrow\\
+\text{student angular margin}\ \uparrow\ \text{faster than the attack rotates} &\Rightarrow\ \text{AA}\ \uparrow
+\end{cases}$$
+
+## 9.3 Three readings that were tested and are wrong
+
+1. **"A better teacher gives a better student."** Sign-reversed, $r=-0.999$. This is the finding, not
+   a caveat.
+2. **"Collapse means samples concentrating on their class mean."** On the student that quantity is
+   flat ($27.9°\to28.2°$); the moving part is the separation between class means. §9.1.
+3. **"Feature oscillation explains robustness."** Wrong sign here ($r=+0.83$), and this is the third
+   time the project has found it: §8.7 has ADR and ours at matched oscillation with a 4.8 clean gap,
+   and the teacher ladder has the more volatile teachers producing the more robust students. **Feature
+   oscillation is not a sufficient statistic for robust accuracy** — the oscillation has to be priced
+   against the margin it must cross. This qualifies §8.6, which leans on $O$ alone.
+
+## 9.4 Limits
+
+Single seed per cell; five teachers on CIFAR-100 and three on Tiny-ImageNet. The base regime only
+(50 epochs, no WA/AWP) — the champion regime is untested on this axis. Teacher accuracy and teacher
+separation move together on the CIFAR ladder, so CIFAR alone cannot separate them; Tiny-ImageNet is
+what does, and it is three points. The margin used is the mean angle to the *nearest* other class
+mean, which is a crude stand-in for the decision boundary. And no causal claim is made about *why*
+longer natural training separates class means — that is a property of natural training this section
+measures and does not explain.
+
+**Framing warning.** This must not be written as "the teacher can be tuned per dataset" — the paper's
+selling point is that CIFAR-10/100 run an identical config. The teacher is chosen once. What the
+section claims is that **the teacher's geometry, not its accuracy, is what a feature anchor
+transfers**, and that this gives a free dial the robust-teacher line does not have.

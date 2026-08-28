@@ -53,6 +53,19 @@ def eff_rank(f):
     return (ev.sum() ** 2 / ev.pow(2).sum()).item()
 
 
+def separation_stats(f, y, k):
+    """Split Sw/Sb into its two halves: how far a sample sits from its own class mean, and how
+    far the class means sit from each other. Both in degrees on the unit sphere, so a falling
+    Sw/Sb can be read as either the numerator shrinking or the denominator growing."""
+    fn = torch.nn.functional.normalize(f, dim=1)
+    mu = torch.nn.functional.normalize(
+        torch.stack([fn[y == c].mean(0) for c in range(k)]), dim=1)
+    own = (fn * mu[y]).sum(1).clamp(-1, 1).arccos().rad2deg().mean().item()
+    g = (mu @ mu.T).clamp(-1, 1)
+    g.fill_diagonal_(-1.0)
+    return own, g.max(1).values.arccos().rad2deg().mean().item()
+
+
 def collapse_stats(f, y, k):
     """NC1-style: within-class scatter against between-class scatter, on unit features.
     Lower = more collapsed = the teacher has kept sharpening after its accuracy saturated."""
@@ -83,7 +96,7 @@ def main():
                                                   batch_size=args.batch_size)
     print(f"dataset={args.dataset}  classes={k}  teachers={[n for n, _ in teachers]}")
     print(f"{'teacher':9}{'clean':>7}{'||Phi||':>9}{'norm CV':>9}{'eff.rank':>10}"
-          f"{'Sw/Sb':>9}{'angle':>8}{'|a|/|c|':>9}{'PGD':>7}")
+          f"{'Sw/Sb':>9}{'to own mu':>10}{'mu-mu gap':>11}{'angle':>8}{'|a|/|c|':>9}{'PGD':>7}")
     for name, d in teachers:
         m = Converter(ResNet18(num_classes=k), mean, std).cuda()
         m.load_state_dict(torch.load(f"{ck}/{d}/clean_last.pkl", map_location="cuda",
@@ -109,7 +122,9 @@ def main():
         print(f"{name:9}{100*ok/n:7.2f}{f.norm(dim=1).mean():9.2f}"
               f"{(f.norm(dim=1).std()/f.norm(dim=1).mean()):9.3f}"
               f"{eff_rank(torch.nn.functional.normalize(f, dim=1)):10.1f}"
-              f"{collapse_stats(f, y, k):9.3f}{torch.cat(ang).mean():8.1f}"
+              f"{collapse_stats(f, y, k):9.3f}"
+              f"{separation_stats(f, y, k)[0]:10.1f}{separation_stats(f, y, k)[1]:11.1f}"
+              f"{torch.cat(ang).mean():8.1f}"
               f"{torch.cat(nr).mean():9.3f}{100*ok_a/na:7.2f}")
         del m, atk, f
         torch.cuda.empty_cache()
