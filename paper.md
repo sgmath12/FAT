@@ -111,6 +111,22 @@ logit distillation as such, is the first of the four properties in §1.
 the teacher, so $\Phi_s=\Phi_t$ and only the adversarial perturbation makes the objective non-zero.
 A logit target is zero only at τ = 1, which is the setting where it carries nothing.
 
+**What the loss has to be small relative to.** The decomposition controls $L$, but $O$ by itself is
+not a sufficient statistic for robust accuracy — across the teacher ladder it correlates with AA at
+$r=+0.83$, the wrong sign (§7). Because the head is frozen at the teacher's, the right comparison
+follows from Cauchy–Schwarz: with $\gamma_t(x)=\min_{c\ne y}\langle w_y-w_c,\Phi_t(x)\rangle$ the
+teacher's clean margin and $D_y=\max_{c\ne y}\lVert w_y-w_c\rVert$,
+
+$$\gamma_t(x) > D_y\,L(x)\ \Longrightarrow\ x \text{ is robustly correct,}$$
+
+since every margin obeys $\langle w_y-w_c,\Phi_s(x')\rangle\ge\gamma_t(x)-D_yL(x)$ for all
+$x'\in B(x)$. Measured across the teacher ladder, the quantity this names tracks **both** axes:
+$r(D L/\gamma_t,\ \mathrm{AA})=-0.971$ and $r(D L/\gamma_t,\ \text{clean})=+0.977$.
+
+⚠ The certificate itself is **vacuous** — it certifies 1.5–7.9% against a measured AA of 24–26,
+because Cauchy–Schwarz assumes a worst-case alignment that does not occur. It is reported for the
+quantity it identifies, not as a bound that binds.
+
 ### The head: left alone
 
 There is no second stage. The head-distillation term is **deleted**, and the classifier is simply

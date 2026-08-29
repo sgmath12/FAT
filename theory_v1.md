@@ -367,6 +367,75 @@ that these four properties are why the anchor is placed on features in this sett
 
 ---
 
+## T.2d What the loss has to be small *relative to*
+
+Proposition 2 says the loss controls fidelity $F$ and oscillation $O$. It does not say either
+controls **accuracy**, and §9.3 of `METHOD.md` shows why that gap matters: across the teacher ladder
+$O$ correlates with AA at $r=+0.83$ — the *wrong sign*. Teachers that oscillate more produce
+students that are more robust. Oscillation alone is not a sufficient statistic for robust accuracy;
+it has to be priced against the margin it must cross. This section derives that pricing rather than
+observing it.
+
+**Setup.** The head is frozen at the teacher's, $w=w_t$ (§2). For a sample $(x,y)$ write the
+teacher's clean margin and the head's class-pair diameter
+
+$$\gamma_t(x)=\min_{c\ne y}\langle w_y-w_c,\ \Phi_t(x)\rangle,\qquad
+D_y=\max_{c\ne y}\lVert w_y-w_c\rVert .$$
+
+**Proposition 3 (margin certificate).** *If $\gamma_t(x) > D_y\,L(x)$ then $x$ is robustly correct:
+the student's prediction is $y$ for every $x'\in B(x,\varepsilon)$.*
+
+*Proof.* For any $x'\in B(x)$ and any $c\ne y$,
+
+$$\langle w_y-w_c,\Phi_s(x')\rangle
+=\underbrace{\langle w_y-w_c,\Phi_t(x)\rangle}_{\ \ge\ \gamma_t(x)}
++\langle w_y-w_c,\ \Phi_s(x')-\Phi_t(x)\rangle
+\ \ge\ \gamma_t(x)-\lVert w_y-w_c\rVert\,\lVert\Phi_s(x')-\Phi_t(x)\rVert$$
+
+by Cauchy–Schwarz, and $\lVert\Phi_s(x')-\Phi_t(x)\rVert\le L(x)$ by definition of $L$ as the inner
+maximum. So every margin stays positive whenever $\gamma_t(x)>D_yL(x)$. $\square$
+
+Again nothing is assumed about the network — Cauchy–Schwarz and the definition of $L$. But unlike
+Proposition 2 this one names the quantity accuracy depends on: **not $L$, but $L$ measured against
+the teacher's own margin.** It also explains structurally why the teacher matters beyond supplying a
+target: $\gamma_t$ is a property of the *teacher*, and the teacher ladder moves it.
+
+**Measured (CIFAR-100, teacher ladder, 12 test batches per cell, each cell's own matched attack).**
+
+| teacher | certified | median $D L/\gamma_t$ | $\mathbb{E}[\gamma_t]$ | $\mathbb{E}[L]$ | AA | clean |
+|---|---:|---:|---:|---:|---:|---:|
+| 50ep | 1.50% | 4.176 | 4.201 | 8.710 | 24.38 | 64.28 |
+| 100ep | 2.93% | 3.357 | 4.569 | 8.475 | 25.20 | 63.65 |
+| 150ep | 4.17% | 2.985 | 4.574 | 8.143 | 25.78 | 62.93 |
+| 200ep | 6.38% | 2.841 | 4.523 | 7.758 | **25.88** | 62.72 |
+| 300ep | 7.88% | 2.587 | 4.513 | 7.515 | 25.80 | 62.24 |
+
+$$r(DL/\gamma_t,\ \mathrm{AA}) = \mathbf{-0.971},\qquad
+r(DL/\gamma_t,\ \mathrm{clean}) = \mathbf{+0.977}.$$
+
+**One quantity, derived from the inequality, tracks both axes** — and it has the sign that $O$ alone
+gets wrong. Note also that $\mathbb{E}[\gamma_t]$ is essentially flat across the ladder ($4.20$ to
+$4.57$): the ratio moves because $L$ falls, not because the teacher's margin grows. Longer teachers
+are *easier to match under attack*.
+
+⚠ **Two limitations, both real.**
+
+*The certificate is vacuous.* It certifies $1.5$–$7.9\%$ against a measured AA of $24$–$26$, so it
+is nowhere near tight and must never be presented as a bound that binds. Cauchy–Schwarz assumes the
+displacement $\Phi_s(x')-\Phi_t(x)$ aligns with $w_y-w_c$, which is worst-case and far from what
+happens; $\mathbb{E}[L]\approx7.8$ against $\mathbb{E}[\gamma_t]\approx4.5$ means the bound cannot
+bite at all on the average sample. This is the second margin certificate in this project to come out
+vacuous (T.6 retired one at $100.2\%$). **What survives is the ratio, not the guarantee.**
+
+*It does not reproduce the saturation.* AA flattens after 150ep ($25.78/25.88/25.80$) while
+$DL/\gamma_t$ keeps falling ($2.985/2.841/2.587$). The empirical ratio in `METHOD.md` §9.2,
+rotation over class-mean gap, does flatten there ($1.254/1.259/1.258$) and correlates at $-0.991$.
+So the derived quantity captures the trend and the hand-picked one captures the trend *and* the
+plateau. Whether that is a defect of Cauchy–Schwarz slack or a sign that the right denominator is
+the class-mean gap rather than the per-sample margin is open.
+
+---
+
 ## T.3 The backbone target determines the representation
 
 Theorem 1 says *which feature group* the anchored objective selects. This section says the objective
