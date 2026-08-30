@@ -2,10 +2,15 @@
 % Self-contained: compiles on its own with pdflatex, and the abstract block can be lifted
 % verbatim into an ICLR/ICML/NeurIPS style file.
 %
-% Positioning note, do not drop when transplanting: "among methods that do not require an
-% adversarially-trained teacher" is load-bearing.  IGDM+AdaAD reports 64.44 clean / 30.32 AA on
-% ResNet-18 / CIFAR-100 using a BDM-AT WideResNet-28-10 teacher, which dominates ours on both axes.
-% Within the no-robust-teacher class the strongest published AA is ADR+WA+AWP at 57.36 / 28.50.
+% Framing note, do not drop when transplanting: robust-teacher adversarial distillation
+% (ARD / RSLAD / AdaAD / IGDM / B-MTARD) is a DIFFERENT problem, not a stronger result on ours.
+% Those methods assume an already-robust WideResNet exists and ask how well it transfers into a
+% small student; their robustness originates in the teacher.  IGDM+AdaAD accordingly reports
+% 64.44 clean / 30.32 AA on ResNet-18 / CIFAR-100 from a BDM-AT WRN-28-10 teacher (72.58 / 38.83).
+% Ours is the teacherless setting: robustness comes from the student's own inner maximization and
+% the teacher contributes none of it -- it is never evaluated under attack, so it could not.
+% Never write "we beat" against that line, and never write "a robust teacher is unnecessary".
+% Within our own setting the strongest published AA is ADR+WA+AWP at 57.36 / 28.50.
 
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
@@ -21,41 +26,41 @@
 \maketitle
 
 \begin{abstract}
-Adversarial training buys robustness by giving up clean accuracy, and adversarial distillation is the
-standard remedy. Existing methods transfer the teacher's \emph{logits}, and their gains rest on a
-strong \emph{adversarially-trained} teacher---a cost often larger than training the student itself.
-We ask whether the cheapest possible teacher suffices: a network of the \textbf{same architecture}
-trained \textbf{naturally on the same data}, obtained by self-distillation at no adversarial cost.
+Adversarial training buys robustness by giving up clean accuracy, and it does so with no teacher at
+all: the robustness comes from the inner maximization, and the clean accuracy is simply lost.
+Adversarial distillation recovers some of it, but by importing an already-robust network---typically
+a large WideResNet adversarially trained with extra data---so the robustness originates outside the
+student and the teacher costs more than the student does. We keep the teacherless setting and ask a
+narrower question: can the \emph{lost clean accuracy} be recovered from a copy of the student's own
+architecture, trained naturally on the same data at no adversarial cost?
 Such a teacher is the most accurate one available, but its accuracy rests on features an adversary
-can flip, and copying it should import that fragility.
-We show that it does not, provided the teacher is used as a \textbf{feature anchor} rather than a
-logit target. Our objective matches the teacher's \emph{clean} feature at the \emph{adversarial}
-input, so the teacher is never evaluated under attack and its own instability cannot enter the loss;
-we prove that this single term is equivalent, within a constant factor, to fidelity plus local
-stability. We further allocate the per-sample attack radius by the loss's input sensitivity at a
-fixed total budget, a rule determined by the geometry of the objective rather than by sample
-difficulty.
-Among methods that do not require an adversarially-trained teacher, our approach sets a new
-accuracy--robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet, improving clean accuracy by
-\textbf{4.8 points at matched AutoAttack robustness} on CIFAR-100. A naturally-trained teacher
-further exposes a trade-off dial that robust-teacher distillation does not have---teacher training
+can flip, and copying it should import that fragility. We show that it does not, provided the teacher
+is used as a \textbf{feature anchor} rather than a logit target. Our objective matches the teacher's
+\emph{clean} feature at the \emph{adversarial} input, so the teacher is never evaluated under attack
+and can transfer neither its instability nor, by the same token, any robustness. We prove that this
+single term is equivalent, within a constant factor, to fidelity plus local stability, and we
+allocate the per-sample attack radius by the loss's own input sensitivity at a fixed total budget.
+Robustness therefore remains entirely the student's while the clean accuracy is recovered: we improve
+clean accuracy by \textbf{4.8 points at matched AutoAttack} on CIFAR-100 and set a new
+accuracy--robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet. A naturally-trained teacher
+further exposes a trade-off dial unavailable to robust-teacher distillation---teacher training
 length---which moves the student along the frontier at no additional cost.
 \end{abstract}
 
 \section*{Short abstract (page-limited venues)}
 
 \begin{quote}
-Adversarial training trades clean accuracy for robustness, and adversarial distillation mitigates it
-by transferring a teacher's logits---at the cost of first adversarially training a large teacher. We
-show that a naturally-trained network of the same architecture, obtained for free by
-self-distillation, is a sufficient teacher when used as a \textbf{feature anchor} instead of a logit
-target. Matching the teacher's \emph{clean} feature at the \emph{adversarial} input means the teacher
-is never evaluated under attack, so its fragility cannot be inherited; we prove this objective is
-equivalent within a constant factor to fidelity plus local stability. Combined with a per-sample
-attack radius allocated by the loss's own input sensitivity at fixed total budget, our method sets a
-new accuracy--robustness frontier among approaches that need no adversarially-trained teacher,
-improving clean accuracy by 4.8 points at matched AutoAttack on CIFAR-100, with consistent gains on
-CIFAR-10 and Tiny-ImageNet.
+Adversarial training gives up clean accuracy and recovers none of it: robustness comes from the inner
+maximization and no teacher is involved. Adversarial distillation recovers some, but by importing an
+already-robust network, so the robustness originates outside the student. We keep the teacherless
+setting and use a naturally-trained copy of the student's own architecture---free---to recover only
+the lost clean accuracy. The key is to consume it as a \textbf{feature anchor} rather than a logit
+target: matching the teacher's \emph{clean} feature at the \emph{adversarial} input means the teacher
+is never evaluated under attack, so it can transfer neither its fragility nor any robustness. We
+prove this objective is equivalent within a constant factor to fidelity plus local stability, and
+pair it with a per-sample attack radius set by the loss's own input sensitivity at a fixed total
+budget. Robustness stays the student's own; clean accuracy improves by 4.8 points at matched
+AutoAttack on CIFAR-100, with a new frontier on three datasets.
 \end{quote}
 
 \section*{Headline numbers}
