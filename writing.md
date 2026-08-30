@@ -76,80 +76,52 @@ derivation asks for $\ell_1$ and our runs used $\ell_2$; both were trained and a
 
 ## 3. Why anchoring to a non-robust teacher costs no robustness
 
-### 3.1 One term, two requirements
+One result carries this section. It needs no model and no assumption on the network, and it is the
+only place the paper's central surprise is actually explained.
 
 Write $B(x)$ for the $\varepsilon$-ball and
 
 $$L=\max_{x'\in B(x)}\lVert\Phi_s(x')-\Phi_t(x)\rVert,\quad
 F=\lVert\Phi_s(x)-\Phi_t(x)\rVert,\quad
-O=\!\!\max_{x',x''\in B(x)}\!\!\lVert\Phi_s(x')-\Phi_s(x'')\rVert.$$
+O=\!\!\max_{x',x''\in B(x)}\!\!\lVert\Phi_s(x')-\Phi_s(x'')\rVert,$$
+
+so $F$ is fidelity to the teacher at the clean point and $O$ is the oscillation of the student's own
+map on the ball.
 
 **Proposition 1.** $L\le F+O\le 3L$.
 
 *Proof.* $F\le L$ since $x\in B(x)$; $O\le2L$ by inserting $\Phi_t(x)$; and
 $\lVert\Phi_s(x')-\Phi_t(x)\rVert\le O+F$ by inserting $\Phi_s(x)$. $\square$
 
-Triangle inequality only — no model, no linearity, no assumption on the network. The single term is
-equivalent within a factor of three to **reproduce the teacher on clean inputs** *and* **be constant
-on $\varepsilon$-balls**, the latter being what stability of a feature map means.
+**The teacher appears at $x$ and nowhere else.** That single structural fact is the answer to the
+standing objection. The student is never asked to reproduce anything the teacher does *off* the
+clean point, so the teacher's own fragility — 63.8° of rotation and ×2.45 of norm inflation under
+$\varepsilon=8/255$ — is not in the objective to be inherited. What the student is asked for is to
+hold the teacher's clean value *while under attack*, which is exactly what the teacher cannot do, and
+exactly the content of $O$.
 
-**The teacher appears at $x$ and nowhere else, which is the whole answer to the objection.** The
-student is not asked to imitate the teacher under attack; it is asked to hold the teacher's clean
-value *while* under attack — which the teacher itself cannot do. Measured on trained checkpoints:
+Measured on trained checkpoints, the student ends up **2.4× more stable than its own teacher** on the
+same balls:
 
 | | $L$ | $F$ | $O_{\text{lb}}$ | teacher's own $O$ |
 |---|---:|---:|---:|---:|
 | ours (raw target) | 7.583 | 6.304 | 2.164 | **6.684** |
 | ours (normalized target) | 0.674 | 0.542 | 0.238 | **0.566** |
 
-The student oscillates **2.4× less than the teacher** on the same balls, matching the independent
-angular measurement (14.6° against the teacher's 63.8°). Most of what remains in the loss is
-fidelity, not instability.
+matching the independent angular measurement (14.6° against 63.8°). Most of what remains in the loss
+is fidelity, not instability.
 
-A second, smaller property: the objective is **exactly zero at initialization**, since the student
+A second, smaller consequence: the objective is **exactly zero at initialization**, since the student
 starts as the teacher. Only the perturbation makes it non-zero — which is precisely the quantity to
 be trained. A logit target is zero only at $\tau=1$, which is where it carries no information (§7).
 
-### 3.2 The non-robust component is zeroed, not shrunk
-
-In the Tsipras et al. model — robust feature $x_1=y$ w.p. $p$, non-robust $z_j\sim\mathcal N(\eta y,1)$,
-an $\ell_\infty$ adversary on $z$ only, natural teacher $\Phi_t=m(z)$ — take $\Phi_s=ax_1+b\,m(z)$.
-
-**Proposition 2.** With the inner maximum exact,
-$J(a,b)=\mathbb{E}[R^2]+2\varepsilon\lvert b\rvert\mathbb{E}\lvert R\rvert+\varepsilon^2b^2$ with
-$R=ax_1+(b-1)m$. It is kinked at $b=0$ with subgradient jump $2\varepsilon\mathbb{E}\lvert R(a,0)\rvert>0$,
-so above a threshold $\varepsilon_0$ the minimizer has $b^\star=0$ **exactly**.
-
-**The adversarial term is an $\ell_1$ penalty on the non-robust coefficient**: the teacher supplies
-the value, the inner maximization discards the route it took there. Verified numerically ($d=512$):
-$b^\star=0.510$ at $0.5\eta$ and exactly $0$ at $\eta,2\eta,4\eta$.
-
-**Corollary ($\varepsilon$-independence).** Every $\varepsilon$ in $J$ multiplies $b$, so at
-$b^\star=0$ the objective is $\mathbb{E}(ax_1-m)^2$, free of $\varepsilon$: past the threshold a
-larger training radius costs the anchor nothing. Measured, raising $\varepsilon_{\mathrm{tr}}$ from
-$8.8$ to $10/255$ on Tiny-ImageNet leaves the clean penalty **flat at $-2.4$ for the entire run**
-rather than widening, which is saturation rather than the steady decline label-driven AT shows.
-
-### 3.3 What the loss must be small relative to
-
-Proposition 1 controls $F$ and $O$, but $O$ alone is **not** a sufficient statistic for robust
-accuracy: across the teacher ladder it correlates with AA at $r=+0.83$, the wrong sign. Because the
-head is frozen at the teacher's, the correct pricing follows from Cauchy–Schwarz.
-
-**Proposition 3.** With $\gamma_t(x)=\min_{c\ne y}\langle w_y-w_c,\Phi_t(x)\rangle$ the teacher's
-clean margin and $D_y=\max_{c\ne y}\lVert w_y-w_c\rVert$: if $\gamma_t(x)>D_yL(x)$ then $x$ is
-robustly correct, since $\langle w_y-w_c,\Phi_s(x')\rangle\ge\gamma_t(x)-D_yL(x)$ for all $x'\in B(x)$.
-
-Across the ladder the quantity this names tracks **both** axes:
-$r(DL/\gamma_t,\mathrm{AA})=-0.971$ and $r(DL/\gamma_t,\text{clean})=+0.977$. And $\mathbb{E}[\gamma_t]$
-is flat along the ladder (4.20→4.57), so the ratio moves because $L$ falls — **longer-trained
-teachers are easier to match under attack**, which is the mechanism behind §4.
-
-⚠ The certificate is **vacuous**: 1.5–7.9% certified against a measured AA of 24–26, because
-Cauchy–Schwarz assumes an alignment that does not occur. It is reported for the quantity it
-identifies, not as a bound that binds, and it does not reproduce AA's saturation after 150ep.
-
----
+⚠ **What Proposition 1 does not do.** It bounds $F+O$, and $O$ is *not* a sufficient statistic for
+robust accuracy: across the teacher ladder of §4 it correlates with AA at $r=+0.83$ — the wrong sign,
+with the more volatile teachers producing the more robust students. The proposition explains why the
+anchor is *free*, and should not be read as explaining how much robustness the objective buys. Two
+partial results address that and neither is conclusive; both are in Appendix A, and the honest
+summary is that **the quantity robust accuracy actually tracks is $L$ measured against a margin, and
+we can derive that quantity but not a tight bound on it.**
 
 ## 4. What transfers is geometry, not accuracy
 
@@ -238,11 +210,11 @@ to $\varepsilon$: usefulness is continuous, the robust treatment of it is not.**
 $dM_c/(-dM_r)=\eta_j/(\varepsilon-\eta_j)\to\infty$ as $\eta_j\uparrow\varepsilon$. Verified against
 finite differences (67.28 / 67.22 at $\eta_j/\varepsilon=0.986$; 4.01 / 4.01 at 0.812).
 
-**Why the model of §3.2 could not see this effect.** Its spectrum has two atoms and **no mass near
+**Why the model of Appendix A.1 could not see this effect.** Its spectrum has two atoms and **no mass near
 $\eta_j/\varepsilon=1$**, where the entire effect lives; relaxing its threshold changes nothing until
 the whole bulk returns at once and robustness collapses 22 points. That model rules out the paper's
 effect by construction — which is exactly why it finds anchoring and plain AT to be the same
-classifier, and why §3.2 explains only the *free* half.
+classifier, and why A.1 explains only the *free* half.
 
 ⚠ **The limit of every re-weighting account.** For a linear readout
 $M_c(c)-M_r(c)=\varepsilon\lVert c\rVert_1/\lVert c\rVert_2$ *exactly*: reading a coordinate and being
@@ -250,7 +222,7 @@ exposed on it are the same parameter, so deletion is the only gap-reducing move 
 four spectra × six radii the anchored objective's own optimum trades at 0.46–2.6 against a measured
 rate $\ge12$. **A nonlinear map escapes this** because its exposure is $O$, which is not a function of
 how many coordinates it reads: it can depend on an attackable coordinate and still be locally
-constant in it. That is what §3.1's $F+O$ asks for and adversarial CE does not.
+constant in it. That is what §3's $F+O$ asks for and adversarial CE does not.
 
 ---
 
@@ -345,7 +317,7 @@ monotonically while CW falls. Only AutoAttack arbitrates.
   robustness. Tiny-ImageNet with a 200ep teacher is the one configuration that gains on both.
 - **That the directional and raw targets differ.** Normalizing both sides is a tie: at each design's
   own best schedule, NRR 39.17 against 39.29, inside noise, reproduced on a second machine.
-- **That §5.2's model predicts the size of the effect.** It predicts the *shape* — a discontinuous
+- **That the model of §5.2 predicts the size of the effect.** It predicts the *shape* — a discontinuous
   threshold and a diverging exchange rate near it — and its own optimum trades at 0.46–2.6 against a
   measured $\ge12$.
 - **Anything about why WA, AWP or the learning-rate schedule help.** They are not part of the method
@@ -365,3 +337,60 @@ the right denominator is the class-mean gap is unresolved.
 
 **The Tiny-ImageNet ladder has not peaked.** NRR is still rising at the longest teacher trained
 (28.46 → 28.57 → 29.93), so the optimum there is above 200 epochs and unmeasured.
+
+---
+
+## Appendix A. Two partial results on the robustness side
+
+§3 explains why anchoring a non-robust teacher is *free*. Neither result below closes the
+complementary question — how much robustness the objective buys — and both are reported with the
+reason they fall short, because each is instructive about where a proof would have to come from.
+
+### A.1 In the two-feature model, the non-robust coefficient is zeroed rather than shrunk
+
+Tsipras et al.: robust feature $x_1=y$ w.p. $p$, non-robust $z_j\sim\mathcal N(\eta y,1)$, an
+$\ell_\infty$ adversary on $z$ only, natural teacher $\Phi_t=m(z)$. Take $\Phi_s=ax_1+b\,m(z)$.
+
+**Proposition A1.** With the inner maximum exact,
+$J(a,b)=\mathbb{E}[R^2]+2\varepsilon\lvert b\rvert\mathbb{E}\lvert R\rvert+\varepsilon^2b^2$ with
+$R=ax_1+(b-1)m$, kinked at $b=0$ with subgradient jump $2\varepsilon\mathbb{E}\lvert R(a,0)\rvert>0$;
+above a threshold $\varepsilon_0$ the minimizer has $b^\star=0$ **exactly**.
+
+The adversarial term is an $\ell_1$ penalty on the non-robust coefficient: the teacher supplies the
+value, the inner maximization discards the route it took there. Verified numerically ($d=512$):
+$b^\star=0.510$ at $0.5\eta$, exactly $0$ at $\eta,2\eta,4\eta$. Since every $\varepsilon$ in $J$
+multiplies $b$, at $b^\star=0$ the objective is $\mathbb{E}(ax_1-m)^2$ and is $\varepsilon$-free —
+past the threshold a larger radius costs the anchor nothing, which matches the measured saturation
+(raising $\varepsilon_{\mathrm{tr}}$ from 8.8 to 10/255 on Tiny-ImageNet leaves the clean penalty flat
+at $-2.4$ for the whole run rather than widening).
+
+⚠ **This model rules out the paper's effect by construction**, so A1 cannot be the explanation of it.
+Its reliability spectrum has two atoms and **no mass near $\eta_j/\varepsilon=1$**, which §5.2 shows
+is where the entire effect lives; on that spectrum the anchored optimum and plain AT are the *same
+classifier*, and relaxing the threshold changes nothing until the whole bulk returns at once and
+robustness collapses 22 points. A1 is a statement about the free half only, and its own model is a
+counterexample to using it for more.
+
+### A.2 What robust accuracy tracks is the loss measured against a margin
+
+Because the head is frozen at the teacher's, Cauchy–Schwarz gives a per-sample certificate.
+
+**Proposition A2.** With $\gamma_t(x)=\min_{c\ne y}\langle w_y-w_c,\Phi_t(x)\rangle$ the teacher's
+clean margin and $D_y=\max_{c\ne y}\lVert w_y-w_c\rVert$: if $\gamma_t(x)>D_yL(x)$ then $x$ is
+robustly correct, since $\langle w_y-w_c,\Phi_s(x')\rangle\ge\gamma_t(x)-D_yL(x)$ on the whole ball.
+
+The quantity it names is the one that behaves. Across the teacher ladder,
+
+$$r\big(DL/\gamma_t,\ \mathrm{AA}\big)=-0.971,\qquad r\big(DL/\gamma_t,\ \text{clean}\big)=+0.977,$$
+
+both axes at once and with the sign that $O$ alone gets wrong. $\mathbb{E}[\gamma_t]$ is flat along
+the ladder (4.20→4.57), so the ratio moves because $L$ falls: **longer-trained teachers are easier to
+match under attack**, which is the mechanism behind §4.
+
+⚠ **The certificate is vacuous** — 1.5–7.9% certified against a measured AA of 24–26. Cauchy–Schwarz
+assumes the displacement aligns with $w_y-w_c$, which does not happen, and $\mathbb{E}[L]\approx7.8$
+against $\mathbb{E}[\gamma_t]\approx4.5$ means it cannot bite on the average sample. It also misses
+the saturation: AA flattens after the 150ep teacher while $DL/\gamma_t$ keeps falling, whereas the
+empirical rotation-over-class-gap ratio flattens with it ($r=-0.991$). **What survives is the
+quantity, not the guarantee.**
+

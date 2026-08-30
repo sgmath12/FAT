@@ -2709,21 +2709,44 @@ def train_temperature_cemix(model, train_loader, optimizer, origin_model, epoch,
 
 
 def train_madry_at(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
-    """Plain Madry PGD-AT, no distillation (2026-07-07): trains the ROBUST TEACHER checkpoint needed
-    by the ARD/RSLAD generality block (Exp A: stack student-norm on robust-teacher AD; Exp B: swap in
-    the natural teacher and show directionalization rescues it). CE(model(x_adv), y) with a true-label
-    PGD attack (reuses _pgd_attack_true_label); raw ResNet18, from scratch (load/finetune False),
-    repo-convention schedule (SGD 0.1 OneCycle, mirrors clean.yaml). origin_model is unused."""
+    """Plain Madry PGD-AT, no distillation. CE(model(x_adv), y) with a true-label PGD attack.
+    origin_model is unused -- but the checkpoint it was built from is still what the student is
+    initialized to when `finetune: True`, which is the point of the teacher-init control below.
+
+    Stack knobs added 2026-08-30 so this can be run at the SAME regime as the anchored cells:
+    `train_eps`, `wa_start`, `freeze_lr_epoch` and AWP, all inert unless set, so every earlier
+    madry_at run is bit-identical to before.  The control this exists for -- initialize at the clean
+    teacher, then train with label CE instead of the feature anchor -- is otherwise unanswerable: the
+    existing `at_ce_*` cells are 3-step / 50-epoch / no-AWP and land at PGD 28.28 against ~35 for
+    every anchored cell, so they cannot be compared with them."""
     model.train()
+    eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+    freeze_lr_epoch = _resolve_epoch_arg(getattr(config, "freeze_lr_epoch", None), config.epochs)
+    wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
+    awp_gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
+    use_awp = awp_gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
+    if use_awp:
+        if not hasattr(train_madry_at, "_awp"):
+            train_madry_at._awp = AdvWeightPerturb(model, gamma=awp_gamma)
+        awp = train_madry_at._awp
+        awp.gamma = awp_gamma
     for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
         x, y = x.cuda(), y.cuda()
-        x_adv = _pgd_attack_true_label(model, x, y, config.step_size, config.eps, perturb_steps=config.steps)
+        x_adv = _pgd_attack_true_label(model, x, y, config.step_size, eps_train, perturb_steps=config.steps)
+        if use_awp:
+            def _awp_loss_fn(pm, _xa=x_adv, _y=y):
+                return F.cross_entropy(pm(_xa), _y)
+            awp_diff = awp.calc_awp(_awp_loss_fn)
+            awp.perturb(awp_diff)
         optimizer.zero_grad()
         loss = F.cross_entropy(model(x_adv), y)
         loss.backward()
         optimizer.step()
-        scheduler.step()
-        if config.weight_avg == True:
+        if use_awp:
+            awp.restore(awp_diff)
+        if freeze_lr_epoch is None or epoch < freeze_lr_epoch:
+            scheduler.step()
+        if config.weight_avg == True and epoch >= wa_start:
             annealing = (epoch / config.epochs) ** 2
             decay = annealing * (1 - config.kappa) + config.kappa
             for key, value in model.state_dict().items():

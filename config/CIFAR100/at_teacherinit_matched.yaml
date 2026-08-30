@@ -1,0 +1,58 @@
+# THE CONTROL R1 ASKS FOR (2026-08-30): initialize at the clean teacher, then train with label CE
+# instead of the feature anchor -- at exactly the anchored cells' regime.
+#
+# Why it is needed.  Our student both warm-starts from the teacher and anchors to it, so the obvious
+# objection is that the clean accuracy is the initialization rather than the anchor.  The existing
+# answer is a cos control (`cos` 0.4703 for teacher-init label-CE AT against 0.8345 for the anchor,
+# METHOD.md 8.0), but that checkpoint is 3-step / 50-epoch / no-AWP and sits at PGD 28.28 against
+# ~35 for every anchored cell, so it cannot be put in the same table.  This cell can.
+#
+# Identical to `l2_bestrecipe_angeps` in everything the two share: 100 epochs, AdamW lr 0.021,
+# OneCycle, 10-step PGD, train_eps 8.8/255, WA (wa_start 0.2, kappa 0.999), AWP proxy
+# (gamma 0.005, warmup 10), no freeze_lr, seed 0, aa on.  It differs in exactly one thing: the
+# backbone objective is CE(model(x_adv), y) instead of ||Phi_s(x_adv) - Phi_t(x)||^2.  There is no
+# teacher term at all -- `checkpoint` is used only to initialize.
+#
+# Read against l2_bestrecipe_angeps (62.35 / AA 28.68 / NRR 39.29):
+#   this cell near 62 clean -> the anchor is doing nothing the initialization does not, and the
+#     paper's central comparison collapses.
+#   this cell near the published AT band (56-58 clean) -> initialization alone does not hold the
+#     student in the teacher, and the anchor is what does.
+# Also worth reading: its cos to the teacher, which the 3-step cell put at 0.47.
+method : madry_at
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+val : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
