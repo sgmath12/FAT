@@ -184,27 +184,50 @@ is unnecessary"* — the latter is a ranking claim against a line we do not comp
 
 ### 5.1 An initialization does not hold, and a logit target does not retain
 
-Four ways of using the same clean teacher, same 100-epoch recipe, same initialization, differing in
-one term — so all rows share a coordinate basis and $\cos(\hat\Phi_s,\hat\Phi_t)$ is comparable.
+Four ways of using the same clean teacher, all initialized from the identical checkpoint, so every
+row shares a coordinate basis and $\cos(\hat\Phi_s(x),\hat\Phi_t(x))$ on clean test inputs is
+comparable across them. Features are post-ReLU global-pool outputs and hence non-negative, so a
+cosine near $0.1$ means near-disjoint support rather than mere disagreement.
 
-| how the clean teacher is used | clean | PGD-10 | AA | $\cos$ vs teacher |
+| how the clean teacher is used | clean | PGD-20 | AA | $\cos$ vs teacher |
 |---|---:|---:|---:|---:|
 | not at all (ADR self-anchors) | 57.37 | 35.18 | 28.50 | *(different net)* |
-| as an **initialization only**, then label-CE AT | 58.38 | 28.28 | — | 0.4703 |
-| through its **logits** | 58.94 | 35.45 | 28.71 | **0.0968** |
-| through its **features** | 60.76 | 35.17 | 28.69 | **0.8245** |
-| + sensitivity-matched $\varepsilon$ | **62.16** | 35.06 | 28.59 | **0.8345** |
+| as an **initialization only**, then label-CE AT | 57.73 | 31.30 | 26.46 | **0.4295** |
+| through its **logits** | 58.94 | 35.45 | 28.71 | **0.0972** |
+| through its **features** | 62.35 | 36.26 | 28.68 | **0.8344** |
 | the teacher itself | 77.65 | 0.00 | ≈0 | 1.0000 |
 
-Rows two and three both *begin* at the teacher checkpoint and walk away from it. Both feature maps
-are post-ReLU and hence non-negative, so $\cos=0.097$ means near-disjoint support: **the
-logit-distilled student ends up using different coordinates from the teacher it was distilled from.**
-Only the feature anchor stays, and between the two regime-matched cells that is worth $+1.8$ clean at
-$-0.02$ AA. Meanwhile robustness is constant across all four: PGD within 0.39, AA within $\pm0.11$.
+**Neither an initialization nor a logit target keeps a student in the teacher.** Rows two and three
+both *begin* at the teacher checkpoint and walk away from it — to $\cos=0.43$ and $\cos=0.097$
+respectively — while the feature anchor stays at $0.83$. The logit-distilled student ends up using
+essentially disjoint coordinates from the teacher it was distilled from: naming the teacher in the
+objective is not the same as keeping the student inside it.
 
-⚠ The AT clean-init row is a $\cos$ control only; that checkpoint is from an earlier regime and sits
-at PGD 28.28 against $\approx35$ elsewhere. ⚠ The relation is an **ordering, not a dose–response**: a
-$\cos$ change of 0.017 accompanies $+2.4$ clean while the 0.73 collapse accompanies only $-1.8$.
+**The label-CE row is the controlled comparison for the whole paper.** It is `at_teacherinit_matched`:
+100 epochs, AdamW $0.021$, OneCycle, 10-step PGD, $\varepsilon_{\mathrm{tr}}=8.8/255$, WA, AWP proxy,
+initialized at the same teacher — identical to the anchored cell in everything except that the
+backbone is trained by $\mathcal L_{\mathrm{CE}}(f(x_{\mathrm{adv}}),y)$ instead of the feature
+anchor. Against it the anchor is worth **+4.62 clean, +2.22 AA, +3.01 NRR**, and it lands at 57.73
+clean, squarely inside the published adversarial-training band (PGD-AT 56.56, RPAT 58.22,
+Consistency-AT 58.53). **Starting at a clean teacher does not, by itself, retain it.**
+
+**The same substitution also removes most of the robust overfitting.** Peak-to-final PGD-20 across
+the 100-epoch runs, all with WA and AWP on:
+
+| | peak | final | drop | peak epoch |
+|---|---:|---:|---:|---:|
+| label CE, teacher-init | 32.78 | 31.66 | **$-1.12$** | **55** |
+| anchor, champion | 35.14 | 34.94 | $-0.20$ | 90 |
+| anchor + sensitivity-matched $\varepsilon$ | 34.97 | 34.77 | $-0.20$ | 95 |
+| anchor, L2 target | 36.64 | 36.26 | $-0.38$ | 85 |
+
+The label-CE control peaks 35 epochs earlier and declines $5.6\times$ further, under machinery
+specifically intended to suppress robust overfitting. This is consistent with a recent account of
+robust overfitting in which the residual classification gradient on samples a capacity-limited
+student cannot fit is discharged into memorized noise: the anchored objective places **no
+classification loss on the backbone at all**, so there is no such residual. ⚠ Consistent with, not a
+test of — we do not identify an unlearnable set, and "no classification residual" is a property of
+the objective rather than a measurement of memorization.
 
 ### 5.2 Robust optimality is a hard threshold, and deletion is the only move a linear map has
 
