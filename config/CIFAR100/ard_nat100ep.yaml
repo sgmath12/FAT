@@ -1,0 +1,57 @@
+# ROBUST-DISTILLATION BASELINE ON THE NATURAL TEACHER (2026-08-30).
+#
+# One of the four published objectives from the official IGDM release (../IGDM), ported into
+# methods.py and pointed at OUR clean ResNet-18 (CIFAR100/checkpoint/clean_200ep, clean 77.59)
+# instead of the robust WRN-28-10 (`Wang2023Better`) their own cifar100.sh loads.  Run with their
+# robust teacher these methods belong to a different family -- transfer a strong robust model into a
+# small one -- and are not a baseline for a paper whose premise is that no robust teacher exists.
+# Run with a natural teacher they are exactly the comparison this paper needs.
+#
+# RECIPE = THEIRS, NOT OURS.  SGD 0.1 / momentum 0.9, step LR x0.1 at epochs 70 and 90, random init,
+# eps 8/255, 10 steps -- which is what their own script does when epochs <= 150 (`ard_cifar100.py`
+# :179-186).  100 epochs to match the ladder's budget.  No WA, no AWP, no train_eps inflation, no
+# teacher warm start: every one of those is OUR stack, and forcing it on a baseline is the exact
+# mistake that made the earlier direction-vs-L2 comparison invalid.  The ladder cell to read this
+# against is `ladder_p0_100ep` (anchor, same 100 epochs, no stack).
+#
+# ARD (Goldblum et al., AAAI 2020).  True-label CE-PGD on the student, then KL from the
+# student's ADVERSARIAL logits to the teacher's CLEAN logits.  ard_alpha/ard_temp = 1 are
+# their hardcoded values, which kill the CE term and leave plain KD at tau = 1.
+method : ard
+ard_alpha : 1.0
+ard_temp : 1.0
+weight_decay : 0.0002
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

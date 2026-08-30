@@ -1,0 +1,60 @@
+# TEMPERATURE SENSITIVITY, RAW design, base regime (2026-08-22 v2): 50ep, WA off, AWP off,
+# eps 8/255.  v1 of this ablation was built on the normalized cells, which was wrong: the design
+# axis is a tie (RESULTS.md 5e) and we do not claim normalization, so running every ablation on the
+# normalized design would smuggle it back in as part of the method.  These are the raw-L2 cells.
+#
+# The question.  A naturally-trained teacher is over-confident, so its LOGITS need a temperature
+# before they can serve as a KD target, and someone has to choose it.  Its FEATURES need no
+# calibration: ||Phi_s - Phi_t||^2 contains no temperature, in the raw form exactly as in the
+# normalized one.  Prediction: the logit-following row degrades as tau falls; the feature-following
+# rows do not move; and feature-following with the head KD deleted outright -- no tau anywhere -- is
+# no worse than feature-following with a well-chosen tau.
+#
+# In the raw design logit-following needs a second knob as well: warm-started from the teacher the
+# student logits ARE z_t while the target is z_t/tau, so the baseline also carries feat_scale
+# (= 1/||Phi_t|| = 0.08915) to place them on the same scale.  Two coupled hyperparameters against
+# none is the claim.
+#
+# Base numbers at this regime (AA never measured here, hence aa: True below):
+#   featdir raw   `n2_traw_sraw`          62.86 / PGD 32.36 / CW 27.18
+#   pure KD raw   `fg_nofeat_raw_scaled`  62.46 / PGD 31.97 / CW 27.56
+#
+# THIS CELL: raw featdir, head frozen -- no KD, no tau
+method : feat_direction
+featdir_freeze_head : True
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False   # dead flag: only a fallback when student_norm is absent (utils.py:459); student_norm is explicit below
+student_norm : False
+teacher_norm : False
+teacher_cos_head : False
+featdir_normfeat_target : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_150ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_150ep/clean_last.pkl
+data_root : ./data

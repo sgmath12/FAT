@@ -1,0 +1,65 @@
+# THE SHIPPED RECIPE WITH THE HEAD ACTUALLY FROZEN (2026-08-31).
+#
+# `l2_bestrecipe_angeps` -- the cell the paper reports -- omits `featdir_freeze_head`, so with
+# beta 1.0 / tau 16 the classifier IS fitted by beta*KL(h(Phi_s(x_adv)) || z_t/16).  featdir_alpha
+# defaults to 0 (methods.py:2106) so that term is detached and reaches neither the backbone nor the
+# attack, but it does change the final classifier and therefore the reported accuracies.  The method
+# section states the head is inherited and untrained; that is true of the Tiny-ImageNet runs
+# (featdir_freeze_head: True) and false of this one.
+#
+# This config closes the gap in the direction the ablation already predicts.  In the base regime
+# (50ep, no stack, eps 8) leaving the head exactly as the teacher's beat training it:
+#   head = teacher's, untouched   62.72 / AA 25.88 / NRR 36.64
+#   head KD tau=16                62.61 / AA 25.61 / NRR 36.35
+# so freezing should not cost, and it makes tau and beta disappear from the method entirely.
+#
+# No feat_scale.  That knob exists because a DIRECTIONAL student hands the frozen head a unit-norm
+# vector while the teacher's bias expects norm ~11.2; this cell is student_norm False, so the
+# student's feature is already on the teacher's scale and head_from_feat receives it unmodified
+# (methods.py: head_hat = bool(student_norm), scale = feat_scale = 1.0).
+#
+# Read against l2_bestrecipe_angeps = ladder_angeps_waawp_100ep (62.35 / 36.26 / 30.65 / 28.68).
+# Everything else is byte-identical to that config.
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

@@ -1,0 +1,61 @@
+# CIFAR-10 at the recipe the method is actually presented with (2026-08-30).
+#
+# The paper's method is the raw-L2 feature anchor -- normalization was measured to be a tie and is
+# reported as an ablation, not as part of the method -- so the headline cell for every dataset has to
+# be the raw one at its own best recipe.  CIFAR-100 has that cell (`l2_bestrecipe_angeps`, 62.35 /
+# PGD 36.26 / CW 30.65 / AA 28.68 / NRR 39.29) and Tiny-ImageNet has it (`featdir_tin_100ep`), but
+# CIFAR-10 did not: `c10_fullraw_champ` predates both of the decisions that produced that recipe,
+# carrying freeze_lr and no sensitivity-matched eps (81.55 / 57.64 / 53.13 / 51.44).
+#
+# This is that config with the two lines fixed, and nothing else touched:
+#   + featdir_angeps_p : 1.0        sensitivity-matched eps, worth +2.14 clean at -0.02 AA on the
+#                                   directional CIFAR-10 cell
+#   - freeze_lr_epoch               a net loss for the raw target: on CIFAR-100 it cost the L2
+#                                   design NRR 0.46 (38.83 -> 39.29) while paying the directional
+#                                   design +0.30
+#
+# Read against the directional CIFAR-10 champion 84.66 / 56.74 / 53.94 / 51.87 / NRR 64.33, and
+# against ADR + WA + AWP 83.26 / -- / -- / 51.18 / 63.39.
+#
+method : feat_direction
+featdir_angeps_p : 1.0
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_rawteacher : True
+featdir_rawstudent : True
+aa_batch_size : 256

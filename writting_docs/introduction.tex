@@ -1,0 +1,121 @@
+% Introduction -- draft 2026-08-30.
+% Register matched to reference/IGDM.pdf, reference/self-distililation-at.pdf, reference/ADR.pdf.
+% Companion prose version with sourcing notes: introduction.md
+% Citation keys are provisional; see the "Citations to fill" note in introduction.md.
+
+\section{Introduction}
+
+Deep neural networks are vulnerable to adversarial examples, imperceptible perturbations of the input
+that change the prediction \citep{szegedy2014intriguing, goodfellow2015explaining,
+carlini2017towards}, which raises concerns wherever such models are deployed in safety-critical
+systems \citep{grigorescu2020survey, ma2021understanding}. Among the defenses proposed in response,
+adversarial training \citep{madry2018towards} remains the most reliable \citep{athalye2018obfuscated,
+croce2020reliable}: the model is optimized on perturbations produced by an inner maximization, and
+the robustness it attains has survived a decade of stronger attacks. Its cost, however, is standard
+accuracy. A network trained adversarially classifies unperturbed inputs considerably worse than the
+same network trained naturally, and the gap grows with the perturbation budget. This
+accuracy--robustness trade-off is partly intrinsic to the objective \citep{tsipras2019robustness,
+zhang2019theoretically} and it is the principal obstacle to deploying adversarially trained models in
+practice.
+
+Two lines of work reduce it. The first modifies the target inside adversarial training. Hard labels
+are a poor supervisory signal for perturbed inputs, since they assert that every point of an
+$\varepsilon$-ball belongs to one class with full confidence, and softening them alleviates both the
+trade-off and robust overfitting \citep{rice2020overfitting}. Label smoothing
+\citep{pang2021bag}, consistency regularization \citep{dong2022exploring}, and annealing
+self-distillation rectification \citep{wu2024annealing} all replace the one-hot target with a smoother
+one, the last using the model's own weight average as the source. These methods require no additional
+network. The second line is adversarial distillation, which supplies the target from an adversarially
+trained teacher: ARD \citep{goldblum2020adversarially}, IAD \citep{zhu2022reliable}, RSLAD
+\citep{zi2021revisiting}, AdaAD \citep{huang2023boosting}, IGDM \citep{lee2025indirect} and B-MTARD
+\citep{zhao2023mitigating} differ in which teacher quantity is matched and where the teacher is
+evaluated, and together they define the strongest reported accuracy--robustness frontiers for small
+architectures.
+
+The two lines leave a gap between them. Adversarial distillation presupposes that an already-robust
+network exists, and in practice that network is a WideResNet adversarially trained with large volumes
+of generated data \citep{wang2023better}---costlier to obtain than the student it teaches. The
+robustness such methods report therefore originates outside the student, and the contribution being
+measured is the quality of the transfer. The teacher that is genuinely free, a naturally trained copy
+of the student's own architecture, is not used as a source of guidance for the adversarial term, and
+the reason is well founded: a naturally trained network attains its accuracy through features an
+adversary can manipulate \citep{ilyas2019adversarial}, so transferring what it computes is expected to
+transfer that fragility as well. ARREST \citep{suzuki2023adversarial} comes closest to using
+one---it initializes the student from a standardly pretrained network and penalizes the angular
+distance between the student's representation of an adversarial example and the pretrained network's
+representation of the clean example---but there the penalty is added to the label cross-entropy as one
+weighted term among several, so the backbone is still driven by hard labels and the balance between
+the two must be tuned.
+
+We find that the expected fragility does not materialize, and that what determines whether it does is
+not the teacher's robustness but \emph{the input at which the teacher is evaluated}. Our objective
+matches the teacher's feature at the \emph{clean} input against the student's feature at the
+\emph{adversarial} input, and it is the entire objective for the backbone: the label term is removed
+rather than supplemented. Under that construction the teacher is never queried off the data manifold,
+so its own instability cannot enter the optimization, and it cannot contribute robustness either---all
+robustness is produced by the student's inner maximization, exactly as in standard adversarial
+training. We further show that this single term is not merely a fidelity constraint. Writing $F$ for
+the student's clean deviation from the teacher and $O$ for the diameter of the student's own output
+over the $\varepsilon$-ball, the anchor loss $L$ satisfies $L \le F + O \le 3L$, so minimizing it
+controls teacher fidelity and local stability together, within a constant factor, with no weight to
+balance them. The bound uses only the triangle inequality and therefore holds for the networks we
+actually train.
+
+A second finding concerns what the teacher supplies. Across a ladder of naturally trained teachers
+differing only in training length, teacher accuracy and student accuracy are almost perfectly
+\emph{anti}-correlated ($r = -0.999$): the most accurate teacher produces the worst student. What the
+student inherits is the teacher's class geometry rather than its predictions, and the two are not
+monotone in one another. This makes the teacher's training length a control on the
+accuracy--robustness frontier that costs nothing to exercise and that a robust teacher does not
+offer, since a robust teacher's own training is the expensive part.
+
+Building on these observations we propose \textbf{Clean Feature Anchoring} (CFA), illustrated in
+Figure~\ref{fig:teaser}. CFA trains a naturally supervised copy of the student architecture on the
+same data, initializes the student from it, and then trains the backbone with the clean-feature
+anchor alone; the classifier is inherited and never trained. To this we add
+\textbf{sensitivity-matched $\varepsilon$}, which redistributes the per-sample attack radius in
+inverse proportion to the input sensitivity of the loss while holding the total budget fixed, so that
+each example is perturbed to a comparable displacement of the objective rather than a comparable
+displacement of the input. The resulting method has no temperature, no loss weight and no auxiliary
+head, and we apply an identical configuration to every dataset, changing only the dataset name and
+the teacher checkpoint.
+
+On CIFAR-100 with ResNet-18, CFA reaches $62.35\%$ standard accuracy at $28.68\%$ AutoAttack
+accuracy. Against the strongest method at comparable robustness this is \textbf{$+4.99$ points of
+standard accuracy}, and against the strongest method at comparable standard accuracy it is
+\textbf{$+4.72$ points of AutoAttack accuracy}; no method in this setting exceeds ours on both axes.
+The same configuration establishes the best reported accuracy--robustness balance on CIFAR-10 and
+Tiny-ImageNet. Our contributions are as follows:
+
+\begin{itemize}
+  \item We identify that the obstacle to guiding adversarial training with a naturally trained
+    network is not the teacher's fragility but the input at which the teacher is evaluated, and we
+    show that a clean-feature anchor evaluated at the adversarial input controls teacher fidelity and
+    local stability jointly, within a constant factor, as a single unweighted term.
+
+  \item We show that what a naturally trained teacher transfers is class geometry rather than
+    accuracy, with teacher and student accuracy anti-correlated at $r = -0.999$ across teachers,
+    which turns the teacher's training length into a trade-off control available only in this
+    setting.
+
+  \item We propose Clean Feature Anchoring together with sensitivity-matched $\varepsilon$, a method
+    with no loss weight, no temperature and no per-dataset tuning, in which robustness remains
+    entirely attributable to the student's own inner maximization.
+
+  \item We demonstrate a new accuracy--robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet,
+    and show that the gain is not an artifact of weight averaging or adversarial weight perturbation:
+    with weight averaging alone and half the training schedule, CFA already exceeds the best
+    published result that uses both.
+\end{itemize}
+
+\begin{figure}[t]
+  \centering
+  % \includegraphics[width=\linewidth]{figures/teaser.pdf}
+  \caption{\textbf{(a) Conceptual diagram.} The teacher is evaluated only at the clean input $x$; the
+  student is evaluated at the adversarial input $x_{\mathrm{adv}}$, and the loss is the distance
+  between the two features. Because the teacher's $\varepsilon$-ball is never entered, its
+  instability is outside the objective, while the same distance simultaneously bounds the student's
+  own variation over the ball. \textbf{(b) Standard accuracy against AutoAttack accuracy} on
+  CIFAR-100 with ResNet-18, for adversarial training baselines, target-softening methods, and CFA.}
+  \label{fig:teaser}
+\end{figure}

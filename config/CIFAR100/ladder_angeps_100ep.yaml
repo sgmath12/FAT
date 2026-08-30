@@ -1,0 +1,59 @@
+# ANGEPS LADDER (2026-08-30).  Cumulative ablation of the shipped recipe on the raw-L2 feature
+# anchor, run at BOTH 50 and 100 epochs so the reader can see whether each component is a property of
+# the objective or of the schedule length.
+#
+#   step 1  anchor + sensitivity-matched eps          (no WA, no AWP)
+#   step 2  + weight averaging
+#   step 3  + AWP proxy                                = the shipped recipe
+#
+# train_eps is held at 8.8/255 across the whole ladder, so eps is not a hidden fourth step and every
+# row is comparable to the headline cell.  freeze_lr is absent throughout: it is a net loss for the
+# raw target (on CIFAR-100 it cost the L2 design NRR 0.46, 38.83 -> 39.29, while paying the
+# directional design +0.30), and it is reported separately rather than folded in here.
+#
+# The same ladder WITHOUT angeps already exists at 100ep and is the comparison partner:
+#   anchor            `wadec_raw_nowa`             62.40 / AA 24.34
+#   + WA              `wadec_raw_wa`               61.58 / AA 26.55
+#   + WA + eps8.8     `wadec_raw_wa_eps88`         60.09 / AA 27.00
+#   + WA + eps8.8 + AWP `wadec_raw_wa_eps88_awp`   60.21 / AA 28.14
+#   + angeps          `l2_bestrecipe_angeps`       62.35 / AA 28.68
+# so step 3 at 100ep should reproduce 62.35 / 28.68 and serves as a consistency check on the ladder.
+#
+# THIS CELL: anchor + angeps, 100 epochs
+method : feat_direction
+weight_avg : False
+featdir_angeps_p : 1.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

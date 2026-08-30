@@ -338,6 +338,56 @@ ending below the uniform baseline on both CW and NRR. Only the sensitivity order
 frontier rather than sliding along it. ⚠ A control, not a comparison against those methods as
 published; they have not been run.
 
+**The component ladder, at two schedule lengths.** Every cell below is the raw-$\ell_2$ anchor on
+CIFAR-100 / ResNet-18 with $\varepsilon_{\text{train}}=8.8/255$ held fixed, so the training radius is
+not a hidden fifth step, and with no `freeze_lr` anywhere. Each row adds one component to the row
+above it.
+
+| | clean | PGD-20 | CW | **AA** | **NRR** |
+|---|---:|---:|---:|---:|---:|
+| **50 epochs** | | | | | |
+| anchor ($p{=}0$) | 61.33 | 32.94 | 27.80 | 26.19 | 36.71 |
+| ‥ + sensitivity-matched $\varepsilon$ | **62.94** | 32.27 | 28.23 | 26.40 | 37.20 |
+| ‥ + weight averaging | 61.11 | 34.30 | 29.66 | **28.06** | **38.46** |
+| ‥ + AWP | 59.90 | 35.70 | 29.74 | 28.05 | 38.21 |
+| **100 epochs** | | | | | |
+| anchor ($p{=}0$) | 61.21 | 31.26 | 26.82 | 25.24 | 35.74 |
+| ‥ + sensitivity-matched $\varepsilon$ | **62.98** | 31.30 | 27.05 | 25.43 | 36.23 |
+| ‥ + weight averaging | 62.43 | 33.49 | 28.96 | 27.39 | 38.08 |
+| ‥ + AWP | 62.35 | **36.26** | **30.65** | **28.68** | **39.29** |
+
+Four readings, and the third is the one that answers the standing objection.
+
+*The sensitivity rule contributes the same amount at both lengths.* It is worth $+1.61$ clean /
+$+0.21$ AA at 50 epochs and $+1.77$ / $+0.19$ at 100, i.e. **exactly $+0.49$ NRR in both cases** at
+identical total attack budget. Its signature — buy standard accuracy, hold AutoAttack — does not
+depend on the schedule and does not depend on the rest of the stack, which is measured here for the
+first time with nothing else switched on.
+
+*AWP changes sign with schedule length.* At 50 epochs it costs $-0.25$ NRR, taking $1.21$ clean and
+returning nothing on AA ($28.06 \to 28.05$); at 100 epochs it is worth $+1.21$, taking $0.08$ clean
+for $+1.29$ AA. It is a long-schedule component, and reporting it without the schedule attached would
+misdescribe it.
+
+*Longer training without the stack is worse, not better.* The anchor alone loses $0.95$ AA going from
+50 to 100 epochs ($26.19 \to 25.24$) at unchanged standard accuracy — ordinary robust overfitting.
+Weight averaging recovers most of it and AWP the rest, so the 100-epoch stacked cell ($28.68$)
+finishes above the best 50-epoch cell ($28.06$).
+
+*The gains are not the stack.* **At 50 epochs with weight averaging alone, NRR $38.46$ already exceeds
+ADR's $38.08$ — which carries both weight averaging and AWP, over twice the schedule.** Half the
+compute and one fewer component. The comparison is layer by layer:
+
+| stack | ours | best published at that stack | |
+|---|---:|---:|---|
+| none | 37.20 | 36.64 (Consistency-AT + RPAT) | $+0.56$ |
+| WA only | **38.46** | 38.08 (ADR, *WA + AWP*) | $+0.38$ |
+| WA + AWP | 39.29 | 38.08 (ADR) | $+1.21$ |
+
+⚠ Reproducibility note: `ladder_angeps_waawp_100ep` and `l2_bestrecipe_angeps` are the same
+configuration run nine days apart, and agree to two decimals on all four metrics
+(62.35 / 36.26 / 30.65 / 28.68). The ladder is on the same pipeline as the headline cell.
+
 **PGD would have inverted most of this table.** Head KD at $\tau=16$ has the best PGD-20 (32.47) and a
 worse AA than the row with no head term (25.61 against 25.88); across the smoothing sweep PGD rises
 monotonically while CW falls. Only AutoAttack arbitrates.

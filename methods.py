@@ -3942,3 +3942,297 @@ def train_temperature_padapt(model, train_loader, optimizer, origin_model, epoch
         logging.info({"p_mean": round(p_cat.mean().item(), 4), "p_std": round(p_cat.std().item(), 4),
                       "p_p5": round(q[0].item(), 4), "p_p50": round(q[1].item(), 4),
                       "p_p95": round(q[2].item(), 4), "epoch": epoch})
+
+
+# =====================================================================================================
+# ROBUST-DISTILLATION BASELINES (2026-08-30) -- ARD / RSLAD / AdaAD / AdaAD+IGDM.
+#
+# Ported from the official IGDM release (../IGDM: `ard_cifar100.py`, `rslad_cifar100.py`,
+# `adaad_cifar100.py`, `adaad_IGDM_cifar100.py`, `rslad_loss.py`) into THIS framework, so that they
+# share our data pipeline, our schedule, our Converter and our evaluation (PGD-20 / CW / AutoAttack
+# out of `utils.evaluate`) instead of theirs.  Without that they cannot be put in the same table:
+# their scripts run a different PGD-20 implementation each epoch and AutoAttack exactly once, at the
+# end of a 200-epoch run.
+#
+# The reason to run them here at all is the TEACHER.  All four were published with a large ROBUST
+# teacher -- their `cifar100.sh` default is `Wang2023Better_WRN-28-10` off RobustBench.  This port
+# feeds them OUR clean ResNet-18 instead, the same natural teacher the feature anchor uses, so the
+# table answers "what do the published robust-distillation objectives do when no robust teacher
+# exists", which is the regime this paper is about.  Run against their own robust teacher they are a
+# different family of method and not a baseline for us.
+#
+# Proposition 2 predicts the ORDER of the four cells, and can be killed by it.  ARD and RSLAD query
+# the teacher at x only, so the teacher's own instability never enters their objective.  AdaAD
+# queries it at x_adv, and AdaAD+IGDM additionally at x - delta; both points are off the data
+# manifold, where a naturally trained teacher's logits carry nothing usable.  So AdaAD should
+# degrade the most and IGDM on top of it should not rescue it.  If AdaAD instead wins here, the
+# "keep the anchor at x" argument is wrong and has to come out of the paper.
+#
+# CHANGED FROM THE ORIGINAL SCRIPTS (everything not listed is line-for-line):
+#   * attack step size / random start.  Their ARD attack calls `PGD(...)`, whose default step is
+#     `alpha=2/225` -- a typo for 2/255 -- and which starts from uniform(-eps,eps).  Here all four
+#     use `config.step_size` and the 0.001*randn start that our own cells and their OWN rslad/adaad
+#     inner losses use, so every row in the table attacks identically.  Internal consistency beats
+#     reproducing a typo.
+#   * IGDM warm-up.  Theirs is `alpha * (epoch/200)` with 200 hardcoded against a 1-indexed loop.
+#     Here it is `alpha * (epoch+1)/igdm_warm_epochs`, defaulting to config.epochs, so the ramp keeps
+#     its relative position when the schedule length changes.
+#   * log_softmax.  RSLAD's outer term writes `torch.log(F.softmax(z))`, which underflows to -inf for
+#     a confident 100-way logit; we use the mathematically identical `F.log_softmax`.
+#   * stack knobs.  `train_eps` / `wa_start` / `freeze_lr_epoch` / AWP are wired in as in
+#     `train_madry_at` and are inert unless set.  They are OFF for the headline baseline cells.
+# Loss weights, reductions, attack objectives, the 5:1 RSLAD mix, the hardcoded alpha=1 & temp=1 in
+# ARD and beta=1 in AdaAD are all reproduced as published, including the reduction quirk documented
+# on `train_rslad`.
+# =====================================================================================================
+
+
+class _DistillStack:
+    """The `train_madry_at` stack knobs (train_eps / WA / freeze_lr / AWP) factored out, so each
+    baseline's body can stay as close to the original script as possible.  Everything here is inert
+    unless the corresponding config key is set."""
+
+    def __init__(self, owner, model, epoch, config):
+        self.config, self.model, self.epoch = config, model, epoch
+        self.eps = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+        self.freeze_lr_epoch = _resolve_epoch_arg(getattr(config, "freeze_lr_epoch", None), config.epochs)
+        self.wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
+        gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
+        self.use_awp = gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
+        self._diff = None
+        if self.use_awp:
+            if not hasattr(owner, "_awp"):
+                owner._awp = AdvWeightPerturb(model, gamma=gamma)
+            self.awp = owner._awp
+            self.awp.gamma = gamma
+
+    def perturb(self, loss_fn):
+        if self.use_awp:
+            self._diff = self.awp.calc_awp(loss_fn)
+            self.awp.perturb(self._diff)
+
+    def restore(self):
+        if self.use_awp:
+            self.awp.restore(self._diff)
+
+    def after_step(self, scheduler, exp_avg):
+        if self.freeze_lr_epoch is None or self.epoch < self.freeze_lr_epoch:
+            scheduler.step()
+        if getattr(self.config, "weight_avg", False) == True and self.epoch >= self.wa_start:
+            annealing = (self.epoch / self.config.epochs) ** 2
+            decay = annealing * (1 - self.config.kappa) + self.config.kappa
+            for key, value in self.model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def _kd_inner_attack(model, teacher_logits, x_natural, step_size, epsilon, perturb_steps):
+    """RSLAD-style inner max: maximize KL(student(x') || teacher(x)).  The target is a FIXED tensor
+    computed once at x, so the teacher is never queried off the data manifold (rslad_loss.py:27-60)."""
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    was_training = model.training
+    model.eval()
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            loss_kl = torch.sum(criterion_kl(F.log_softmax(model(x_adv), dim=1),
+                                             F.softmax(teacher_logits, dim=1)))
+        grad = torch.autograd.grad(loss_kl, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    if was_training:
+        model.train()
+    return x_adv.detach()
+
+
+def _adaad_inner_attack(model, teacher, x_natural, step_size, epsilon, perturb_steps):
+    """AdaAD inner max: maximize KL(student(x') || teacher(x')) (rslad_loss.py:266-306).  The teacher
+    is RE-EVALUATED at the perturbed point every step -- that is what makes the target adaptive, and
+    it is also what puts a non-robust teacher's off-manifold logits inside the objective.  The
+    teacher branch is deliberately NOT detached, exactly as published: the attack gradient flows
+    through both networks."""
+    criterion_kl = nn.KLDivLoss(reduction='none')
+    was_training = model.training
+    model.eval()
+    teacher.eval()
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            loss_kl = torch.sum(criterion_kl(F.log_softmax(model(x_adv), dim=1),
+                                             F.softmax(teacher(x_adv), dim=1)))
+        grad = torch.autograd.grad(loss_kl, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    if was_training:
+        model.train()
+    return x_adv.detach()
+
+
+def train_ard(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """ARD, Goldblum et al. AAAI 2020 -- as implemented in ../IGDM/ard_cifar100.py:130-143.
+
+    x_adv is a plain TRUE-LABEL CE-PGD on the student; the loss then pulls the student's ADVERSARIAL
+    logits onto the teacher's CLEAN logits.  Their script hardcodes alpha = 1 and temp = 1, which
+    kills the CE term and leaves plain KD at tau = 1; `ard_alpha` / `ard_temp` are exposed but
+    default to exactly those values, so an untouched config reproduces their code.
+
+    With our natural teacher this is the closest published method to the logit-anchor row of our own
+    base table (tau = 1: clean 58.26 / AA 20.84), differing only in that the attack is CE on labels
+    rather than KL to the teacher."""
+    model.train()
+    origin_model.eval()
+    st = _DistillStack(train_ard, model, epoch, config)
+    alpha = float(getattr(config, "ard_alpha", 1.0))
+    temp = float(getattr(config, "ard_temp", 1.0))
+    criterion_kl = nn.KLDivLoss(reduction="batchmean")
+    for x, y in tqdm(train_loader):
+        x, y = x.cuda(), y.cuda()
+        x_adv = _pgd_attack_true_label(model, x, y, config.step_size, st.eps, config.steps)
+        with torch.no_grad():
+            teacher_logits = origin_model(x).detach()
+
+        def _loss(m, _x=x, _xa=x_adv, _y=y, _t=teacher_logits):
+            l = alpha * temp * temp * criterion_kl(F.log_softmax(m(_xa) / temp, dim=1),
+                                                   F.softmax(_t / temp, dim=1))
+            if alpha < 1.0:
+                l = l + (1.0 - alpha) * F.cross_entropy(m(_x), _y)
+            return l
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
+
+
+def train_rslad(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """RSLAD, Zi et al. ICCV 2021 -- as implemented in ../IGDM/rslad_cifar100.py:126-132.
+
+    Labels are absent from the entire pipeline: the inner max is KL to the teacher's SOFT labels at
+    x, and the outer loss mixes adversarial and clean KD 5:1 against that same fixed target.
+
+    REDUCTION QUIRK, reproduced as published.  Their term is `10 * mean(elementwise_KL)`, i.e. 10/C
+    times the batch-mean KL.  The comment in their file says the 10 is there "to keep consistent with
+    CIFAR-10", where C = 10 makes it exactly batchmean -- but on CIFAR-100 the same line scales the
+    ONLY loss term by 0.1, an effective 10x learning-rate cut.  `rslad_scale` (default 10.0)
+    reproduces it; setting it to the class count undoes it.  Worth an ablation before concluding
+    anything from a weak RSLAD number, since on this dataset the published constant is arguably a
+    bug rather than a design choice."""
+    model.train()
+    origin_model.eval()
+    st = _DistillStack(train_rslad, model, epoch, config)
+    scale = float(getattr(config, "rslad_scale", 10.0))
+    w_adv = float(getattr(config, "rslad_w_adv", 5.0 / 6.0))
+    for x, y in tqdm(train_loader):
+        x = x.cuda()
+        with torch.no_grad():
+            teacher_logits = origin_model(x).detach()
+        p_t = F.softmax(teacher_logits, dim=1)
+        x_adv = _kd_inner_attack(model, teacher_logits, x, config.step_size, st.eps, config.steps)
+
+        def _loss(m, _x=x, _xa=x_adv, _pt=p_t):
+            # their kl_loss(a, b) = -a*b + log(b+1e-5)*b, pointwise, with a = log p_student
+            ent = torch.log(_pt + 1e-5) * _pt
+            l_adv = scale * torch.mean(-F.log_softmax(m(_xa), dim=1) * _pt + ent)
+            l_nat = scale * torch.mean(-F.log_softmax(m(_x), dim=1) * _pt + ent)
+            return w_adv * l_adv + (1.0 - w_adv) * l_nat
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
+
+
+def train_adaad(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """AdaAD, Huang et al. CVPR 2023 -- as implemented in ../IGDM/adaad_cifar100.py:135-142.
+
+    The teacher is evaluated at x_adv on BOTH sides: the inner max looks for the point where student
+    and teacher disagree most, and the outer loss closes that gap there.  Their `beta` is hardcoded
+    to 1, so the clean term is computed and then multiplied by zero; `adaad_beta` is exposed and
+    defaults to 1 to reproduce that.
+
+    This is the cell Proposition 2 says should suffer most under a natural teacher: t(x_adv) is a
+    query the teacher was never trained to answer, and it appears in the objective, not just as a
+    fixed anchor."""
+    model.train()
+    origin_model.eval()
+    st = _DistillStack(train_adaad, model, epoch, config)
+    beta = float(getattr(config, "adaad_beta", 1.0))
+    for x, y in tqdm(train_loader):
+        x = x.cuda()
+        x_adv = _adaad_inner_attack(model, origin_model, x, config.step_size, st.eps, config.steps)
+        with torch.no_grad():
+            t_adv = origin_model(x_adv).detach()
+            t_nat = origin_model(x).detach() if beta < 1.0 else None
+
+        def _loss(m, _x=x, _xa=x_adv, _ta=t_adv, _tn=t_nat):
+            l = beta * F.kl_div(F.log_softmax(m(_xa), dim=1), F.softmax(_ta, dim=1),
+                                reduction='batchmean')
+            if beta < 1.0:
+                l = l + (1.0 - beta) * F.kl_div(F.log_softmax(m(_x), dim=1), F.softmax(_tn, dim=1),
+                                                reduction='batchmean')
+            return l
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
+
+
+def train_adaad_igdm(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """AdaAD + IGDM, Lee & Kim -- as implemented in ../IGDM/adaad_IGDM_cifar100.py:118-147.
+
+    AdaAD plus one extra term.  With delta = x_adv - x and their default b = g = 1,
+
+        s+ = s(x + b*delta) = s(x_adv),   s- = s(x - g*delta)
+        t+ = t(x + b*delta),              t- = t(x - g*delta)
+        L_igdm = KL( softmax(s+ - s-) || softmax(t+ - t-) )
+
+    i.e. a CENTRAL DIFFERENCE along delta, which is a finite-difference stand-in for the input
+    gradient -- matching gradients directly needs double backprop, matching two-point differences
+    does not.  Hence "indirect".  Its weight is ramped linearly over the run (`alpha * (epoch+1)/E`),
+    which is their `alpha * epoch/200` made schedule-length-portable.
+
+    Note this is the only cell that queries the teacher at x - delta, a point on the far side of the
+    clean image from the attack.  For a robust teacher that is still a sensible query.  For a natural
+    one it is a second off-manifold evaluation on top of AdaAD's, so under Proposition 2 the IGDM
+    term should not rescue AdaAD here even though it does with their own teacher."""
+    model.train()
+    origin_model.eval()
+    st = _DistillStack(train_adaad_igdm, model, epoch, config)
+    alpha = float(getattr(config, "igdm_alpha", 20.0))
+    beta = float(getattr(config, "igdm_beta", 1.0))
+    gamma = float(getattr(config, "igdm_gamma", 1.0))
+    warm = float(_resolve_epoch_arg(getattr(config, "igdm_warm_epochs", None), config.epochs) or config.epochs)
+    w_igdm = alpha * min(1.0, (epoch + 1) / warm)
+    criterion_kl = nn.KLDivLoss(reduction="batchmean")
+    for x, y in tqdm(train_loader):
+        x = x.cuda()
+        x_adv = _adaad_inner_attack(model, origin_model, x, config.step_size, st.eps, config.steps)
+        delta = (x_adv - x).detach()
+        x_plus, x_minus = (x + beta * delta).detach(), (x - gamma * delta).detach()
+        with torch.no_grad():
+            t_adv = origin_model(x_adv).detach()
+            t_plus = origin_model(x_plus).detach()
+            t_minus = origin_model(x_minus).detach()
+        t_diff = F.softmax(t_plus - t_minus, dim=1)
+
+        def _loss(m, _xa=x_adv, _xp=x_plus, _xm=x_minus, _ta=t_adv, _td=t_diff):
+            l = F.kl_div(F.log_softmax(m(_xa), dim=1), F.softmax(_ta, dim=1), reduction='batchmean')
+            s_diff = m(_xp) - m(_xm)
+            return l + w_igdm * criterion_kl(F.log_softmax(s_diff, dim=1), _td)
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
