@@ -1,0 +1,82 @@
+% Abstract for the accuracy-robustness trade-off paper.
+% Self-contained: compiles on its own with pdflatex, and the abstract block can be lifted
+% verbatim into an ICLR/ICML/NeurIPS style file.
+%
+% Positioning note, do not drop when transplanting: "among methods that do not require an
+% adversarially-trained teacher" is load-bearing.  IGDM+AdaAD reports 64.44 clean / 30.32 AA on
+% ResNet-18 / CIFAR-100 using a BDM-AT WideResNet-28-10 teacher, which dominates ours on both axes.
+% Within the no-robust-teacher class the strongest published AA is ADR+WA+AWP at 57.36 / 28.50.
+
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+
+\title{Anchor, Don't Imitate:\\ Self-Distilled Feature Anchoring for the Accuracy--Robustness Trade-off}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Adversarial training buys robustness by giving up clean accuracy, and adversarial distillation is the
+standard remedy. Existing methods transfer the teacher's \emph{logits}, and their gains rest on a
+strong \emph{adversarially-trained} teacher---a cost often larger than training the student itself.
+We ask whether the cheapest possible teacher suffices: a network of the \textbf{same architecture}
+trained \textbf{naturally on the same data}, obtained by self-distillation at no adversarial cost.
+Such a teacher is the most accurate one available, but its accuracy rests on features an adversary
+can flip, and copying it should import that fragility.
+We show that it does not, provided the teacher is used as a \textbf{feature anchor} rather than a
+logit target. Our objective matches the teacher's \emph{clean} feature at the \emph{adversarial}
+input, so the teacher is never evaluated under attack and its own instability cannot enter the loss;
+we prove that this single term is equivalent, within a constant factor, to fidelity plus local
+stability. We further allocate the per-sample attack radius by the loss's input sensitivity at a
+fixed total budget, a rule determined by the geometry of the objective rather than by sample
+difficulty.
+Among methods that do not require an adversarially-trained teacher, our approach sets a new
+accuracy--robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet, improving clean accuracy by
+\textbf{4.8 points at matched AutoAttack robustness} on CIFAR-100. A naturally-trained teacher
+further exposes a trade-off dial that robust-teacher distillation does not have---teacher training
+length---which moves the student along the frontier at no additional cost.
+\end{abstract}
+
+\section*{Short abstract (page-limited venues)}
+
+\begin{quote}
+Adversarial training trades clean accuracy for robustness, and adversarial distillation mitigates it
+by transferring a teacher's logits---at the cost of first adversarially training a large teacher. We
+show that a naturally-trained network of the same architecture, obtained for free by
+self-distillation, is a sufficient teacher when used as a \textbf{feature anchor} instead of a logit
+target. Matching the teacher's \emph{clean} feature at the \emph{adversarial} input means the teacher
+is never evaluated under attack, so its fragility cannot be inherited; we prove this objective is
+equivalent within a constant factor to fidelity plus local stability. Combined with a per-sample
+attack radius allocated by the loss's own input sensitivity at fixed total budget, our method sets a
+new accuracy--robustness frontier among approaches that need no adversarially-trained teacher,
+improving clean accuracy by 4.8 points at matched AutoAttack on CIFAR-100, with consistent gains on
+CIFAR-10 and Tiny-ImageNet.
+\end{quote}
+
+\section*{Headline numbers}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\hline
+ & clean & AA & NRR \\
+\hline
+CIFAR-100, ours & 62.17 & 28.59 & 39.17 \\
+CIFAR-100, ADR + WA + AWP & 57.36 & 28.50 & 38.08 \\
+CIFAR-10, ours & 84.66 & 51.87 & 64.33 \\
+CIFAR-10, ADR + WA + AWP & 83.26 & 51.18 & 63.39 \\
+Tiny-ImageNet, ours & 55.16 & 20.54 & 29.93 \\
+Tiny-ImageNet, ADR + WA + AWP & 48.27 & 20.10 & 28.38 \\
+\hline
+\end{tabular}
+\end{center}
+
+\noindent
+All ResNet-18, $\ell_\infty$, $\varepsilon=8/255$; AA is AutoAttack (\texttt{apgd-ce}+\texttt{apgd-t})
+on the full test set; NRR is the harmonic mean of clean accuracy and AA.
+
+\end{document}

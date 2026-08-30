@@ -8,23 +8,32 @@ AWP are standard machinery carried by our baselines too and are not claimed here
 
 ## 1. Result
 
-Adversarial training trades clean accuracy for robustness, and on CIFAR-100 / ResNet-18 the
-published frontier has been stuck in a narrow band: methods that reach AA $\approx28.5$ sit at clean
-$\approx57$, and methods that reach clean $\approx63$ sit at AA $\approx24$.
+Adversarial training trades clean accuracy for robustness. Adversarial distillation is the standard
+remedy, and its gains rest on an **adversarially-trained** teacher — typically one larger than the
+student, so the teacher costs more than the student does. We use the cheapest teacher available
+instead: a network of the **same architecture trained naturally on the same data**, at no adversarial
+cost.
 
-| | clean | AA | NRR |
-|---|---:|---:|---:|
-| B-MTARD (robust WRN-70-16 teacher) | **65.08** | 23.98 | 35.05 |
-| Generalist++ | 62.97 | 23.96 | 34.71 |
-| **Ours** | **62.17** | **28.59** | **39.17** |
-| ADR + WA + AWP | 57.36 | 28.50 | 38.08 |
-| Consistency-AT + RPAT | 60.33 | 26.31 | 36.64 |
-| PGD-AT | 56.56 | 25.02 | 34.69 |
+On CIFAR-100 / ResNet-18, among methods that require no adversarially-trained teacher:
 
-**No published ResNet-18 / CIFAR-100 result dominates ours on both axes.** Read either way, the gap
-is the same size: at matched robustness we are **+4.81 clean** over the strongest AA method, and at
-matched clean accuracy we are **+4.63 AA** over the strongest clean methods. NRR 39.17 is +1.09 over
-the previous best.
+| | teacher | clean | AA | NRR |
+|---|---|---:|---:|---:|
+| Generalist++ | — | 62.97 | 23.96 | 34.71 |
+| **Ours** | natural ResNet-18 | **62.17** | **28.59** | **39.17** |
+| ADR + WA + AWP | — (self-anchored) | 57.36 | 28.50 | 38.08 |
+| Consistency-AT + RPAT | — | 60.33 | 26.31 | 36.64 |
+| PGD-AT | — | 56.56 | 25.02 | 34.69 |
+
+**No method in this class dominates ours on both axes**, and the gap is the same size read either
+way: **+4.81 clean** over the strongest AA method at matched robustness, **+4.63 AA** over the
+strongest clean method at matched clean accuracy. NRR 39.17 is +1.09 over the previous best.
+
+⚠ **Robust-teacher distillation reaches further, and we do not claim otherwise.** IGDM + AdaAD
+reports 64.44 / 30.32 on the same architecture and dataset, which dominates us on both axes — using
+a BDM-AT WideResNet-28-10 teacher (72.58 clean / 38.83 AA). B-MTARD reaches 65.08 clean with a
+WRN-70-16 robust teacher alongside a clean one, at AA 23.98. Our comparison class is deliberately
+the one that does not pay for an adversarially-trained teacher, and every "frontier" claim below is
+scoped to it.
 
 The method is one loss term. It uses a **naturally-trained** teacher — no adversarial training, no
 robust teacher, no extra network — and has **no hyperparameter to select**: no temperature, no loss
@@ -310,9 +319,10 @@ monotonically while CW falls. Only AutoAttack arbitrates.
 
 ## 8. What is not claimed
 
-- **That a natural teacher beats a robust one.** Our comparison class is methods without a robust
-  teacher. Where a robust teacher of comparable capacity is available, expect it to do at least as
-  well; our results say the *anchor term* gains nothing from it.
+- **That a natural teacher beats a robust one.** It does not, and the gap is measurable: IGDM +
+  AdaAD reaches 64.44 / 30.32 on ResNet-18 / CIFAR-100 with a BDM-AT WideResNet-28-10 teacher,
+  dominating us on both axes. Our claim is scoped to methods that pay nothing for a teacher, where
+  we are the frontier; nothing here says a robust teacher is unnecessary or inferior.
 - **That AA improves on CIFAR.** It does not — those gains are on the clean axis at matched
   robustness. Tiny-ImageNet with a 200ep teacher is the one configuration that gains on both.
 - **That the directional and raw targets differ.** Normalizing both sides is a tie: at each design's
