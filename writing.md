@@ -279,8 +279,16 @@ harmonic mean of clean and AA.
 | | clean | PGD-20 | CW | AA | NRR |
 |---|---:|---:|---:|---:|---:|
 | **Ours** | **84.66** | 56.74 | **53.94** | 51.87 | **64.33** |
-| ADR + WA + AWP | 83.26 | — | — | 51.18 | 63.39 |
-| CURE | 86.76 | 54.92 | 52.48 | 49.69 | 63.19 |
+| ADR + WA + AWP *(published)* | 83.26 | — | — | 51.18 | 63.39 |
+| CURE *(published)* | 86.76 | 54.92 | 52.48 | 49.69 | 63.19 |
+
+⚠ **The CURE row is the paper's own number and we could not reproduce it.** Seven runs of the
+official repository (`../CURE/repro/`, 2026-06-25 to 07-29) all fall short, and they fall short on
+*different* axes: the closest on standard accuracy reaches 86.11 at AA 40.63, and the closest on
+robustness reaches AA 45.68 at clean 81.15 — the published pair has both at once and none of ours
+does. The gap narrows by 16 points of AA when the RGP prominence mask is computed on absolute values
+(29.75 → 45.68), which localizes the discrepancy to that step, but does not close it. We therefore
+quote the paper and mark it, rather than reporting our reproduction as CURE.
 
 **Tiny-ImageNet-200 / ResNet-18** — same recipe transferred unchanged.
 
