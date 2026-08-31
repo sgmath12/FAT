@@ -61,6 +61,15 @@ regularizer added to cross-entropy, so no coefficient balances it against anythi
 the decomposition in §3.3 available: it characterizes the objective only when the anchor *is* the
 objective.
 
+**A feature target fixes the backbone; a logit target fixes it only up to a gauge.** A loss written on
+logits constrains the composition $W\Phi$ and therefore determines $(\Phi, W)$ only up to
+$(\Phi, W) \mapsto (A\Phi, WA^{-1})$ for invertible $A$: the same logits are reachable from a
+continuum of representations. Writing the target on the feature removes that freedom, which is why the
+teacher's own classifier remains the right classifier for the student — the student's representation is
+pinned to the teacher's, not merely to something the teacher's head maps the same way. We state this as
+the reason the head can be inherited, not as an argument that uniqueness is desirable in itself, for
+which we have no evidence.
+
 ### 3.3 What a single anchor term controls
 
 The anchor looks like a fidelity constraint, and a fidelity constraint alone would have no reason to
@@ -102,7 +111,16 @@ student flat.
 **What Proposition 1 does not establish.** It bounds $F+O$, and $O$ is not a sufficient statistic for
 robust accuracy: across the teacher ladder of §4 it correlates with AutoAttack at $r = +0.83$, the
 wrong sign. The proposition explains why anchoring to a non-robust teacher is *free*; it is not a
-robustness bound and we do not present it as one.
+robustness bound and we do not present it as one. Two partial results on the complementary question —
+how much robustness the objective buys — are in Appendix A, and both are reported with the reason they
+fall short. The nearer of the two is worth stating here because it answers the standing objection in
+the model where that objection was formulated: in the two-feature construction of Tsipras et al., the
+inner maximum of the anchor is exactly $(\lvert R\rvert + \varepsilon\lvert b\rvert)^2$ in the
+non-robust coefficient $b$, so the adversarial term is an $\ell_1$ penalty on $b$ — kinked at the
+origin, with $b^\star = 0$ **exactly** above a threshold $\varepsilon_0$ and $\varepsilon$-free
+thereafter. The teacher supplies the value and the inner maximization discards the route it took
+there. ⚠ That model has no mass where our effect lives, so it cannot be the explanation of the result;
+Appendix A states why.
 
 ### 3.4 Sensitivity-matched $\varepsilon$
 
@@ -120,8 +138,21 @@ $$\varepsilon_i \;\propto\; g_i^{-p},\qquad
 \varepsilon_i \leftarrow \mathrm{clip}\big(\varepsilon_i,\,0.5\varepsilon,\,1.5\varepsilon\big),\qquad
 \varepsilon_i \leftarrow \varepsilon_i \cdot \frac{N\varepsilon}{\sum_j \varepsilon_j},$$
 
-with $p = 1$ throughout, the clip preventing degenerate radii on near-flat samples, and the final
-rescaling restoring the mean exactly.
+with $p = 1$ throughout. Equivalently this is the max–min allocation: any unequal assignment can be
+improved by moving budget from the sample whose objective moves most to the one whose objective moves
+least. Under box constraints $w \in [w_{\mathrm{lo}}, w_{\mathrm{hi}}]$ the exact solution is the scale $t$ solving
+$\sum_i \mathrm{clip}(t\,r_i, w_{\mathrm{lo}}, w_{\mathrm{hi}}) = N$, which reduces to the mean restoration above
+whenever no clip binds; the clip itself only prevents degenerate radii on near-flat samples.
+
+**What separates this from existing per-sample radii.** Assigning a different $\varepsilon$ per
+example is not new — IAAT, MMA and CAT all do it. They assign it from the *difficulty* of the sample
+or from its margin in **input** space. This rule assigns it from the input-sensitivity of the
+**training loss**, that is, from the geometry the objective is actually written in rather than from a
+property of the sample. The distinction is testable and we test it: holding the exact multiset of
+weights the sensitivity rule produces and only reassigning which sample receives which — ordering by
+difficulty instead — buys standard accuracy and **pays $0.74$ AutoAttack**, ending below the uniform
+baseline on both CW and NRR (§7). The same weights in a different order move along the frontier; only
+the sensitivity ordering moves the frontier itself.
 
 **Budget preservation is what makes the comparison interpretable.** $p{=}1$ and $p{=}0$ spend the
 same total attack budget over the dataset, so any difference between them is allocation and not

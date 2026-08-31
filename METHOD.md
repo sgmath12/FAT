@@ -318,6 +318,17 @@ Comparing (2) with (TRADES) term by term:
 
 ### 3.4 Three propositions
 
+> ⚠ **ALL THREE ARE OBSOLETE FOR THE SHIPPED DESIGN (2026-08-31).** They were written for the
+> *directional* objective and none survives the move to the raw-$\ell_2$ anchor:
+> **Prop. 1 (head firewall)** describes a head-KD term that no longer exists — `featdir_freeze_head`
+> is on and the head is not trained at all; **Prop. 2 (magnitude neutrality)** is a statement about
+> $\nabla\lVert\hat\Phi_s-\hat\Phi_t\rVert^2$ being orthogonal to $\Phi_s$, which is **false**
+> for $\lVert\Phi_s-\Phi_t\rVert^2$; **Prop. 3** is about the $k$-subspace knob, a dead axis.
+> The paper's propositions are the ones in `writting_docs/method.md` §3.3, and they are different.
+> Kept here as a record of the directional design, not as source material.
+
+
+
 **Proposition 1 (head firewall).** *With $\lambda=0$, the parameter blocks carry disjoint objectives:*
 
 $$\frac{\partial\mathcal{L}}{\partial\theta_{\mathrm{bb}}}=\frac{\partial\mathcal{L}_{\mathrm{dir}}}{\partial\theta_{\mathrm{bb}}},

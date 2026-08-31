@@ -939,6 +939,20 @@ $m(d-K)$ feature directions unconstrained. That is wrong: $W$ is trained, and an
 cannot read is invisible to the decision anyway. A logit loss lives in logit space; counting feature
 directions against it is a category error.
 
+**(D) Theorem 2 — the head cannot be inherited. ⚠ FALSIFIED ON THE SHIPPED DESIGN, 2026-08-31.**
+
+> The measurement T.7 asked for has landed and it goes the other way. On the raw-$\ell_2$ anchor,
+> freezing the teacher's head is **better** than training it: `l2_bestrecipe_freezehead`
+> 62.65 / AA 28.77 / NRR **39.43** against `l2_bestrecipe_angeps` 62.35 / 28.68 / 39.29. The theorem
+> is not wrong in general — on the *directional* design it holds, `featdir_champ200_freezehead`
+> costs 1.72 clean (60.45 / 28.63 / 38.86 against 62.17 / 28.59 / 39.17) — but it is design-dependent
+> and false for the design the paper ships, because a raw student keeps its feature on the teacher's
+> scale and the teacher's head therefore stays calibrated. **Do not print Theorem 2 or Prediction 2.**
+> The paper now states the opposite, with the measurement: the head is inherited, never trained, and
+> every alternative scores below it.
+
+*The original entry follows, kept for the record.*
+
 **(D) Theorem 2 — the head cannot be inherited.**
 *Content:* under Thm 1's solution the student's feature has gain $q$ and variance $q^2v$ against the
 teacher's, so the teacher's Bayes head is not the student's; away from the scalar model the mismatch
