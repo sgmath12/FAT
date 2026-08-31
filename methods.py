@@ -3961,12 +3961,18 @@ def train_temperature_padapt(model, train_loader, optimizer, origin_model, epoch
 # exists", which is the regime this paper is about.  Run against their own robust teacher they are a
 # different family of method and not a baseline for us.
 #
-# Proposition 2 predicts the ORDER of the four cells, and can be killed by it.  ARD and RSLAD query
-# the teacher at x only, so the teacher's own instability never enters their objective.  AdaAD
-# queries it at x_adv, and AdaAD+IGDM additionally at x - delta; both points are off the data
-# manifold, where a naturally trained teacher's logits carry nothing usable.  So AdaAD should
-# degrade the most and IGDM on top of it should not rescue it.  If AdaAD instead wins here, the
-# "keep the anchor at x" argument is wrong and has to come out of the paper.
+# A PREDICTION THAT FAILED, recorded because it was made before the runs (2026-08-31).  We expected
+# the ORDER to follow where each method evaluates the teacher: ARD and RSLAD query it at x only,
+# AdaAD at x_adv, AdaAD+IGDM additionally at x - delta, and off-manifold queries to a naturally
+# trained teacher should carry nothing usable -- so AdaAD should have degraded the most.  Measured,
+# the order is the opposite: ARD 57.61/20.24, RSLAD 59.68/21.30, AdaAD 59.79/23.19 (clean/AA).
+# AdaAD is the BEST of the three.  What the ordering tracks instead is whether the inner and outer
+# problems are matched: ARD attacks with label CE and trains a KL, RSLAD matches both to a fixed
+# teacher target, AdaAD matches both to a target that moves with the attack -- which is the same
+# structural property section 3 credits for the anchor, not a refutation of it.  The claim that
+# survives is the one that does not depend on ordering: given a natural teacher, ALL of these
+# objectives land below both our anchor (61.21/25.24) and plain PGD-AT initialized at the same
+# teacher (57.73/26.46).  Do not restate the off-manifold prediction anywhere.
 #
 # CHANGED FROM THE ORIGINAL SCRIPTS (everything not listed is line-for-line):
 #   * attack step size / random start.  Their ARD attack calls `PGD(...)`, whose default step is

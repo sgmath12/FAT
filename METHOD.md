@@ -254,6 +254,11 @@ run on the raw-$L_2$ one, where it equalizes a feature *displacement* — and $g
 backward pass at the **clean** $x_i$, so it is the sensitivity at the starting point of a multi-step
 PGD rather than along it.
 
+**2026-08-31 update: the old name is now wrong twice over.** The shipped design is the unnormalized
+$\ell_2$ anchor, which contains no angle at all — $\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\rVert^2$
+has nowhere for a $\theta$ to appear. The first objection above applied even to the directional
+design; this one applies only now.
+
 The mismatch it addresses is real regardless of the name: the constraint set
 $\mathcal{B}(x,\varepsilon_{\mathrm{tr}})$ is a **pixel** ball while the loss measures something
 else, and the same radius moves that something by wildly different amounts across samples. So we

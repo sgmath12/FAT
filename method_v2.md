@@ -1,6 +1,6 @@
 # Method: Anchored Distillation from a Natural Teacher
 
-*Shipped instantiation: a magnitude-free feature anchor with an angular attack budget.*
+*Shipped instantiation: a feature anchor with a sensitivity-matched per-sample attack radius.*
 
 *Working draft, 2026-08-01; restructured 2026-08-07 so the surviving claims lead. Notation fixed
 here is meant to carry into the paper.*
@@ -12,14 +12,14 @@ here is meant to carry into the paper.*
 ### P0. The ledger — which component moves which axis
 
 Everything below is organized around one measured split. It is not a framing preference; it is what
-the `nofeat` ablation (§4.1) and the angular-budget stack (§8.0) force.
+the `nofeat` ablation (§4.1) and the sensitivity-matched-$\varepsilon$ stack (§8.0) force.
 
 | component | axis | measured contribution | theory in this document |
 |---|---|---|---|
 | external, adversary-independent anchor at $x_{\mathrm{adv}}$ + two-block routing | **robust** | carries essentially all of the AA | §4 |
 | schedule, WA, AWP, enlarged $\varepsilon_{\mathrm{tr}}$ | **robust** | $+0.82$ / $+0.56$ AA; off-the-shelf | **none** (§7.7) |
 | $\mathcal{L}_{\mathrm{dir}}$ — the anchor in *feature* space, *magnitude-free* | **clean** | clean $+1.82$, CW $+0.50$, **AA $0$** | §5 |
-| angular budget allocation, $p=1$ | **clean** | clean $+1.4$–$2.1$, CW $+0.2$–$0.4$, **AA tie** | §3.2a, §5.7 |
+| sensitivity-matched $\varepsilon$, $p=1$ | **clean** | clean $+1.4$–$2.1$, CW $+0.2$–$0.4$, **AA tie** | §3.2a, §5.7 |
 
 Two readings follow, and the document commits to both.
 
@@ -63,7 +63,7 @@ alongside every robust metric, and NRR is the headline scalar.
 > **One decision rule for AA, applied everywhere in this document.** $|\Delta\mathrm{AA}|\le0.4$
 > (the paired-seed noise floor of §6) is a **tie**, in our favour or against. Consequently: our
 > $+0.09$ / $+0.69$ over ADR-full are ties, the earlier draft's "$+0.19$ beats ADR-full" (§8.1) is
-> also a tie and has been relabelled, and the angular-budget cell's $-0.10$ / $-0.02$ against our own
+> also a tie and has been relabelled, and the sensitivity-matched-$\varepsilon$ cell's $-0.10$ / $-0.02$ against our own
 > $p{=}0$ run is a tie as well. No sentence in this document may call a sub-$0.4$ AA difference a
 > win.
 
@@ -195,12 +195,19 @@ $$x^{(j+1)}=\Pi_{\mathcal{B}(x,\varepsilon_{\mathrm{tr}})}\Big(x^{(j)}+\alpha\,\
 Champion: $m=10$, $\alpha=2/255$, $\varepsilon_{\mathrm{tr}}=8.8/255$, $\varepsilon=8/255$ at evaluation.
 **No label and no head — either network's — appears in (1).**
 
-### 3.2a Angular budget allocation (`featdir_angeps_p`, 2026-08-04)
+### 3.2a Sensitivity-matched $\varepsilon$ (`featdir_angeps_p`, 2026-08-04)
+
+> ⚠ **Renamed 2026-08-31.** This was called "angular budget allocation", which is wrong twice over.
+> The rule equalizes the first-order movement of the **loss**, not of an angle -- for a cosine target
+> that is $\Delta\cos\theta$, and converting to $\Delta\theta$ carries a per-sample $1/\sin\theta$.
+> And the shipped design is now the unnormalized $\ell_2$ anchor, which has no angle in it at all.
+> The code knob keeps the identifier `featdir_angeps_p` and the configs keep their `*_angeps` names
+> so that existing `results/` directories stay addressable; only the prose name changed.
 
 Equation (1) maximizes a **feature angle**, but the constraint set $\mathcal{B}(x,\varepsilon_{\mathrm{tr}})$
 is a **pixel** ball, and that is a mismatch. The same radius rotates different samples by wildly
 different amounts, so a uniform $\varepsilon$ delivers a highly non-uniform *angular* attack — the
-quantity the loss is actually written in. We therefore equalize the angular budget rather than the
+quantity the loss is actually written in. We therefore equalize the loss movement rather than the
 pixel budget.
 
 To first order the angle moved under an $\ell_\infty$ ball of radius $\varepsilon$ is
@@ -365,7 +372,7 @@ evaluate θ̄
 
 $$E=100,\ \ \text{AdamW},\ \eta_{\max}=0.021,\ \ \beta=1,\ \ \tau=16,\ \ \sigma=1,\ \ k=d=512,\ \ \lambda=0,$$
 $$m=10,\ \ \alpha=2/255,\ \ \varepsilon_{\mathrm{tr}}=8.8/255,\ \ \varepsilon=8/255,\ \ \kappa=0.999,\ \ e_{\mathrm{wa}}=0.2E,\ \ e_{\mathrm{fr}}=0.65E,$$
-$$\text{AWP: } \gamma=0.005,\ e_{\mathrm{awp}}=10,\qquad \text{angular budget: } p=1,\ w_{\lo}=0.5,\ w_{\hi}=1.5 .$$
+$$\text{AWP: } \gamma=0.005,\ e_{\mathrm{awp}}=10,\qquad \text{sensitivity-matched }\varepsilon\text{: } p=1,\ w_{\lo}=0.5,\ w_{\hi}=1.5 .$$
 
 `config/CIFAR10/featdir_champ200_angeps.yaml` and `config/CIFAR100/featdir_champ200_angeps.yaml`
 differ **only** in `dataset` and the teacher checkpoint path — every knob above is shared. There is
@@ -780,9 +787,9 @@ target respectively — which is the SNR reading of why §3's split is natural r
    no theory here at all (§4.9, §7.7). A reader is entitled to notice that the small lever is the one that
    got the mathematics.
 
-### 5.7 The second clean lever: angular budget allocation
+### 5.7 The second clean lever: sensitivity-matched $\varepsilon$
 
-The angular budget of §3.2a is the other component in the ledger's clean rows, and it has the same
+The sensitivity-matched $\varepsilon$ of §3.2a is the other component in the ledger's clean rows, and it has the same
 signature by a different route. It does not touch the target at all — it reallocates a *fixed total*
 attack budget across samples so that the inner problem is equally hard in the geometry the loss is
 written in (§3.2a property 1). Measured on both datasets it moves clean $+1.4$ to $+2.1$ and CW
@@ -791,7 +798,7 @@ $+0.2$ to $+0.4$ at an AA tie (§8.0), and it is the only intervention so far to
 
 There is no SNR-style account of it here. The working empirical rule it obeys — *touch the target and
 clean moves; touch the attack and robustness moves* (§8.0) — is stated as a regularity, and the
-angular budget is the one intervention that touches the attack and yet lands on clean, which the rule
+the radius rule is the one intervention that touches the attack and yet lands on clean, which the rule
 does not explain. That is an open item, not a result.
 
 ---
@@ -867,7 +874,7 @@ earlier robust-PCA cell for the same reason.
 
 ## 8. Current numbers
 
-### 8.0 Champion — angular budget on both datasets (2026-08-04)
+### 8.0 Champion — sensitivity-matched $\varepsilon$ on both datasets (2026-08-04)
 
 `featdir_champ200_angeps`, ResNet-18, seed 0, `last` checkpoint. Same recipe on both datasets
 (§3.10), no re-tuning.

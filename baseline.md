@@ -39,7 +39,7 @@ calibration metric):
 | **Ours (`featdir_champ200_100ep`, 2026-08-01)** | **44.36** | **40.64** | **38.97** |
 | **Ours (`featdir_champ200_angeps`, 2026-08-04)** | **44.60** | **41.30** | **39.17** |
 
-**Reading (updated 2026-08-04): the angular budget adds clean at matched AA.**
+**Reading (updated 2026-08-04, renamed 2026-08-31): sensitivity-matched $\varepsilon$ adds clean at matched AA.**
 `featdir_champ200_angeps` (§3.2a of [`METHOD.md`](METHOD.md)) reallocates the *same total*
 $\varepsilon$ budget across the batch so that the **angular** displacement is equalized rather than
 the pixel radius. Against the previous champion it gains clean **+1.43** and CW **+0.39** for
