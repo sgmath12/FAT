@@ -45,9 +45,15 @@ initializes the student from a standardly pretrained network and penalizes the a
 between the student's representation of an adversarial example and the pretrained network's
 representation of the clean example — but there the penalty is added to the label cross-entropy as
 one weighted term among several, so the backbone is still driven by hard labels and the balance
-between the two must be tuned. B-MTARD (Zhao et al., 2024) goes further and uses a naturally trained
-network explicitly to recover accuracy, pairing a clean teacher with a robust one so that each
-handles the examples it is good at. That is the closest prior statement of the idea we pursue, and it
+between the two must be tuned. DP-FAT (Cho & Kim, 2026) distills a naturally trained
+teacher directly, in the fast single-step regime, and reports that the teacher's logit *magnitudes*
+are the unreliable part: it rescales them per sample so that only the class-discriminative direction
+is transferred. That is the closest existing use of a natural teacher, and the difference from ours
+is what the teacher is asked for — DP-FAT repairs a logit target so that it can be trusted, where we
+remove the logit target and place the anchor on the feature, which is where the magnitude question
+does not arise. B-MTARD (Zhao et al., 2024) goes further still and uses a naturally trained network
+explicitly to recover accuracy, pairing a clean teacher with a robust one so that each handles the
+examples it is good at. That is the closest prior statement of the idea we pursue, and it
 still requires the robust teacher — a WideResNet-70-16 on CIFAR-100, far larger than the student —
 because the clean teacher supplies logits and cannot supply robustness. Both of its algorithmic
 contributions, an entropy-based temperature balance and a dynamic loss balance, exist to reconcile
@@ -76,7 +82,11 @@ differing only in training length, teacher accuracy and student accuracy are alm
 student inherits is the teacher's class geometry rather than its predictions, and the two are not
 monotone in one another. This makes the teacher's training length a control on the
 accuracy–robustness frontier that costs nothing to exercise and that a robust teacher does not offer,
-since a robust teacher's own training is the expensive part.
+since a robust teacher's own training is the expensive part. The non-monotonicity itself is not
+peculiar to natural teachers: in the robust-teacher setting a more robust teacher is likewise
+reported to fail to improve, or to harm, the student, with the teacher's predictive entropy on a
+consistent subset of the data indicating which way it will go (Kim et al., 2026). Our ladder is the
+natural-teacher analogue, and what varies along it is class separation rather than accuracy.
 
 Building on these observations we propose **Clean Feature Anchoring (CFA)**, illustrated in Figure 1.
 CFA trains a naturally supervised copy of the student architecture on the same data, initializes the

@@ -50,8 +50,19 @@ against $25.88$ for a feature target under identical conditions, and the logit c
 because $\tau$ is squeezed from both sides — at $\tau=1$ the teacher's maximum probability is $0.820$
 against the student's $0.016$, and at $\tau=16$ the target is within $1\%$ of uniform.
 
+The failure is sharpest where a method reads the teacher *off* the clean point. IGDM matches a finite
+difference $f_T(x+\delta)-f_T(x-\delta)$ as a stand-in for the teacher's input gradient, which is a
+gradient only while the teacher is locally linear; its own diagnostic reports a Taylor remainder
+proportion of $0.012$ for adversarially trained teachers. Applying that diagnostic to our checkpoints
+gives $0.0111$ for an adversarially trained ResNet-18 — reproducing their value, so the measurement is
+calibrated — and $\mathbf{0.4763}$ for the natural teacher, forty times further from linear. The
+target it constructs is correspondingly degenerate: $\lVert f_T(x+\delta)-f_T(x-\delta)\rVert=14.14$
+against $\lVert f_T(x)\rVert=18.36$, with the softmax of that difference placing $0.917$ on a single
+class.
+
 The teacher therefore holds accuracy that adversarial training gives up, and the logit route does not
-recover it. What follows asks what does.
+recover it — least of all the part of that route that evaluates the teacher inside the ball. What
+follows asks what does.
 
 ### 3.3 What a clean-feature anchor controls
 
