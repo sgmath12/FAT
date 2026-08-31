@@ -1,13 +1,13 @@
-# Method
+# Analysis and Method
 
-Draft, 2026-08-31 rev. 2. Length and register matched to `reference/IGDM.pdf` §3 (~900 words) and
-`reference/self-distililation-at.pdf` §4 (~350 words): equations carry the argument, subsections are
-short, and caveats sit in one place instead of interrupting each claim. Implementation details belong
-in Experiments, not here. Companion: `introduction.md`.
+Draft, 2026-08-31 rev. 3. Structure follows `reference/self-distililation-at.pdf`, which splits
+§3 ANALYSIS (preliminary, theory, empirical) from §4 METHOD (~350 words, the construction only), and
+`reference/IGDM.pdf`, whose §3.1 is a motivating measurement before any derivation. Implementation
+details belong in Experiments. Companion: `introduction.md`.
 
 ---
 
-## 3. Method
+## 3. Analysis
 
 ### 3.1 Preliminaries
 
@@ -21,42 +21,49 @@ The supervisory signal is the label, and it is asserted uniformly over $B(x,\var
 of the ball must reach full confidence in one class. That is where the accuracy cost comes from.
 Adversarial distillation replaces the label with a teacher quantity, taken from the logits of an
 adversarially trained teacher — at $x$ (ARD, RSLAD), at $x_{\mathrm{adv}}$ (AdaAD), or from finite
-differences of both (IGDM). We keep the inner maximization of (1) and change only what the outer
-minimization is asked to preserve.
+differences of both (IGDM). We ask instead what a *naturally* trained teacher, which costs nothing to
+obtain, can supply.
 
-### 3.2 Clean feature anchoring
+### 3.2 The teacher is fragile, and its logits are worse than no teacher at all
 
-Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
-same data. The student is initialized at $\Phi_s=\Phi_t$ and trained with
+The objection to a naturally trained teacher is not hypothetical. Under $\varepsilon=8/255$ its own
+feature rotates by $63.8^\circ$ and its norm inflates by $\times 2.45$; its accuracy rests on
+directions an adversary controls.
 
-$$\mathcal{L}=\mathbb{E}_x\big\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\big\rVert^2,
-\qquad
-x_{\mathrm{adv}}=\arg\max_{x'\in B(x,\varepsilon)}\big\lVert\Phi_s(x')-\Phi_t(x)\big\rVert. \tag{2}$$
+That fragility shows up immediately if the teacher is consumed the way adversarial distillation
+consumes one. Table 1 gives the published objectives with our natural teacher in place of the robust
+teacher they assume, at their own recipes, against plain adversarial training initialized from the
+same teacher.
 
-The head is never trained: at test time the student is $h_t\circ\Phi_s$. Three properties follow from
-the form of (2).
+**Table 1.** CIFAR-100, ResNet-18, 100 epochs, each method at its published recipe.
 
-**(i) The teacher is evaluated at $x$ and nowhere else,** in the attack and in the loss. Whatever it
-does inside $B(x,\varepsilon)$ is outside the objective, so its fragility cannot be inherited — and,
-symmetrically, it cannot supply robustness. All robustness is produced by the inner maximization.
+| | clean | AA | NRR |
+|---|---:|---:|---:|
+| ARD | 57.61 | 20.24 | 29.96 |
+| RSLAD | 59.68 | 21.30 | 31.40 |
+| AdaAD | 59.79 | 23.19 | 33.42 |
+| PGD-AT, initialized at the teacher | 57.73 | **26.46** | **36.29** |
 
-**(ii) The loss is zero at initialization,** since $\Phi_s=\Phi_t$. Only the perturbation makes it
-non-zero, so every gradient the backbone receives is attributable to the attack. A logit target has
-this property only at temperature $1$, where it carries no dark knowledge.
+Every one of them lands below simply not distilling. The same holds when the temperature is swept
+rather than inherited: in a fixed base regime the best logit target reaches AA $24.48$ at $\tau=4$,
+against $25.88$ for a feature target under identical conditions, and the logit curve is $\cap$-shaped
+because $\tau$ is squeezed from both sides — at $\tau=1$ the teacher's maximum probability is $0.820$
+against the student's $0.016$, and at $\tau=16$ the target is within $1\%$ of uniform.
 
-**(iii) There is no weight and no temperature,** because the anchor is the whole objective rather than
-a term added to cross-entropy. Writing the target on the feature also pins the backbone: a logit loss
-constrains $W\Phi$ and therefore determines $(\Phi,W)$ only up to $(A\Phi,WA^{-1})$, which is why the
-teacher's head remains the student's.
+The teacher therefore holds accuracy that adversarial training gives up, and the logit route does not
+recover it. What follows asks what does.
 
-### 3.3 What the single term controls
+### 3.3 What a clean-feature anchor controls
 
-A fidelity constraint alone would have no reason to produce robustness. Fix $x$, write
-$B=B(x,\varepsilon)$, and let
+Consider matching the teacher's feature at the *clean* input against the student's feature at the
+*adversarial* input. Fix $x$, write $B=B(x,\varepsilon)$, and let
 
 $$L=\max_{x'\in B}\lVert\Phi_s(x')-\Phi_t(x)\rVert,\quad
 F=\lVert\Phi_s(x)-\Phi_t(x)\rVert,\quad
-O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert. \tag{3}$$
+O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert, \tag{2}$$
+
+so $L$ is that quantity, $F$ is fidelity to the teacher at the clean point, and $O$ is the oscillation
+of the student's own map over the ball.
 
 **Proposition 1.** $L\le F+O\le 3L$.
 
@@ -64,14 +71,41 @@ O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert. \tag{3}$$
 $\lVert\Phi_s(x')-\Phi_t(x)\rVert\le\lVert\Phi_s(x')-\Phi_s(x)\rVert+F\le O+F$, so $L\le F+O$.
 $\square$
 
-Minimizing $L$ therefore controls fidelity to the teacher and local stability of the student together,
-within a factor of three, with no coefficient trading them off — the first is what adversarial
-training gives up, the second what its label term buys. Measured on the trained student over
-$\varepsilon=8/255$ balls, $L=7.58$, $F=6.30$ and $O_{\mathrm{lb}}=2.16$ against the teacher's own
-$O=6.68$: the student is $3.1\times$ more stable than the teacher it was distilled from, and what
-remains in the loss is fidelity rather than instability.
+A single term therefore controls fidelity and local stability together, within a factor of three, with
+no coefficient trading them off — the first is what adversarial training gives up, the second what its
+label term buys. The proof uses only the triangle inequality, so it holds for the networks we train.
 
-### 3.4 Sensitivity-matched $\varepsilon$
+Two consequences decide the design. First, $\Phi_t$ is evaluated at $x$ alone, so the instability
+measured in §3.2 never enters the objective — and, symmetrically, the teacher cannot supply
+robustness. Second, the decomposition holds only when the anchor *is* the objective: added to a
+cross-entropy term it characterizes nothing.
+
+Both are verifiable, and we verify them. On the trained student over $\varepsilon=8/255$ balls,
+$L=7.58$, $F=6.30$ and $O_{\mathrm{lb}}=2.16$ against the teacher's own $O=6.68$: the student is
+$3.1\times$ more stable than the teacher it was distilled from, and what remains in the loss is
+fidelity rather than instability.
+
+---
+
+## 4. Method
+
+### 4.1 Clean feature anchoring
+
+Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
+same data. The student is initialized at $\Phi_s=\Phi_t$ and trained with
+
+$$\mathcal{L}=\mathbb{E}_x\big\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\big\rVert^2,
+\qquad
+x_{\mathrm{adv}}=\arg\max_{x'\in B(x,\varepsilon)}\big\lVert\Phi_s(x')-\Phi_t(x)\big\rVert. \tag{3}$$
+
+The head is never trained: at test time the student is $h_t\circ\Phi_s$. Writing the target on the
+feature is what makes this possible — a logit loss constrains $W\Phi$ and so determines $(\Phi,W)$
+only up to $(A\Phi,WA^{-1})$, while a feature target pins the representation itself, so the teacher's
+classifier remains calibrated for it. Two further properties are worth naming: (3) has no weight and
+no temperature, being the whole objective rather than a term added to another; and it is exactly zero
+at initialization, so every gradient the backbone receives is attributable to the attack.
+
+### 4.2 Sensitivity-matched $\varepsilon$
 
 A fixed pixel radius is not a fixed amount of pressure on the objective. Within an $\ell_\infty$ ball
 of radius $e$,
@@ -99,12 +133,12 @@ reassigning which sample receives which, by difficulty, pays $0.74$ AutoAttack a
 uniform baseline on CW and NRR: the same weights in a different order move *along* the frontier, and
 only this order moves the frontier itself.
 
-### 3.5 Algorithm
+### 4.3 Algorithm
 
 **Algorithm 1** — Clean Feature Anchoring (CFA)
 
 ```
-Require: dataset D, radius eps, steps K, step size a, exponent p = 1
+Require: dataset D, radius eps, steps K, exponent p = 1
  1: Phi_t <- train f_t naturally on D                    # same architecture, no adversarial cost
  2: Phi_s <- Phi_t,  h <- h_t                            # student initialized at the teacher
  3: for each epoch, for each minibatch {x_i} of D:
@@ -112,45 +146,37 @@ Require: dataset D, radius eps, steps K, step size a, exponent p = 1
  5:     eps_i  <- clip( eps * (g_i / mean g)^(-p), 0.5 eps, 1.5 eps )
  6:     eps_i  <- eps_i * N eps / sum_j eps_j                         # restore the total budget
  7:     x_i^a  <- PGD_K( max_{x' in B(x_i, eps_i)} || Phi_s(x') - Phi_t(x_i) || )
- 8:     L      <- mean_i || Phi_s(x_i^a) - Phi_t(x_i) ||^2
- 9:     update Phi_s on L                                            # h is never updated
+ 8:     update Phi_s on  mean_i || Phi_s(x_i^a) - Phi_t(x_i) ||^2     # h is never updated
 ```
 
-Line 1 is the only place labels appear, and it is ordinary supervised training; lines 3–9 use none.
+Line 1 is the only place labels appear, and it is ordinary supervised training; the remainder uses
+none.
 
 **Caveats.** Proposition 1 bounds $F+O$, and $O$ is not a sufficient statistic for robust accuracy —
-across the teacher ladder of §4 it correlates with AutoAttack at $r=+0.83$, the wrong sign. It
+across the teacher ladder of §5 it correlates with AutoAttack at $r=+0.83$, the wrong sign. It
 explains why anchoring to a non-robust teacher is *free*, not how much robustness the objective buys;
 Appendix A gives two partial results on the latter, each with the reason it falls short. In (4) the
 derivation asks for the $\ell_1$ norm and our runs use $\ell_2$; both were trained and agree within
-noise. $g_i$ is one backward pass at the clean $x_i$, so it is the sensitivity at the attack's starting
-point rather than along it.
+noise. Finally, $g_i$ is one backward pass at the clean $x_i$, so it is the sensitivity at the
+attack's starting point rather than along it.
 
 ---
 
 ## Writer's notes
 
-### What was cut in rev. 2, and where it went
+### rev. 3: split into Analysis and Method
 
-The draft was 2091 words against IGDM §3 at ~900 and the long-tailed self-distillation paper §4 at
-~350. Cut to 970 by three moves, all of which follow what those two sections actually do:
+rev. 2 compressed everything into one §3 of 970 words, which was the wrong budget. The long-tailed
+self-distillation paper runs §3 ANALYSIS (preliminary, theorem, empirical measurements) at roughly a
+thousand words and then §4 METHOD at ~350, and IGDM's §3.1 is likewise a motivating measurement
+before any derivation. Adopting that split gives ~1400 words and, more importantly, gives the
+baseline measurement a home: §3.2 now carries the result that the published objectives with our
+natural teacher all land *below not distilling at all*, which is the strongest single argument for
+the design and previously appeared only as one sentence in the introduction.
 
-1. **Implementation left the method.** Architecture, optimizer, schedule, batch size, training radius,
-   weight averaging, AWP and the evaluation protocol now belong in Experiments. Both reference papers
-   put every one of those under "Training details" in the experiments section, not in the method.
-2. **Caveats collected into one paragraph** at the end of §3 instead of a hedge attached to each
-   claim. Previously §3.3 ended with a paragraph on what Proposition 1 does not establish, §3.4 with
-   a paragraph of qualifications, and §3.5 with a paragraph defending the frozen head. The content is
-   preserved, compressed roughly fourfold.
-3. **The classifier reduced to one clause.** "The head is never trained: at test time the student is
-   $h_t\circ\Phi_s$." The measurements that justify it (five alternatives, all below) are an
-   ablation result and belong in §7.
-4. **Properties turned into labelled short paragraphs.** (i)/(ii)/(iii) instead of bold-lead prose
-   blocks, matching IGDM's numbered-equation-then-short-paragraph rhythm.
+Order is: the teacher is fragile and the obvious use of it fails (§3.2), the anchor is different and
+here is why (§3.3), here is the construction (§4). Implementation still belongs in Experiments.
 
-Nothing was removed from the argument. The $\ell_1$-penalty result that rev. 1 stated inside §3.3 is
-now referenced through the caveat paragraph and stated in full in Appendix A, which is where its own
-disclaimer already lives.
 
 
 
