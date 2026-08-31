@@ -1,0 +1,65 @@
+# TRAINING-RADIUS ABLATION ON THE CHAMPION RECIPE (2026-08-31).
+#
+# The shipped recipe trains at eps_train = 8.8/255 and evaluates at 8/255.  8.8 is a non-standard
+# number and a reviewer will ask where it came from, so this sweep runs the SAME recipe at the
+# standard 8/255 and at 10/255, changing nothing else.  Evaluation stays at 8/255 in every cell, as
+# in the Tiny-ImageNet precedent `featdir_tin_eps10`.
+#
+# There is no prior CIFAR evidence for this axis -- the old `featdir_awp_100ep_eps10` also moved the
+# recipe (lambda 1.5 and others) so it cannot be read as an eps ablation (TODO.md:39).
+#
+# Design: raw-L2 anchor (`student_norm: False`) with `featdir_freeze_head: True`, i.e. the champion as
+# of today.  Freezing the head was verified on CIFAR-100 this morning -- 62.65 / 28.77 / NRR 39.43
+# against 62.35 / 28.68 / 39.29 with the detached head-KD term -- and it is what the method section
+# describes, so tau and beta are absent from the method entirely.
+#
+# CIFAR-10 has never been run on the raw-L2 design -- its 84.66 / 51.87 champion is the
+# DIRECTIONAL variant, which also carries freeze_lr_epoch 0.65.  The three cells here give
+# CIFAR-10 the same design the method section describes, so the paper reports one objective
+# on both datasets, and the 8.8 cell is the point that compares directly with 84.66 / 51.87.
+#
+# THIS CELL: CIFAR-10, eps_train = 8/255.
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.031372549019607843
+steps : 10
+step_size : 2/255/1
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_rawteacher : True
+featdir_rawstudent : True
+aa_batch_size : 256

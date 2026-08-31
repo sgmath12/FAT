@@ -1,0 +1,69 @@
+# AdaAD+IGDM ON THE NATURAL TEACHER, IGDM WEIGHT REDUCED 20 -> 1 (2026-08-31).
+#
+# `adaadigdm_nat100ep` (their published alpha = 20) COLLAPSED: clean rose to 14.68 by epoch 5 and then
+# fell monotonically to 1.00, i.e. chance on 100 classes, with AutoAttack reporting "max Linf
+# perturbation 0.00000" and 100 zero-gradient points -- a dead constant network, not a result.
+#
+# Diagnosed, and it is not a porting bug.  With OUR natural teacher, measured on one batch at init:
+#     ||t(x)|| = 18.36        ||t(x+d) - t(x-d)|| = 14.14
+#     softmax(t+ - t-):  max prob 0.917, entropy 0.494  (uniform on 100 classes = 4.605)
+#     L_adaad = 4.895   L_igdm = 4.245   alpha * L_igdm at the end of the ramp = 84.9  (17.3x L_adaad)
+# The IGDM target is a near-ONE-HOT distribution over a logit DIFFERENCE, at 17x the weight of the
+# term that actually trains the student.  The collapse starts exactly where alpha*(ep/E) crosses 1,
+# at epoch 5.
+#
+# The reason is IGDM's own premise.  Their section 3.1 requires the teacher to be locally linear so
+# that t(x+d) - t(x-d) approximates 2*(dt/dx)^T d; they measure a remainder proportion of 0.012 for
+# their robust teachers.  Reproduced with scripts/measure_local_linearity.py on our checkpoints:
+#     natural teacher (clean_200ep)      0.4763
+#     PGD-AT ResNet-18 (ours)            0.0111   <- matches their 0.012, so our measurement is calibrated
+#     anchor student, p=0                0.0029
+#     anchor student, shipped            0.0202
+# A naturally trained teacher is 40x less locally linear than the teachers IGDM was designed for, so
+# the finite difference is not a gradient there -- it is the gap between two unrelated points.
+#
+# THIS CELL exists so the failure cannot be dismissed as a badly chosen weight.  alpha = 1 puts
+# alpha*L_igdm at ~4.2 against L_adaad ~4.9 at the end of the ramp, i.e. the two terms comparable,
+# which is the most favourable reading of the method available here.  Everything else is identical to
+# `adaadigdm_nat100ep`.  Read against AdaAD alone (59.79 / AA 23.19): if this does not beat that, the
+# IGDM term contributes nothing on a non-linear teacher, which is what the measurement predicts.
+
+method : adaad_igdm
+igdm_alpha : 1.0
+igdm_beta : 1.0
+igdm_gamma : 1.0
+weight_decay : 0.0002
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
