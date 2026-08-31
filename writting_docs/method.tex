@@ -1,90 +1,69 @@
-% Method -- draft 2026-08-30.
-% Structure follows reference/IGDM.pdf Sec.3 and reference/ADR.pdf Sec.3.
+% Method -- draft 2026-08-31 rev. 2.
+% Length and register matched to reference/IGDM.pdf Sec.3 and reference/self-distililation-at.pdf
+% Sec.4: equations carry the argument, subsections are short, caveats sit in one place.
+% Implementation details belong in Experiments, not here.
 % Companion prose version with sourcing notes and open decisions: method.md
-% Requires: amsmath, amsthm, algorithm, algpseudocode, booktabs.
+% Requires: amsmath, amsthm, algorithm, algpseudocode.
 
 \section{Method}
 \label{sec:method}
 
 \subsection{Preliminaries}
-\label{sec:prelim}
 
-Let $f = h \circ \Phi$ be a classifier decomposed into a feature map $\Phi:\mathcal{X}\to
-\mathbb{R}^d$ and a linear head $h$. Adversarial training \citep{madry2018towards} solves
+Let $f=h\circ\Phi$ be a classifier with feature map $\Phi$ and linear head $h$. Adversarial training
+\citep{madry2018towards} solves
 \begin{equation}
 \min_\theta\ \mathbb{E}_{(x,y)}\ \max_{x'\in B(x,\varepsilon)}\ \ell\big(f_\theta(x'),y\big),
-\qquad B(x,\varepsilon)=\{x':\lVert x'-x\rVert_\infty\le\varepsilon\},
+\qquad B(x,\varepsilon)=\{x':\lVert x'-x\rVert_\infty\le\varepsilon\}.
 \label{eq:at}
 \end{equation}
-with the inner maximization approximated by projected gradient descent. The supervisory signal is the
-label $y$, and it is asserted uniformly over $B(x,\varepsilon)$: every point of the ball is required
-to attain full confidence in one class. This is the source of the accuracy cost. Adversarial
-distillation replaces $y$ with a teacher quantity, and existing methods take that quantity from the
-teacher's logits---at the clean input \citep{goldblum2020adversarially, zi2021revisiting}, at the
-adversarial input \citep{huang2023boosting}, or through finite differences of both
-\citep{lee2025indirect}---with a teacher that has itself been adversarially trained.
-
-We keep the inner maximization exactly as in standard adversarial training, so that all robustness
-continues to be produced by the student, and change only what the outer minimization is asked to
-preserve.
+The supervisory signal is the label, and it is asserted uniformly over $B(x,\varepsilon)$: every point
+of the ball must reach full confidence in one class. That is where the accuracy cost comes from.
+Adversarial distillation replaces the label with a teacher quantity, taken from the logits of an
+adversarially trained teacher---at $x$ \citep{goldblum2020adversarially,zi2021revisiting}, at
+$x_{\mathrm{adv}}$ \citep{huang2023boosting}, or from finite differences of both
+\citep{lee2025indirect}. We keep the inner maximization of \eqref{eq:at} and change only what the
+outer minimization is asked to preserve.
 
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
-Let $\Phi_t$ be the feature map of a network of the same architecture trained naturally on the same
-data, frozen. The student's feature map $\Phi_s$ is initialized at $\Phi_t$ and trained with
+Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
+same data. The student is initialized at $\Phi_s=\Phi_t$ and trained with
 \begin{equation}
-\mathcal{L}_{\mathrm{anchor}}=\mathbb{E}_x\big\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\big\rVert^2,
+\mathcal{L}=\mathbb{E}_x\big\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\big\rVert^2,
 \qquad
 x_{\mathrm{adv}}=\operatorname*{arg\,max}_{x'\in B(x,\varepsilon)}\big\lVert\Phi_s(x')-\Phi_t(x)\big\rVert.
 \label{eq:anchor}
 \end{equation}
-The attack maximizes the same quantity the outer problem minimizes, so the inner and outer problems
-are matched, as they are in standard adversarial training and unlike methods whose attack is
-generated against a different objective from the one being trained.
+The head is never trained: at test time the student is $h_t\circ\Phi_s$. Three properties follow from
+the form of \eqref{eq:anchor}.
 
-Three properties follow from the form alone.
+\paragraph{(i) The teacher is evaluated at $x$ and nowhere else,} in the attack and in the loss.
+Whatever it does inside $B(x,\varepsilon)$ is outside the objective, so its fragility cannot be
+inherited---and, symmetrically, it cannot supply robustness. All robustness is produced by the inner
+maximization.
 
-\paragraph{The teacher is evaluated at $x$ and nowhere else.} $\Phi_t$ never receives a perturbed
-input, in the attack or in the loss. Whatever the teacher does inside $B(x,\varepsilon)$ is therefore
-outside the objective and cannot be inherited, which is the entire answer to the objection that a
-naturally trained teacher would transfer its fragility. The same fact means the teacher cannot
-contribute robustness either: it supplies a target, and the work of holding that target under
-perturbation is done by the student's own inner maximization.
+\paragraph{(ii) The loss is zero at initialization,} since $\Phi_s=\Phi_t$. Only the perturbation makes
+it non-zero, so every gradient the backbone receives is attributable to the attack. A logit target has
+this property only at temperature $1$, where it carries no dark knowledge.
 
-\paragraph{The objective is exactly zero at initialization.} The student begins as the teacher, so
-$\Phi_s(x)=\Phi_t(x)$ and the loss is nonzero only because of the perturbation. Every gradient the
-backbone receives is therefore attributable to the attack, which is the quantity to be trained. A
-logit target does not have this property except at temperature $1$, where it carries no dark
-knowledge.
+\paragraph{(iii) There is no weight and no temperature,} because the anchor is the whole objective
+rather than a term added to cross-entropy. Writing the target on the feature also pins the backbone: a
+logit loss constrains $W\Phi$ and therefore determines $(\Phi,W)$ only up to $(A\Phi,WA^{-1})$, which
+is why the teacher's head remains the student's.
 
-\paragraph{There is no weight and no temperature.} The anchor is the whole backbone objective rather
-than a regularizer added to cross-entropy, so no coefficient balances it against anything. This also
-makes the decomposition of Section~\ref{sec:decomp} available: it characterizes the objective only
-when the anchor \emph{is} the objective.
-
-\paragraph{A feature target fixes the backbone; a logit target fixes it only up to a gauge.} A loss
-written on logits constrains the composition $W\Phi$ and therefore determines $(\Phi,W)$ only up to
-$(\Phi,W)\mapsto(A\Phi,WA^{-1})$ for invertible $A$: the same logits are reachable from a continuum of
-representations. Writing the target on the feature removes that freedom, which is why the teacher's own
-classifier remains the right classifier for the student---the student's representation is pinned to the
-teacher's, not merely to something the teacher's head maps the same way. We state this as the reason
-the head can be inherited, not as an argument that uniqueness is desirable in itself, for which we have
-no evidence.
-
-\subsection{What a Single Anchor Term Controls}
+\subsection{What the Single Term Controls}
 \label{sec:decomp}
 
-The anchor looks like a fidelity constraint, and a fidelity constraint alone would have no reason to
-produce robustness. It is not one. Fix $x$, write $B=B(x,\varepsilon)$, and define
+A fidelity constraint alone would have no reason to produce robustness. Fix $x$, write
+$B=B(x,\varepsilon)$, and let
 \begin{equation}
 L=\max_{x'\in B}\lVert\Phi_s(x')-\Phi_t(x)\rVert,\quad
 F=\lVert\Phi_s(x)-\Phi_t(x)\rVert,\quad
-O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert,
+O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert.
 \label{eq:LFO}
 \end{equation}
-so that $L$ is the quantity the method minimizes, $F$ is fidelity to the teacher at the clean point,
-and $O$ is the oscillation of the student's own feature map over the ball.
 
 \begin{proposition}
 \label{prop:decomp}
@@ -92,151 +71,82 @@ $L\le F+O\le 3L$.
 \end{proposition}
 
 \begin{proof}
-$F\le L$ because $x\in B$. $O\le 2L$ by inserting $\Phi_t(x)$ between $\Phi_s(x')$ and $\Phi_s(x'')$
-and applying the triangle inequality to each half. And for any $x'\in B$,
-$\lVert\Phi_s(x')-\Phi_t(x)\rVert\le\lVert\Phi_s(x')-\Phi_s(x)\rVert+F\le O+F$; taking the maximum
-over $x'$ gives $L\le F+O$.
+$F\le L$ since $x\in B$; $O\le 2L$ by inserting $\Phi_t(x)$; and
+$\lVert\Phi_s(x')-\Phi_t(x)\rVert\le\lVert\Phi_s(x')-\Phi_s(x)\rVert+F\le O+F$, so $L\le F+O$.
 \end{proof}
 
-Minimizing the single term therefore controls teacher fidelity and local stability jointly, to within
-a factor of three, with no coefficient trading them off. The second is what standard adversarial
-training obtains from the label term and the first is what it gives up; the anchor obtains both from
-one quantity, and it does so without ever querying the teacher off the clean point.
-
-The prediction is verifiable and we verify it: on trained checkpoints, over the same
-$\varepsilon$-balls, the student is markedly more stable than the teacher it was distilled from
-(Table~\ref{tab:LFO}). The student's oscillation is $3.1\times$ smaller than the teacher's on the same
-balls, matching an independent angular measurement ($14.6^\circ$ against $63.8^\circ$ of feature
-rotation under $\varepsilon=8/255$). Two things follow. The teacher's instability was not inherited,
-which is what the construction predicts; and $F \gg O_{\mathrm{lb}}$, so what remains in the loss at
-convergence is almost entirely fidelity rather than instability, and the anchor is not being satisfied
-by making the student flat.
-
-\begin{table}[t]
-  \centering
-  \caption{The decomposition of Proposition~\ref{prop:decomp}, measured on the trained student over
-  $\varepsilon=8/255$ balls. $O_{\mathrm{lb}}$ is a lower bound on the student's oscillation obtained
-  from the attacked pair; the rightmost column is that same quantity measured on the teacher the
-  student was distilled from.}
-  \label{tab:LFO}
-  \begin{tabular}{lrrrr}
-    \toprule
-    & $L$ & $F$ & $O_{\mathrm{lb}}$ & teacher's own $O$ \\
-    \midrule
-    student & 7.583 & 6.304 & \textbf{2.164} & \textbf{6.684} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\paragraph{What Proposition~\ref{prop:decomp} does not establish.} It bounds $F+O$, and $O$ is not a
-sufficient statistic for robust accuracy: across the teacher ladder of Section~\ref{sec:geometry} it
-correlates with AutoAttack at $r=+0.83$, the wrong sign. The proposition explains why anchoring to a
-non-robust teacher is \emph{free}; it is not a robustness bound and we do not present it as one. Two
-partial results on the complementary question---how much robustness the objective buys---are given in
-Appendix~\ref{app:robustness}, each with the reason it falls short. The nearer of the two belongs here
-because it answers the standing objection inside the model where that objection was formulated: in the
-two-feature construction of \citet{tsipras2019robustness}, the inner maximum of the anchor is exactly
-$(\lvert R\rvert+\varepsilon\lvert b\rvert)^2$ in the non-robust coefficient $b$, so the adversarial
-term is an $\ell_1$ penalty on $b$---kinked at the origin, with $b^\star=0$ \emph{exactly} above a
-threshold $\varepsilon_0$ and $\varepsilon$-free thereafter. The teacher supplies the value and the
-inner maximization discards the route it took there. That model has no mass where our effect lives, so
-it cannot be the explanation of the result; Appendix~\ref{app:robustness} states why.
+Minimizing $L$ therefore controls fidelity to the teacher and local stability of the student together,
+within a factor of three, with no coefficient trading them off---the first is what adversarial training
+gives up, the second what its label term buys. Measured on the trained student over
+$\varepsilon=8/255$ balls, $L=7.58$, $F=6.30$ and $O_{\mathrm{lb}}=2.16$ against the teacher's own
+$O=6.68$: the student is $3.1\times$ more stable than the teacher it was distilled from, and what
+remains in the loss is fidelity rather than instability.
 
 \subsection{Sensitivity-Matched $\varepsilon$}
 \label{sec:angeps}
 
-A fixed pixel radius does not correspond to a fixed amount of pressure on the objective. Within an
-$\ell_\infty$ ball of radius $e$, the first-order change of any loss is
+A fixed pixel radius is not a fixed amount of pressure on the objective. Within an $\ell_\infty$ ball
+of radius $e$,
 \begin{equation}
-\max_{\lVert\delta\rVert_\infty\le e}\langle\nabla_x\mathcal{L},\delta\rangle=e\,\lVert\nabla_x\mathcal{L}\rVert_1,
+\max_{\lVert\delta\rVert_\infty\le e}\langle\nabla_x\mathcal{L},\delta\rangle
+=e\,\lVert\nabla_x\mathcal{L}\rVert_1,
 \label{eq:firstorder}
 \end{equation}
 so with $g_i=\lVert\nabla_x\mathcal{L}(x_i)\rVert$ the same radius moves the objective by amounts that
-differ across samples by whatever $g_i$ varies by. Equalizing that movement subject to a fixed total
-budget $\sum_i\varepsilon_i=N\varepsilon$ gives
+differ as $g_i$ does. Equalizing that movement at fixed total budget $\sum_i\varepsilon_i=N\varepsilon$
+gives
 \begin{equation}
 \varepsilon_i\propto g_i^{-p},\qquad
 \varepsilon_i\leftarrow\mathrm{clip}\big(\varepsilon_i,0.5\varepsilon,1.5\varepsilon\big),\qquad
-\varepsilon_i\leftarrow\varepsilon_i\cdot\frac{N\varepsilon}{\sum_j\varepsilon_j},
+\varepsilon_i\leftarrow\varepsilon_i\cdot N\varepsilon\Big/\sum\nolimits_j\varepsilon_j,
 \label{eq:angeps}
 \end{equation}
-with $p=1$ throughout. Equivalently this is the max--min allocation: any unequal assignment can be
-improved by moving budget from the sample whose objective moves most to the one whose objective moves
-least. Under box constraints $w\in[w_{\mathrm{lo}},w_{\mathrm{hi}}]$ the exact solution is the scale
-$t$ solving $\sum_i\mathrm{clip}(t\,r_i,w_{\mathrm{lo}},w_{\mathrm{hi}})=N$, which reduces to the mean
-restoration above whenever no clip binds; the clip itself only prevents degenerate radii on near-flat
-samples.
+with $p=1$---equivalently the max--min allocation, since budget moved to the sample whose objective
+moves least always improves the worst case. Budget preservation is what makes the comparison
+interpretable: $p{=}1$ and $p{=}0$ spend the same total attack budget, so any difference between them
+is allocation and not strength.
 
-\paragraph{What separates this from existing per-sample radii.} Assigning a different $\varepsilon$
-per example is not new---IAAT, MMA and CAT all do it. They assign it from the \emph{difficulty} of the
-sample or from its margin in \textbf{input} space. This rule assigns it from the input-sensitivity of
-the \textbf{training loss}, that is, from the geometry the objective is actually written in rather
-than from a property of the sample. The distinction is testable and we test it: holding the exact
-multiset of weights the sensitivity rule produces and only reassigning which sample receives
-which---ordering by difficulty instead---buys standard accuracy and \emph{pays} $0.74$ AutoAttack,
-ending below the uniform baseline on both CW and NRR (Section~\ref{sec:ablation}). The same weights in
-a different order move along the frontier; only the sensitivity ordering moves the frontier itself.
+Per-sample radii are not new; IAAT, MMA and CAT assign one from the difficulty of the sample or its
+margin in \emph{input} space. This rule assigns one from the input-sensitivity of the \emph{training
+loss}, the geometry the objective is written in. Holding the exact multiset of weights
+\eqref{eq:angeps} produces and only reassigning which sample receives which, by difficulty, pays
+$0.74$ AutoAttack and falls below the uniform baseline on CW and NRR: the same weights in a different
+order move \emph{along} the frontier, and only this order moves the frontier itself.
 
-\paragraph{Budget preservation is what makes the comparison interpretable.} $p{=}1$ and $p{=}0$ spend
-the same total attack budget over the dataset, so any difference between them is allocation and not
-strength: the rule cannot be dismissed as attacking harder. Measured with no other component present
-(no weight averaging, no AWP), it is worth $+1.77$ standard accuracy at $+0.19$ AutoAttack over 100
-epochs and $+1.61$ at $+0.21$ over 50, that is, the same $+0.49$ NRR at either schedule length.
-
-\paragraph{Qualifications.} The rule equalizes the movement of the \emph{loss}, not of an angle. $g_i$
-is one backward pass at the clean $x_i$, that is, the sensitivity at the starting point of the
-10-step attack rather than along it. The derivation asks for the $\ell_1$ norm and our runs used
-$\ell_2$; both were trained and agree within noise ($62.51/28.44$ against $62.35/28.68$---that control
-predates the head freeze, so both of its cells carry the head distillation term and its comparison
-base is the $62.35$ configuration rather than the $62.65$ one).
-
-\subsection{The Complete Method}
-\label{sec:algorithm}
+\subsection{Algorithm}
 
 \begin{algorithm}[t]
 \caption{Clean Feature Anchoring (CFA)}
 \label{alg:cfa}
 \begin{algorithmic}[1]
-\Require dataset $\mathcal{D}$, radius $\varepsilon$, steps $K$, step size $a$, exponent $p=1$
+\Require dataset $\mathcal{D}$, radius $\varepsilon$, steps $K$, exponent $p=1$
 \State $\Phi_t \gets$ train $f_t$ naturally on $\mathcal{D}$
   \Comment{same architecture, no adversarial cost}
-\State $\Phi_s \gets \Phi_t$ \Comment{student initialized at the teacher}
-\For{each epoch}
-  \For{each minibatch $\{x_i\}_{i=1}^{N}$ of $\mathcal{D}$}
-    \State $g_i \gets \big\lVert\nabla_x\lVert\Phi_s(x_i)-\Phi_t(x_i)\rVert^2\big\rVert$
-      \Comment{one backward pass at the clean input}
-    \State $\varepsilon_i \gets \mathrm{clip}\big(\varepsilon\,(g_i/\bar g)^{-p},\,
-      0.5\varepsilon,\,1.5\varepsilon\big)$
-    \State $\varepsilon_i \gets \varepsilon_i\cdot N\varepsilon/\textstyle\sum_j\varepsilon_j$
-      \Comment{restore the total budget exactly}
-    \State $x_i^{\mathrm{adv}} \gets \mathrm{PGD}_K\big(\max_{x'\in B(x_i,\varepsilon_i)}
-      \lVert\Phi_s(x')-\Phi_t(x_i)\rVert\big)$
-    \State $\mathcal{L} \gets \frac{1}{N}\sum_i\lVert\Phi_s(x_i^{\mathrm{adv}})-\Phi_t(x_i)\rVert^2$
-    \State update $\Phi_s$ by one optimizer step on $\mathcal{L}$
-  \EndFor
+\State $\Phi_s \gets \Phi_t$, \ $h \gets h_t$ \Comment{student initialized at the teacher}
+\For{each epoch, each minibatch $\{x_i\}_{i=1}^{N}$}
+  \State $g_i \gets \big\lVert\nabla_x\lVert\Phi_s(x_i)-\Phi_t(x_i)\rVert^2\big\rVert$
+    \Comment{one backward pass at $x$}
+  \State $\varepsilon_i \gets \mathrm{clip}\big(\varepsilon(g_i/\bar g)^{-p},
+    0.5\varepsilon, 1.5\varepsilon\big)$;\ \
+    $\varepsilon_i \gets \varepsilon_i N\varepsilon/\sum_j\varepsilon_j$
+    \Comment{budget preserved}
+  \State $x_i^{\mathrm{adv}} \gets \mathrm{PGD}_K\big(\max_{x'\in B(x_i,\varepsilon_i)}
+    \lVert\Phi_s(x')-\Phi_t(x_i)\rVert\big)$
+  \State update $\Phi_s$ on
+    $\frac{1}{N}\sum_i\lVert\Phi_s(x_i^{\mathrm{adv}})-\Phi_t(x_i)\rVert^2$
+    \Comment{$h$ is never updated}
 \EndFor
 \end{algorithmic}
 \end{algorithm}
 
-Line~1 of Algorithm~\ref{alg:cfa} is the only place labels are used, and it is ordinary supervised
-training. Lines 3--12 use no labels at all.
+Line~1 of Algorithm~\ref{alg:cfa} is the only place labels appear, and it is ordinary supervised
+training; the remainder uses none.
 
-\paragraph{The classifier is the teacher's and is never trained.} The anchor is computed on features,
-the attack is computed on features, and the head appears in neither; at test time the student is
-$h_t \circ \Phi_s$, the teacher's classifier reading the student's backbone. This is a measured choice
-rather than a simplification: every alternative we tried scores below it---refitting the head on
-adversarial cross-entropy, on smoothed labels, on clean cross-entropy, or distilling it from the
-teacher's softened logits, all land $0.2$--$0.7$ NRR under leaving it alone
-(Section~\ref{sec:ablation}). It is also what removes the last two hyperparameters from the method,
-since a head distillation term would reintroduce a temperature and a weight.
-
-\paragraph{Implementation.} ResNet-18 throughout. The teacher is the same architecture trained
-naturally for 200 epochs on all three datasets; Section~\ref{sec:geometry} varies this deliberately,
-and it is the only quantity we vary per dataset. The student trains for 100 epochs with AdamW at
-learning rate $0.021$ under a one-cycle schedule, batch size $128$, with a 10-step attack at step size
-$2/255$ and training radius $8.8/255$; evaluation uses $\varepsilon=8/255$. Weight averaging
-($\kappa=0.999$, from $20\%$ of the run) and an AWP proxy \citep{wu2020adversarial}
-($\gamma=0.005$, after epoch $10$) are standard machinery that our baselines also carry, and
-Section~\ref{sec:ablation} reports the method with and without them. Every dataset uses this
-identical configuration; only the dataset name and the teacher checkpoint change. Evaluation is
-AutoAttack \citep{croce2020reliable} on the full test set, alongside PGD-20 and CW.
+\paragraph{Caveats.} Proposition~\ref{prop:decomp} bounds $F+O$, and $O$ is not a sufficient statistic
+for robust accuracy---across the teacher ladder of Section~\ref{sec:geometry} it correlates with
+AutoAttack at $r=+0.83$, the wrong sign. It explains why anchoring to a non-robust teacher is
+\emph{free}, not how much robustness the objective buys; Appendix~\ref{app:robustness} gives two
+partial results on the latter, each with the reason it falls short. In \eqref{eq:firstorder} the
+derivation asks for the $\ell_1$ norm and our runs use $\ell_2$; both were trained and agree within
+noise. Finally, $g_i$ is one backward pass at the clean $x_i$, so it is the sensitivity at the
+attack's starting point rather than along it.
