@@ -90,12 +90,14 @@ $\varepsilon$-balls, the student is markedly more stable than the teacher it was
 
 | | $L$ | $F$ | $O_{\text{lb}}$ | teacher's own $O$ |
 |---|---:|---:|---:|---:|
-| raw target | 7.583 | 6.304 | 2.164 | **6.684** |
-| normalized target | 0.674 | 0.542 | 0.238 | **0.566** |
+| student | 7.583 | 6.304 | **2.164** | **6.684** |
 
-The student's oscillation is $2.4\times$ smaller than the teacher's, matching an independent angular
-measurement ($14.6^\circ$ against $63.8^\circ$ of feature rotation under $\varepsilon = 8/255$), and
-most of what remains in the loss is fidelity rather than instability.
+The student's oscillation is $3.1\times$ smaller than the teacher's on the same balls, matching an
+independent angular measurement ($14.6^\circ$ against $63.8^\circ$ of feature rotation under
+$\varepsilon = 8/255$). Two things follow. The teacher's instability was not inherited, which is what
+the construction predicts. And $F \gg O_{\text{lb}}$: what remains in the loss at convergence is
+almost entirely fidelity, not instability, so the anchor is not merely being satisfied by making the
+student flat.
 
 **What Proposition 1 does not establish.** It bounds $F+O$, and $O$ is not a sufficient statistic for
 robust accuracy: across the teacher ladder of §4 it correlates with AutoAttack at $r = +0.83$, the
@@ -133,7 +135,8 @@ an angle; an earlier name for it, "angular budget", was wrong for that reason an
 retains the old identifier. $g_i$ is one backward pass at the clean $x_i$, i.e. the sensitivity at
 the starting point of the 10-step attack rather than along it. The derivation asks for the $\ell_1$
 norm and our runs used $\ell_2$; both were trained and agree within noise (62.51 / 28.44 against
-62.35 / 28.68).
+62.35 / 28.68 — that control predates the head freeze, so both of its cells carry the head-KD term
+and its comparison base is the 62.35 configuration rather than the 62.65 one).
 
 ### 3.5 The complete method
 
@@ -158,14 +161,14 @@ Require: dataset D, radius eps, steps K, step size a, exponent p = 1
 Line 1 is the only place labels are used, and it is ordinary supervised training. Lines 3–12 use no
 labels at all.
 
-**What the classifier does.** The head is inherited from the teacher and is never part of the
-backbone objective: the anchor is computed on features, the attack is computed on features, and the
-head appears in neither. On Tiny-ImageNet the head is frozen outright. On CIFAR-10 and CIFAR-100 the
-runs additionally carry a *detached* refinement of the head toward the teacher's softened logits
-($\tau = 16$), inherited from an earlier version of the method; because it is detached it cannot
-reach the backbone, and the ablation in §7 shows it is removable at no cost — leaving the head
-exactly as the teacher's scores $+0.29$ NRR above training it. We report it because it is present in
-the runs, not because it is needed.
+**The classifier is the teacher's and is never trained.** The anchor is computed on features, the
+attack is computed on features, and the head appears in neither; at test time the student is
+$h_t \circ \Phi_s$, the teacher's classifier reading the student's backbone. This is a measured
+choice rather than a simplification: every alternative we tried scores below it — refitting the head
+on adversarial cross-entropy, on smoothed labels, on clean cross-entropy, or distilling it from the
+teacher's softened logits, all land $0.2$–$0.7$ NRR under leaving it alone (§7). It is also what
+removes the last two hyperparameters from the method, since a head distillation term would reintroduce
+a temperature and a weight.
 
 **Implementation.** ResNet-18 throughout. The teacher is the same architecture trained naturally for
 200 epochs on all three datasets; §4 varies this deliberately, and it is the only knob we vary per
@@ -193,13 +196,20 @@ backbone (`featdir_alpha` defaults to $0$, `methods.py:2106`), so it changes no 
 no adversarial example, but it does change the final classifier and therefore the reported numbers.
 §3.5 above states this as it is.
 
-**Resolved 2026-08-31: option 1, re-run with the head frozen.** `l2_bestrecipe_freezehead` is
-`l2_bestrecipe_angeps` plus `featdir_freeze_head: True` and nothing else, launched 02:01. The
-base-regime ablation says the frozen head is better (NRR 36.64 against 36.35), so this is expected to
-hold or improve 62.35 / 28.68 while making the description exact. If it does, $\tau$ and $\beta$
-leave the method entirely and "no weight and no temperature" becomes literally true rather than
-scoped to the backbone; §3.5's paragraph on the classifier then reduces to one sentence and the
-Tiny-ImageNet configuration becomes the description of all datasets rather than the exception.
+**Resolved 2026-08-31, and the frozen head won.** `l2_bestrecipe_freezehead` is
+`l2_bestrecipe_angeps` plus `featdir_freeze_head: True` and nothing else:
+
+| | clean | PGD-20 | CW | AA | NRR |
+|---|---:|---:|---:|---:|---:|
+| head KD, $\tau=16$ (the previously reported cell) | 62.35 | **36.26** | 30.65 | 28.68 | 39.29 |
+| **head frozen** | **62.65** | 32.63 | **30.66** | **28.77** | **39.43** |
+
+It was run to make the description true, not to gain accuracy, and it did both, in the direction the
+base-regime ablation predicted (36.64 against 36.35). $\tau$ and $\beta$ are now absent from the
+method, "no weight and no temperature" is literally true rather than scoped to the backbone, §3.5's
+classifier paragraph is one sentence, and the Tiny-ImageNet configuration describes all datasets
+rather than being the exception. ⚠ PGD-20 falls $3.63$ while AA and CW rise — the fourth time in this
+project that PGD alone would have produced the opposite decision.
 
 No `feat_scale` is involved. That knob exists because a *directional* student hands the frozen head a
 unit-norm vector against a bias calibrated for norm $\approx 11.2$; this cell is `student_norm:

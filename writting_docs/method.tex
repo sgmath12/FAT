@@ -96,22 +96,25 @@ one quantity, and it does so without ever querying the teacher off the clean poi
 
 The prediction is verifiable and we verify it: on trained checkpoints, over the same
 $\varepsilon$-balls, the student is markedly more stable than the teacher it was distilled from
-(Table~\ref{tab:LFO}). The student's oscillation is $2.4\times$ smaller than the teacher's, matching
-an independent angular measurement ($14.6^\circ$ against $63.8^\circ$ of feature rotation under
-$\varepsilon=8/255$), and most of what remains in the loss is fidelity rather than instability.
+(Table~\ref{tab:LFO}). The student's oscillation is $3.1\times$ smaller than the teacher's on the same
+balls, matching an independent angular measurement ($14.6^\circ$ against $63.8^\circ$ of feature
+rotation under $\varepsilon=8/255$). Two things follow. The teacher's instability was not inherited,
+which is what the construction predicts; and $F \gg O_{\mathrm{lb}}$, so what remains in the loss at
+convergence is almost entirely fidelity rather than instability, and the anchor is not being satisfied
+by making the student flat.
 
 \begin{table}[t]
   \centering
-  \caption{The decomposition of Proposition~\ref{prop:decomp}, measured on trained checkpoints over
+  \caption{The decomposition of Proposition~\ref{prop:decomp}, measured on the trained student over
   $\varepsilon=8/255$ balls. $O_{\mathrm{lb}}$ is a lower bound on the student's oscillation obtained
-  from the attacked pair. The rightmost column is the same quantity measured on the teacher.}
+  from the attacked pair; the rightmost column is that same quantity measured on the teacher the
+  student was distilled from.}
   \label{tab:LFO}
   \begin{tabular}{lrrrr}
     \toprule
     & $L$ & $F$ & $O_{\mathrm{lb}}$ & teacher's own $O$ \\
     \midrule
-    raw target        & 7.583 & 6.304 & 2.164 & \textbf{6.684} \\
-    normalized target & 0.674 & 0.542 & 0.238 & \textbf{0.566} \\
+    student & 7.583 & 6.304 & \textbf{2.164} & \textbf{6.684} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -151,7 +154,9 @@ epochs and $+1.61$ at $+0.21$ over 50, that is, the same $+0.49$ NRR at either s
 \paragraph{Qualifications.} The rule equalizes the movement of the \emph{loss}, not of an angle. $g_i$
 is one backward pass at the clean $x_i$, that is, the sensitivity at the starting point of the
 10-step attack rather than along it. The derivation asks for the $\ell_1$ norm and our runs used
-$\ell_2$; both were trained and agree within noise ($62.51/28.44$ against $62.35/28.68$).
+$\ell_2$; both were trained and agree within noise ($62.51/28.44$ against $62.35/28.68$---that control
+predates the head freeze, so both of its cells carry the head distillation term and its comparison
+base is the $62.35$ configuration rather than the $62.65$ one).
 
 \subsection{The Complete Method}
 \label{sec:algorithm}
@@ -184,14 +189,14 @@ $\ell_2$; both were trained and agree within noise ($62.51/28.44$ against $62.35
 Line~1 of Algorithm~\ref{alg:cfa} is the only place labels are used, and it is ordinary supervised
 training. Lines 3--12 use no labels at all.
 
-\paragraph{The classifier.} The head is inherited from the teacher and is never part of the backbone
-objective: the anchor is computed on features, the attack is computed on features, and the head
-appears in neither. On Tiny-ImageNet the head is frozen outright. On CIFAR-10 and CIFAR-100 the runs
-additionally carry a \emph{detached} refinement of the head toward the teacher's softened logits
-($\tau=16$), inherited from an earlier version of the method; because it is detached it cannot reach
-the backbone, and the ablation in Section~\ref{sec:ablation} shows it is removable at no cost, with
-the teacher's own head scoring $+0.29$ NRR above training it. We report it because it is present in
-the runs, not because it is needed.
+\paragraph{The classifier is the teacher's and is never trained.} The anchor is computed on features,
+the attack is computed on features, and the head appears in neither; at test time the student is
+$h_t \circ \Phi_s$, the teacher's classifier reading the student's backbone. This is a measured choice
+rather than a simplification: every alternative we tried scores below it---refitting the head on
+adversarial cross-entropy, on smoothed labels, on clean cross-entropy, or distilling it from the
+teacher's softened logits, all land $0.2$--$0.7$ NRR under leaving it alone
+(Section~\ref{sec:ablation}). It is also what removes the last two hyperparameters from the method,
+since a head distillation term would reintroduce a temperature and a weight.
 
 \paragraph{Implementation.} ResNet-18 throughout. The teacher is the same architecture trained
 naturally for 200 epochs on all three datasets; Section~\ref{sec:geometry} varies this deliberately,
