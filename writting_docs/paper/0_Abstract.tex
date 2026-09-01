@@ -7,10 +7,13 @@ We therefore ask whether that accuracy can be put back by self-distillation, usi
 naturally trained counterpart---available at no adversarial cost---for the single purpose of restoring
 what adversarial training gives up, while robustness continues to be produced entirely by the inner
 maximization.
-Such a teacher is a hard case for the usual account of what a teacher supplies. Adversarial
-distillation attributes its effect to the smoothness of the teacher's soft labels, and a naturally
-trained network's logits are sharp; softening them does help, raising AutoAttack accuracy from $20.84$
-to $24.48$, but it leaves standard accuracy flat, which is the axis we came for. Every published
+Such a teacher is the extreme case of what adversarial distillation says goes wrong: four separate
+lines of work diagnose the target as too sharp and each builds machinery to soften it, from soft labels
+to annealed and entropy-matched softmax temperatures, and a naturally trained network's maximum
+softmax probability is $0.820$ against an adversarially trained student's $0.016$. Softening does help,
+raising AutoAttack accuracy from $20.84$ to $24.48$ across a temperature sweep, and it leaves standard
+accuracy flat at $58$ while the teacher holds $77.66$---so it repairs robustness and not the axis we
+came for. Every published
 objective given this teacher lands below not distilling at all.
 We show that the fragility is not transferred when the teacher is used as a \emph{feature anchor}
 instead.

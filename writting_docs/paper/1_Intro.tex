@@ -63,10 +63,12 @@ another teacher, and the balance is what has to be tuned.
 Our question is about the other axis. Adversarial training discards standard accuracy that a
 naturally trained copy of the same network still holds, and we ask whether self-distillation can put
 it back---leaving robustness where it already is, in the student's own inner maximization. The answer
-turns on \emph{what the teacher is asked to supply}, and the field already has a candidate. Adversarial
-distillation attributes its effect to the smoothness of the teacher's soft labels \citep{rslad,
-bmtard}, and a naturally trained network is the sharp case---its maximum softmax probability is $0.820$
-against an adversarially trained student's $0.016$. Softening it is the obvious repair and it works,
+turns on \emph{what the teacher is asked to supply}, and the field already has a candidate. Four separate lines of
+work---LTD \citep{LTD}, RSLAD \citep{rslad}, ADR \citep{adr} and B-MTARD \citep{bmtard}---converge on
+the same diagnosis, that the target is too sharp, and each builds its own machinery to soften it: soft
+labels, smooth teacher logits, an annealed softmax temperature, an online temperature that equalizes
+two teachers' entropies. A naturally trained network is the extreme case of what they describe, with a
+maximum softmax probability of $0.820$ against an adversarially trained student's $0.016$. Softening it is the obvious repair and it works,
 lifting AutoAttack accuracy from $20.84$ to $24.48$ across a temperature sweep. It also leaves standard
 accuracy flat near $58$ while the teacher being distilled from has $77.66$. Temperature moves
 robustness; it does not move the quantity we came for, and that quantity does not survive the teacher's

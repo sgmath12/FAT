@@ -23,19 +23,26 @@ A method that consumes a teacher can go wrong in two independent places: \emph{w
 teacher, and \emph{what} it reads from it. Both defects are present when a naturally trained network is
 used the way adversarial distillation uses one, and they can be measured separately.
 
-\paragraph{What is read: softening the logits is a real fix, but not for the thing we came for.}
-The adversarial-distillation literature has an explanation for what goes wrong with a sharp teacher,
-and it is a good one. RSLAD \citep{rslad} makes the smoothness of the teacher's soft labels its
-central claim; B-MTARD \citep{bmtard} goes as far as adjusting each teacher's temperature online so
-that the two teachers' predictive entropies match. By that account a naturally trained teacher is
-exactly the hard case, and the measurement agrees: on clean test data its maximum softmax probability
-is $0.820$ against the adversarially trained student's $0.016$, so the student is asked for a
-confidence twenty times sharper than its own.
+\paragraph{What is read: the field's prescription is softening, and it is only half a fix.}
+Four separate lines of work converge on the same diagnosis---the target is too sharp---and each builds
+its own machinery to soften it. LTD \citep{LTD} argues that one-hot labels are the wrong supervision
+for adversarial training and replaces them with soft ones. RSLAD \citep{rslad} makes the smoothness of
+the teacher's logits its central claim. ADR \citep{adr} draws its target from a weight average and
+scales it by a softmax temperature that starts near-uniform and is annealed down over training.
+B-MTARD \citep{bmtard} formalizes the quantity being controlled---writing the teacher's knowledge
+scale as $\log C - H(P_T)$, so that a sharper teacher carries a larger one---and adjusts each teacher's
+temperature online to equalize it. In every case the operative object is
+$\mathrm{softmax}(z_t / \tau)$ and the design question is $\tau$.
 
-The prescription follows, and it works. Sweeping the temperature of the same teacher's logits in a
-fixed base regime---50 epochs, raw features, no weight averaging, no AWP,
-$\epsilon = 8/255$---AutoAttack accuracy rises from $20.84$ at $\tau = 1$ to $24.48$ at $\tau = 4$,
-and then turns over. Sharpness was a genuine defect and softening genuinely repairs it.
+By that account a naturally trained teacher is the extreme case, and the measurement agrees: on clean
+test data its maximum softmax probability is $0.820$, against $0.016$ for the adversarially trained
+student it is supposed to teach. It is asking for a confidence twenty times sharper than the student's
+own.
+
+The prescription follows, and it works. Sweeping $\tau$ on that teacher's logits in a fixed base
+regime---50 epochs, no weight averaging, no AWP, $\epsilon = 8/255$---AutoAttack accuracy rises from
+$20.84$ at $\tau = 1$ to $24.48$ at $\tau = 4$, then turns over. Sharpness is a genuine defect and
+softening genuinely repairs it.
 
 \begin{center}\small
 \begin{tabular}{lrrr}
