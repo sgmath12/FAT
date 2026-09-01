@@ -2106,6 +2106,30 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
     alpha = float(getattr(config, "featdir_alpha", 0.0) or 0.0)
     npen = float(getattr(config, "featdir_norm_penalty", 0.0) or 0.0)  # T.4 mechanism cell: see _step_loss
 
+    # freeze_head is resolved HERE, above the AWP block (moved 2026-09-01).  AdvWeightPerturb
+    # deepcopies the model once and caches it on this function, and a deepcopy inherits
+    # requires_grad, while `load_state_dict` in calc_awp copies values but not those flags.  If
+    # the proxy is built before the head is frozen, its classifier stays trainable for the whole
+    # run.  It was safe only because every config sets awp_warmup > 0, so earlier epochs froze
+    # the head first; awp_warmup 0 would have broken it silently.
+    # featdir_freeze_head (2026-08-02): keep the student head EXACTLY as loaded from the teacher --
+    # no head loss, no head gradient. Direct test of Theorem 2: the student's feature distribution
+    # differs from the teacher's (measured cos_adv 0.69-0.79, i.e. 38-46 degrees apart), so a head
+    # calibrated on phi_t should be miscalibrated on phi_s(x_adv). A tie here kills Theorem 2 and
+    # simplifies the method; a large loss confirms that re-solving the head is the necessary part.
+    # NOTE: pair with feat_scale ~ mean||phi_t|| (11.23 on clean_200ep). The frozen head expects
+    # inputs on the teacher's scale, and its bias is NOT rescaled, so feeding a unit vector would
+    # let the bias dominate and confound "head is miscalibrated" with "input scale is wrong".
+    freeze_head = bool(getattr(config, "featdir_freeze_head", False))
+    if freeze_head:
+        for _p in enc.linear.parameters():
+            _p.requires_grad_(False)
+        for _n in ("log_g", "log_s"):
+            if hasattr(enc, _n):
+                getattr(enc, _n).requires_grad_(False)
+        if epoch == 0:
+            logging.info({"featdir_freeze_head": True, "feat_scale": scale})
+
     # AWP (Wu et al. NeurIPS'20) -- optional, config.awp_gamma>0 and epoch>=awp_warmup. Off by
     # default (awp_gamma None/0): behavior identical to before this cell. config.awp_style
     # selects "proxy" (utils.AdvWeightPerturb, default) vs "sam" (utils.AdvWeightPerturbSAM,
@@ -2165,23 +2189,6 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
     angtol = float(getattr(config, "featdir_angtol", 0.0) or 0.0)
     _logged_angtol = []
 
-    # featdir_freeze_head (2026-08-02): keep the student head EXACTLY as loaded from the teacher --
-    # no head loss, no head gradient. Direct test of Theorem 2: the student's feature distribution
-    # differs from the teacher's (measured cos_adv 0.69-0.79, i.e. 38-46 degrees apart), so a head
-    # calibrated on phi_t should be miscalibrated on phi_s(x_adv). A tie here kills Theorem 2 and
-    # simplifies the method; a large loss confirms that re-solving the head is the necessary part.
-    # NOTE: pair with feat_scale ~ mean||phi_t|| (11.23 on clean_200ep). The frozen head expects
-    # inputs on the teacher's scale, and its bias is NOT rescaled, so feeding a unit vector would
-    # let the bias dominate and confound "head is miscalibrated" with "input scale is wrong".
-    freeze_head = bool(getattr(config, "featdir_freeze_head", False))
-    if freeze_head:
-        for _p in enc.linear.parameters():
-            _p.requires_grad_(False)
-        for _n in ("log_g", "log_s"):
-            if hasattr(enc, _n):
-                getattr(enc, _n).requires_grad_(False)
-        if epoch == 0:
-            logging.info({"featdir_freeze_head": True, "feat_scale": scale})
 
     # Ported from the other server's champion recipe (2026-08-01), both OFF unless set so existing
     # configs are bit-identical to before:
@@ -2622,8 +2629,20 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 if supp > 0 and Q is not None:
                     comp_ = fh_ - (fh_ @ Q) @ Q.T
                     l_ = l_ + supp * comp_.pow(2).sum(dim=1).mean()
-                ff_ = fh_ if alpha >= 1.0 else (alpha * fh_ + (1.0 - alpha) * fh_.detach())
-                hl_ = p_enc.head_from_feat(scale * (ff_ if head_hat else fs_))
+                # 2026-09-01: this closure diverged from _step_loss in two ways, so AWP ascended on
+                # an objective the model does not train.  (a) It had no `freeze_head` branch, while
+                # _step_loss skips the head term entirely.  (b) The alpha detach was applied to `ff_`
+                # while the head_hat=False path feeds `fs_`, so on the RAW design featdir_alpha=0
+                # detached nothing -- it did detach on the DIRECTIONAL design, which is what the
+                # 2026-08-26 "impact 0" note measured, before the shipped design changed underneath
+                # it.  Measured on the shipped raw champion before this fix: head term 7.15 against
+                # the anchor's 4.15, supplying 40.8% of the AWP backbone gradient norm, cosine 0.918
+                # between the two directions.  Both branches now mirror _step_loss exactly.
+                if freeze_head:
+                    return l_
+                _fhi_ = fh_ if head_hat else fs_
+                ff_ = _fhi_ if alpha >= 1.0 else (alpha * _fhi_ + (1.0 - alpha) * _fhi_.detach())
+                hl_ = p_enc.head_from_feat(scale * ff_)
                 if bool(getattr(config, "featdir_head_ce", False)):
                     return l_ + beta * F.cross_entropy(hl_, y)
                 kl_ = criterion_kl(F.log_softmax(hl_, dim=1), F.softmax(_target, dim=1))
