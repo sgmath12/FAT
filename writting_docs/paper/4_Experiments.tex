@@ -67,12 +67,6 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
      & MART & 80.70 & 54.02 & 49.35 & 47.49 & 59.79 & CURE \\
      & Consistency-AT & 83.42 & 51.96 & -- & 47.72 & 60.71 & RPAT \\
     \midrule
-    \multirow{5}{*}{(b)} & ARD & 85.04 & 53.27 & 50.27 & 49.49 & 62.55 & IGDM \\
-     & RSLAD & 83.59 & 55.98 & 53.15 & 52.13 & 64.16 & IGDM \\
-     & IAD & 84.33 & 54.24 & 50.97 & 50.09 & 62.85 & IGDM \\
-     & AdaAD & 84.74 & 56.78 & 53.51 & 52.79 & 65.03 & IGDM \\
-     & AdaAD + IGDM & 84.83 & 57.61 & 55.09 & \textbf{54.02} & \textbf{65.98} & IGDM \\
-    \midrule
     \multirow{4}{*}{(c)} & LBGAT & -- & -- & -- & -- & -- & \emph{n/a} \\
      & ARREST & 86.63 & -- & -- & 46.14 & 60.21 & ARREST \\
      & CURE & 86.76 & 54.92 & 52.48 & 49.69 & 63.19 & CURE \\
@@ -96,12 +90,6 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
      & TRADES & 55.39 & 29.36 & -- & 24.51 & 33.98 & RPAT \\
      & MART & 49.83 & 30.38 & -- & 25.00 & 33.30 & RPAT \\
      & Consistency-AT & 58.53 & 29.28 & -- & 25.39 & 35.42 & RPAT \\
-    \midrule
-    \multirow{5}{*}{(b)} & ARD & 61.51 & 30.23 & 26.97 & 24.77 & 35.29 & IGDM \\
-     & RSLAD & 60.22 & 32.16 & 27.96 & 26.76 & 37.15 & IGDM \\
-     & IAD & 59.92 & 31.47 & 26.91 & 25.15 & 35.42 & IGDM \\
-     & AdaAD & 64.43 & 33.21 & 29.53 & 28.06 & 39.10 & IGDM \\
-     & AdaAD + IGDM & \textbf{64.44} & 36.19 & 31.75 & \textbf{30.32} & \textbf{41.24} & IGDM \\
     \midrule
     \multirow{4}{*}{(c)} & LBGAT & -- & -- & -- & -- & -- & \emph{n/a} \\
      & ARREST & -- & -- & -- & -- & -- & \emph{WRN only} \\
@@ -183,12 +171,13 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     \bottomrule
   \end{tabular}
 \end{table}
-\paragraph{Group (b) is not a like-for-like comparison, and is printed to make that visible.}
-Those rows come from a WideResNet-28-10 or WRN-70-16 teacher adversarially trained with generated
+\paragraph{Adversarial distillation is deliberately absent here.} ARD, RSLAD, AdaAD and IGDM report
+their results from a WideResNet-28-10 or WRN-70-16 teacher adversarially trained with generated
 data---a network more expensive than the student it teaches---so their robustness originates outside
-the student. \Cref{sec:natteacher} gives the same four objectives the teacher they would have
-in our setting, and every one then falls below not distilling at all. The two settings assume
-different inputs and are best read side by side rather than ranked.
+the student and is not comparable to a row produced without one. Placing those numbers in the same
+column as ours would compare methods that assume different inputs. \Cref{sec:natteacher} gives them
+their own table, with each objective run twice: once as published, and once with the teacher it would
+actually have in our setting.
 
 \paragraph{Backbone caveats.} ARREST's CIFAR-10 headline is WideResNet-34-10
 (\Cref{tab:w10}); the ResNet-18 row in \Cref{tab:c10} is its smaller-backbone entry. CURE
@@ -207,33 +196,57 @@ discrepancy without closing it, so the CURE rows above are the paper's own numbe
 
 \begin{table}[t]
   \centering
-  \caption{Adversarial distillation with a \emph{naturally} trained teacher, each method at its own
-  published recipe (SGD $0.1$, step decay at epochs 70 and 90, random initialization, no weight
-  averaging, no AWP, 100 epochs). The reference row uses the teacher for nothing but initialization.}
+  \caption{The four published distillation objectives, given the teacher they would have in our
+  setting. The right block of each dataset is \textbf{measured in our framework}: ResNet-18, 100
+  epochs, each method at its own published recipe, same data pipeline and same evaluation as every
+  other row we report. The left block is \emph{quoted} from \citet{igdm}, which runs all four with an
+  adversarially trained WideResNet teacher under one protocol; it is printed only so the cost of
+  changing the teacher is visible, and it is not a comparison against our own numbers. Blank cells are
+  runs that have not finished.}
   \label{tab:natteacher}
-  \begin{tabular}{lrrrcrrr}
+  \setlength{\tabcolsep}{4.5pt}
+  \begin{tabular}{lrrcrrcrrcrr}
     \toprule
-    & \multicolumn{3}{c}{CIFAR-100} & & \multicolumn{3}{c}{CIFAR-10} \\
-    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
-    & Clean & AA & NRR & & Clean & AA & NRR \\
+    & \multicolumn{5}{c}{CIFAR-100} & & \multicolumn{5}{c}{CIFAR-10} \\
+    \cmidrule(lr){2-6}\cmidrule(lr){8-12}
+    & \multicolumn{2}{c}{\emph{quoted}: robust teacher} & &
+      \multicolumn{2}{c}{\textbf{ours}: natural teacher} & &
+      \multicolumn{2}{c}{\emph{quoted}: robust teacher} & &
+      \multicolumn{2}{c}{\textbf{ours}: natural teacher} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){5-6}\cmidrule(lr){8-9}\cmidrule(lr){11-12}
+    & Clean & AA & & Clean & AA & & Clean & AA & & Clean & AA \\
     \midrule
-    ARD                                  & 57.61 & 20.24 & 29.96 & & 84.58 & 43.75 & 57.67 \\
-    RSLAD                                & 59.68 & 21.30 & 31.40 & & 85.15 & 42.91 & 57.06 \\
-    AdaAD                                & 59.79 & 23.19 & 33.42 & & 85.39 & 46.22 & 59.98 \\
-    AdaAD + IGDM ($\alpha=20$, published)&  1.00 &  1.00 &  1.00 & &  9.99 & --    & --    \\
-    AdaAD + IGDM ($\alpha=1$)            & 48.25 & 19.48 & 27.75 & & --    & --    & --    \\
+    ARD          & 61.51 & 24.77 & & 57.61 & 20.24 & & 85.04 & 49.49 & & 84.58 & 43.75 \\
+    RSLAD        & 60.22 & 26.76 & & 59.68 & 21.30 & & 83.59 & 52.13 & & 85.15 & 42.91 \\
+    AdaAD        & 64.43 & 28.06 & & 59.79 & 23.19 & & 84.74 & 52.79 & & 85.39 & 46.22 \\
+    AdaAD + IGDM & 64.44 & 30.32 & &  1.00 &  1.00 & & 84.83 & 54.02 & & 10.00 & 10.00 \\
+    \quad at $\alpha = 1$ & -- & -- & & 48.25 & 19.48 & & -- & -- & & -- & -- \\
     \midrule
-    PGD-AT, initialized at the teacher   & 57.73 & \textbf{26.46} & \textbf{36.29} & & 82.23 & \textbf{50.72} & \textbf{62.74} \\
-    CFA (ours), no WA, no AWP            & 61.21 & 25.24 & 35.74 & & -- & -- & -- \\
+    \multicolumn{12}{l}{\emph{the same natural teacher used for initialization only, or as an anchor}} \\
+    PGD-AT from the teacher & -- & -- & & 57.73 & \textbf{26.46} & & -- & -- & & 82.23 & \textbf{50.72} \\
+    CFA (ours), no WA/AWP   & -- & -- & & 61.21 & 25.24 & & -- & -- & & -- & -- \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Every published objective lands below the row that does not distil at all, on both datasets. The
-$\alpha=20$ collapse is not a porting artifact: with a natural teacher the IGDM target
-$\mathrm{softmax}(f_T(x{+}\delta)-f_T(x{-}\delta))$ places $0.917$ of its mass on one class and the
-term reaches $17.3\times$ the AdaAD loss; $\alpha=1$, which puts the two terms on comparable scales,
-trains normally and still finishes far below AdaAD alone.
+Two readings, and the first is why these numbers are here rather than in
+\Cref{tab:c10,tab:c100}. \textbf{Changing the teacher costs these objectives $4.5$ to $9$ points of
+AutoAttack while barely moving standard accuracy}---ARD $24.77 \to 20.24$ and $49.49 \to 43.75$,
+RSLAD $26.76 \to 21.30$ and $52.13 \to 42.91$, AdaAD $28.06 \to 23.19$ and $52.79 \to 46.22$. What
+those methods deliver is therefore mostly attributable to the teacher, which is why their published
+numbers cannot be set beside a row produced without one.
+
+Second, \textbf{with the natural teacher every one of them lands below simply not distilling}: on both
+datasets, plain adversarial training initialized from the same teacher beats all four. The accuracy a
+natural teacher holds is not recovered by treating it as a logit target.
+
+AdaAD\,+\,IGDM collapses to chance on both datasets at the published $\alpha = 20$ ($1.00$ on
+CIFAR-100, $10.00$ on CIFAR-10), so ten classes did not rescue it. This is not a porting artifact:
+with a natural teacher the IGDM target $\mathrm{softmax}(f_T(x{+}\delta) - f_T(x{-}\delta))$ places
+$0.917$ of its mass on a single class and the term reaches $17.3\times$ the AdaAD loss. Reducing the
+weight to $\alpha = 1$, which puts the two terms on comparable scales and is the most favourable
+reading available, trains normally and still finishes far below AdaAD alone. \Cref{tab:linearity}
+gives the structural reason.
 
 \begin{table}[t]
   \centering
