@@ -18,10 +18,11 @@ datasets and for all four published objectives. And what the teacher transfers i
 rather than its accuracy, with the two anti-correlated at $r = -0.999$ across training lengths, which
 turns the teacher's own schedule into a trade-off control that costs nothing to exercise.
 
-At matched stack and matched initialization the anchor beats label cross-entropy by $4.92$ points of
-standard accuracy and $2.31$ of AutoAttack. \Cref{prop:decomp} accounts for the first and for the
-second not being negative; the size of the second is a compound of choices we report rather than
-derive---the attack searches in feature space, the student starts from the teacher, and the per-sample
-radius follows the loss's own sensitivity---and \Cref{tab:ablation} separates them. A bound on what
-the objective buys is the obvious next step, and the measurements that would constrain it are here
+Weight averaging and AWP remain the machinery that buys robustness, and our baselines carry them too;
+at that fixed stack the anchor and ADR reach the same AutoAttack accuracy to within $0.27$ points and
+differ by $5.29$ points of standard accuracy. That is the contribution stated exactly: not a new
+source of robustness, but five points of accuracy kept while the usual source is applied.
+\Cref{prop:decomp} is what licenses it, since bounding one scalar bounds fidelity and local stability
+together instead of trading them. What the proposition does not give is the size of the effect, and a
+bound on that is the obvious next step; the measurements that would constrain it are reported here
 rather than set aside.

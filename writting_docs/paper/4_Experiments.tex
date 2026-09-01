@@ -160,12 +160,29 @@ Our adversarially trained network reproduces IGDM's reported value, so the measu
 the natural teacher is forty times further from linear, and the finite difference IGDM matches is not
 a gradient there.
 
-\paragraph{The anchor against the label.} `at\_teacherinit\_matched' is plain PGD-AT started from the
-same natural teacher, with the same weight averaging, AWP, schedule and training radius; the loss is
-the only difference. Against it the anchor gains \textbf{$+4.92$ clean and $+2.31$ AutoAttack}
-($62.65 / 28.77$ against $57.73 / 26.46$). \Cref{tab:ablation} takes the comparison apart, since two
-further things move with the loss: the attack is generated against the anchor rather than the label,
-and the full recipe adds components the anchor may use differently from cross-entropy.
+\paragraph{The robustness machinery is shared; what differs is the accuracy kept while using it.}
+Weight averaging and AWP are standard, orthogonal to the objective, and carried by the baselines as
+well---ADR's own headline configuration is AT\,+\,WA\,+\,AWP\,+\,ADR. In our ladder they supply
+$+3.25$ AutoAttack between them ($25.43 \to 27.39 \to 28.68$), and they are the reason any of these
+methods reaches the high-twenties on CIFAR-100. Read at that fixed stack, the three rows are:
+
+\begin{center}\small
+\begin{tabular}{lrrr}
+  \toprule
+  at AT\,+\,WA\,+\,AWP & Clean & AA & NRR \\
+  \midrule
+  label cross-entropy, teacher init & 57.73 & 26.46 & 36.29 \\
+  ADR                               & 57.36 & 28.50 & 38.08 \\
+  \textbf{clean feature anchor}     & \textbf{62.65} & \textbf{28.77} & \textbf{39.43} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+ADR and the anchor reach the same robustness to within $0.27$ AutoAttack. They differ by $5.29$ points
+of standard accuracy. That is the claim in one line: the machinery that buys robustness is the same
+one everybody uses, and the anchor is what lets a model keep five more points of clean accuracy while
+it is applied---which is what \Cref{prop:decomp} says it should do, since bounding $L$ bounds fidelity
+and local stability together rather than trading them.
 
 \subsection{Component Ablation}
 \label{sec:components}
