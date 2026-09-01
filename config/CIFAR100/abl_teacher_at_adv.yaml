@@ -1,0 +1,53 @@
+# C1: READ THE TEACHER AT x_adv INSTEAD OF x (2026-09-01).
+#
+# The direct test of the paper's central structural claim.  Section 3.3 argues the teacher's own
+# instability cannot be inherited because Phi_t is evaluated at the clean point and nowhere else; the
+# only way to check that is to move the read point and change nothing else.  `featdir_teacher_at_adv`
+# moves it in BOTH the attack and the outer loss, so the objective becomes ||Phi_s(x') - Phi_t(x')||.
+#
+# Base regime deliberately: 50 epochs, no WA, no AWP, no angeps, so no stack component can absorb the
+# difference.  Read against `ladder_p0_50ep` (61.33 / AA 26.19 / NRR 36.71), which is this config with
+# the flag off.
+#
+# PREDICTION, recorded before the run.  Clean falls and AA falls with it, because the target itself is
+# now unstable; and O measured on the resulting student rises toward the teacher's 6.68 rather than
+# sitting at 2.16.  If it ties, section 3.3 is a description rather than a mechanism and has to be
+# rewritten as such.
+
+method : feat_direction
+featdir_teacher_at_adv : True
+weight_avg : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

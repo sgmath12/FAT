@@ -1,0 +1,53 @@
+# C5: ANCHOR + lambda * CROSS-ENTROPY (2026-09-01).
+#
+# Section 4.1 claims the anchor REPLACES the label term rather than supplementing it, and that the
+# deletion is what makes Proposition 1 available and removes the loss weight.  ARREST adds its
+# representation term to the label loss instead, so a referee will ask what happens at small lambda.
+# Nothing between the two ends has been measured: at_teacherinit_matched is pure CE from the teacher's
+# weights (57.73 / 26.46) and ladder_p0_50ep is the anchor alone (61.33 / 26.19).
+#
+# featdir_head_ce routes the label term through the head branch, and beta is its weight, so beta IS
+# lambda here; featdir_alpha 1.0 lets it reach the backbone, which is the point -- with the default 0
+# the term is detached and the ablation would be vacuous.
+# Base regime, so nothing absorbs the difference.
+#
+# THIS CELL: lambda = 0.3.
+
+method : feat_direction
+featdir_head_ce : True
+featdir_alpha : 1.0
+weight_avg : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 0.3
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

@@ -2396,6 +2396,16 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, eps_train, perturb_steps=config.steps)
         else:
             phi_t_dir = phi_t.detach() if raw_t else phi_t_hat            # direction-loss target
+
+            # featdir_teacher_at_adv (2026-09-01): READ THE TEACHER AT x_adv INSTEAD OF x.  This is the
+            # direct test of the paper's central structural claim -- that the teacher's own instability
+            # cannot be inherited because Phi_t is evaluated at the clean point and nowhere else.  With
+            # this flag the objective becomes ||Phi_s(x') - Phi_t(x')||, i.e. our method's version of
+            # what AdaAD does in logit space, and the teacher's 63.8-degree rotation under attack enters
+            # the target.  Everything else -- the attack, the schedule, the head -- is unchanged, so the
+            # comparison isolates the read point and nothing else.  Off by default; every existing run
+            # is bit-identical.  Implemented inside the attack loop below via `_t_at`, because the
+            # target has to move with x' rather than being fixed once.
             # ANGULAR-BUDGET EPS (featdir_angeps_p, 2026-08-04). Per-sample eps is an existing family
             # -- IAAT (1910.08051), MMA (1812.02637), CAT (2002.06789) all assign a per-sample radius
             # -- but all three set it from DIFFICULTY / input-space margin. Ours is set from the
@@ -2508,7 +2518,19 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             # particular way.  Setting this True leaves the attack at full rank so that k varies the
             # supervision rank alone.  Default False = unchanged behaviour.
             _Q_atk = None if bool(getattr(config, "featdir_attack_full_rank", False)) else Q
-            x_pgd = inner_featdir_only_return(model, phi_t_dir, x, optimizer, step_use, eps_use, perturb_steps=config.steps, Q=_Q_atk, raw_student=raw_s)
+            if bool(getattr(config, "featdir_teacher_at_adv", False)):
+                x_pgd = inner_featdir_teacher_at_adv(model, origin_model, x, optimizer, step_use,
+                                                     eps_use, perturb_steps=config.steps, Q=_Q_atk,
+                                                     raw_student=raw_s, raw_teacher=raw_t)
+                # the OUTER target has to move with x' as well, or the ablation would only change the
+                # attack and leave the loss anchored at x -- which is a third setting, not the one
+                # under test.  Rebinding phi_t_dir here is enough: _step_loss and _awp_loss_fn both
+                # read it, and the AWP closure captures it as a default argument defined after this.
+                with torch.no_grad():
+                    _pt_a, _ = origin_model(x_pgd, feat=True)
+                phi_t_dir = _pt_a.detach() if raw_t else F.normalize(_pt_a, dim=1).detach()
+            else:
+                x_pgd = inner_featdir_only_return(model, phi_t_dir, x, optimizer, step_use, eps_use, perturb_steps=config.steps, Q=_Q_atk, raw_student=raw_s)
 
         def _step_loss():
             feat_s, plus_logits = model(x_pgd, feat=True)                   # raw student feat (pre-norm)

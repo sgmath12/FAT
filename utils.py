@@ -100,6 +100,41 @@ def inner_featdir_cons_return(model,
     return x_adv
 
 
+def inner_featdir_teacher_at_adv(model, teacher, x_natural, optimizer,
+                                 step_size=0.003, epsilon=0.031, perturb_steps=10,
+                                 Q=None, raw_student=False, raw_teacher=True):
+    """Ablation counterpart of `inner_featdir_only_return` (2026-09-01): the teacher target is
+    RE-READ at the perturbed point every step, so the objective is ||Phi_s(x') - Phi_t(x')|| rather
+    than ||Phi_s(x') - Phi_t(x)||.
+
+    This exists to test the paper's central structural claim directly.  Section 3.3 argues that the
+    teacher's own instability cannot be inherited because Phi_t is evaluated at the clean point and
+    nowhere else; the only way to check that is to move the read point and change nothing else.  With
+    this attack (and the matching outer target in train_feat_direction) the method becomes our own
+    version of what AdaAD does in logit space, and the teacher's measured 63.8 degrees of rotation
+    under eps=8/255 enters the target.  The teacher branch is deliberately NOT detached, so the
+    attack gradient flows through both networks, as it does in AdaAD."""
+    model.eval()
+    teacher.eval()
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            feat_s, _ = model(x_adv, feat=True)
+            feat_t, _ = teacher(x_adv, feat=True)
+            fs_ = feat_s if raw_student else F.normalize(feat_s, dim=1)
+            ft_ = feat_t if raw_teacher else F.normalize(feat_t, dim=1)
+            d = fs_ - ft_
+            loss_dir = (d @ Q).pow(2).sum() if Q is not None else d.pow(2).sum()
+        grad = torch.autograd.grad(loss_dir, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    model.train()
+    optimizer.zero_grad()
+    return x_adv.detach()
+
+
 def inner_featdir_only_return(model,
                 phi_t_hat,
                 x_natural,
