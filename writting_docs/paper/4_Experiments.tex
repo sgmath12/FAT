@@ -65,7 +65,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
   left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
   calls W-Robust; NRR is the harmonic mean. Published figures for these methods are in
-  \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:w10,tab:w100}, and
+  \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:wrn}, and
   per-attack metrics in \Cref{tab:fullmetrics}.}
   \label{tab:main}
   \begin{tabular}{llrrrrrrrrl}
@@ -94,6 +94,67 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \end{tabular}
 \end{table}
 
+\begin{table}[t]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{Tiny-ImageNet-200, ResNet-18. Same eleven rows and the same protocol as \Cref{tab:main};
+  \textbf{--} marks a cell we have not run. Our row uses the 200-epoch teacher; the 80-epoch teacher
+  gives $57.08 / 18.96$, which is the teacher-length dial of \Cref{tab:teacherladder} on a third
+  dataset. ADR reports $48.55 / 20.23$ here (\Cref{tab:published}).}
+  \label{tab:tin}
+  \begin{tabular}{llrrrr}
+    \toprule
+    Method & Teacher & Clean & AA & Avg & NRR \\
+    \midrule
+    PGD-AT                           & --    & -- & -- & -- & -- \\
+    TRADES                           & --    & -- & -- & -- & -- \\
+    MART                             & --    & -- & -- & -- & -- \\
+    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
+    \midrule
+    ARD                              & nat.  & -- & -- & -- & -- \\
+    RSLAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
+    \midrule
+    ADR                              & self  & -- & -- & -- & -- \\
+    CURE                             & self  & -- & -- & -- & -- \\
+    RPAT++                           & --    & -- & -- & -- & -- \\
+    \midrule
+    \textbf{CFA (ours)}              & nat.  & \textbf{55.16} & \textbf{20.54} & 37.85 & \textbf{29.93} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[t]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{WideResNet-34-10, $\ell_\infty$, $\epsilon = 8/255$. Same eleven rows and the same protocol
+  as \Cref{tab:main}; \textbf{--} marks a cell we have not run. The comparison line on CIFAR-100 is
+  ADR's WideResNet-34-10 result, $62.21$ clean / $31.60$ AA (\Cref{tab:published}).}
+  \label{tab:wrn}
+  \begin{tabular}{llrrrrrr}
+    \toprule
+    & & \multicolumn{3}{c}{CIFAR-10} & \multicolumn{3}{c}{CIFAR-100} \\
+    \cmidrule(lr){3-5}\cmidrule(lr){6-8}
+    Method & T. & Clean & AA & NRR & Clean & AA & NRR \\
+    \midrule
+    PGD-AT                           & --    & -- & -- & -- & -- & -- & -- \\
+    TRADES                           & --    & -- & -- & -- & -- & -- & -- \\
+    MART                             & --    & -- & -- & -- & -- & -- & -- \\
+    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- & -- & -- \\
+    \midrule
+    ARD                              & nat.  & -- & -- & -- & -- & -- & -- \\
+    RSLAD                            & nat.  & -- & -- & -- & -- & -- & -- \\
+    AdaAD                            & nat.  & -- & -- & -- & -- & -- & -- \\
+    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- & -- & -- \\
+    \midrule
+    ADR                              & self  & -- & -- & -- & -- & -- & -- \\
+    CURE                             & self  & -- & -- & -- & -- & -- & -- \\
+    RPAT++                           & --    & -- & -- & -- & -- & -- & -- \\
+    \midrule
+    \textbf{CFA (ours)}              & nat.  & \multicolumn{3}{c}{\emph{in progress}} & \multicolumn{3}{c}{\emph{in progress}} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \paragraph{Reproductions, and one failure.} RPAT++ we reproduce to within $0.31$ AutoAttack of its
 published numbers on both datasets and report our own measurement. CURE we could \emph{not}: seven runs
 of the official repository fall short on \emph{different} axes, and \Cref{app:cure} gives the detail.
@@ -104,85 +165,43 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
 \label{sec:natteacher}
 
 \begin{table}[t]
-  \centering \small \setlength{\tabcolsep}{4pt}
-  \caption{The four published distillation objectives, given the teacher they would have in our
-  setting. The right block of each dataset is \textbf{measured in our framework}: ResNet-18, 100
-  epochs, each method at its own published recipe, same data pipeline and same evaluation as every
-  other row we report. The left block is \emph{quoted} from \citet{igdm}, which runs all four with an
-  adversarially trained WideResNet teacher under one protocol; it is printed only so the cost of
-  changing the teacher is visible, and it is not a comparison against our own numbers. Blank cells are
-  runs that have not finished.}
+  \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{The four published distillation objectives given the teacher they would have in our
+  setting---our naturally trained network in place of the adversarially trained one they assume. Every
+  number is measured here: ResNet-18, 100 epochs, each method at its own published recipe, same data
+  pipeline and evaluation as every other row we report. The reference rows use that same teacher for
+  initialization only, or as an anchor. Blank cells are runs still in progress.}
   \label{tab:natteacher}
-  \begin{tabular}{lrrcrrcrrcrr}
+  \begin{tabular}{lrrrcrrrl}
     \toprule
-    & \multicolumn{5}{c}{CIFAR-100} & & \multicolumn{5}{c}{CIFAR-10} \\
-    \cmidrule(lr){2-6}\cmidrule(lr){8-12}
-    & \multicolumn{2}{c}{\emph{quoted}: robust teacher} & &
-      \multicolumn{2}{c}{\textbf{ours}: natural teacher} & &
-      \multicolumn{2}{c}{\emph{quoted}: robust teacher} & &
-      \multicolumn{2}{c}{\textbf{ours}: natural teacher} \\
-    \cmidrule(lr){2-3}\cmidrule(lr){5-6}\cmidrule(lr){8-9}\cmidrule(lr){11-12}
-    & Clean & AA & & Clean & AA & & Clean & AA & & Clean & AA \\
+    & \multicolumn{3}{c}{CIFAR-100} & & \multicolumn{3}{c}{CIFAR-10} & \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    & Clean & AA & NRR & & Clean & AA & NRR & \\
     \midrule
-    ARD          & 61.51 & 24.77 & & 57.61 & 20.24 & & 85.04 & 49.49 & & 84.58 & 43.75 \\
-    RSLAD        & 60.22 & 26.76 & & 59.68 & 21.30 & & 83.59 & 52.13 & & 85.15 & 42.91 \\
-    AdaAD        & 64.43 & 28.06 & & 59.79 & 23.19 & & 84.74 & 52.79 & & 85.39 & 46.22 \\
-    AdaAD + IGDM & 64.44 & 30.32 & &  1.00 &  1.00 & & 84.83 & 54.02 & & 10.00 & 10.00 \\
-    \quad at $\alpha = 1$ & -- & -- & & 48.25 & 19.48 & & -- & -- & & -- & -- \\
+    ARD                                  & 57.61 & 20.24 & 29.96 & & 84.58 & 43.75 & 57.67 &  \\
+    RSLAD                                & 59.68 & 21.30 & 31.40 & & 85.15 & 42.91 & 57.06 &  \\
+    AdaAD                                & 59.79 & 23.19 & 33.42 & & 85.39 & 46.22 & 59.98 &  \\
+    AdaAD + IGDM                         & 1.00 & 1.00 & 1.00 & & 10.00 & 10.00 & 10.00 & \emph{collapses} \\
+    \quad at $\alpha=1$                  & 48.25 & 19.48 & 27.75 & & -- & -- & -- &  \\
     \midrule
-    \multicolumn{12}{l}{\emph{the same natural teacher used for initialization only, or as an anchor}} \\
-    PGD-AT from the teacher & -- & -- & & 57.73 & \textbf{26.46} & & -- & -- & & 82.23 & \textbf{50.72} \\
-    CFA (ours), no WA/AWP   & -- & -- & & 61.21 & 25.24 & & -- & -- & & -- & -- \\
+    PGD-AT, initialized at the teacher   & 57.73 & \textbf{26.46} & 36.29 & & 82.23 & \textbf{50.72} & 62.74 &  \\
+    CFA (ours), no WA/AWP                & 61.21 & 25.24 & 35.74 & & -- & -- & -- &  \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Two readings, and the first is why these numbers are here rather than in
-\Cref{tab:main}. \textbf{Changing the teacher costs these objectives $4.5$ to $9$ points of
-AutoAttack while barely moving standard accuracy}---ARD $24.77 \to 20.24$ and $49.49 \to 43.75$,
-RSLAD $26.76 \to 21.30$ and $52.13 \to 42.91$, AdaAD $28.06 \to 23.19$ and $52.79 \to 46.22$. What
-those methods deliver is therefore mostly attributable to the teacher, which is why their published
-numbers cannot be set beside a row produced without one.
+Every one of them lands below the row that does not distil at all: on both datasets, plain adversarial
+training initialized from the same teacher beats all four. The accuracy a natural teacher holds is not
+recovered by treating it as a logit target.
 
-Second, \textbf{with the natural teacher every one of them lands below simply not distilling}: on both
-datasets, plain adversarial training initialized from the same teacher beats all four. The accuracy a
-natural teacher holds is not recovered by treating it as a logit target.
-
-AdaAD\,+\,IGDM collapses to chance on both datasets at the published $\alpha = 20$ ($1.00$ on
-CIFAR-100, $10.00$ on CIFAR-10), so ten classes did not rescue it. This is not a porting artifact:
-with a natural teacher the IGDM target $\mathrm{softmax}(f_t(x{+}\delta) - f_t(x{-}\delta))$ places
-$0.917$ of its mass on a single class and the term reaches $17.3\times$ the AdaAD loss. Reducing the
-weight to $\alpha = 1$, which puts the two terms on comparable scales and is the most favourable
-reading available, trains normally and still finishes far below AdaAD alone. \Cref{tab:linearity}
-gives the structural reason.
-
-Our adversarially trained network reproduces IGDM's reported value, so the measurement is calibrated;
-the natural teacher is forty times further from linear, and the finite difference IGDM matches is not
-a gradient there.
-
-\paragraph{The robustness machinery is shared; what differs is the accuracy kept while using it.}
-Weight averaging and AWP are standard, orthogonal to the objective, and carried by the baselines as
-well---ADR's own headline configuration is AT\,+\,WA\,+\,AWP\,+\,ADR. In our ladder they supply
-$+3.25$ AutoAttack between them ($25.43 \to 27.39 \to 28.68$), and they are the reason any of these
-methods reaches the high-twenties on CIFAR-100. Read at that fixed stack, the three rows are:
-
-\begin{center}\small
-\begin{tabular}{lrrr}
-  \toprule
-  at AT\,+\,WA\,+\,AWP & Clean & AA & NRR \\
-  \midrule
-  label cross-entropy, teacher init & 57.73 & 26.46 & 36.29 \\
-  ADR                               & 57.36 & 28.50 & 38.08 \\
-  \textbf{clean feature anchor}     & \textbf{62.65} & \textbf{28.77} & \textbf{39.43} \\
-  \bottomrule
-\end{tabular}
-\end{center}
-
-ADR and the anchor reach the same robustness to within $0.27$ AutoAttack. They differ by $5.29$ points
-of standard accuracy. That is the claim in one line: the machinery that buys robustness is the same
-one everybody uses, and the anchor is what lets a model keep five more points of clean accuracy while
-it is applied---which is what \Cref{prop:decomp} says it should do, since bounding $L$ bounds fidelity
-and local stability together rather than trading them.
+AdaAD\,+\,IGDM collapses to chance at the published $\alpha = 20$ ($1.00$ on CIFAR-100, $10.00$ on
+CIFAR-10), so ten classes did not rescue it. This is not a porting artifact: with a natural teacher the
+IGDM target $\mathrm{softmax}(f_t(x{+}\delta) - f_t(x{-}\delta))$ places $0.917$ of its mass on a single
+class and the term reaches $17.3\times$ the AdaAD loss. Reducing the weight to $\alpha = 1$, which puts
+the two terms on comparable scales and is the most favourable reading available, trains normally and
+still finishes far below AdaAD alone. \Cref{tab:linearity} gives the structural reason: IGDM's finite
+difference is a gradient only while the teacher is locally linear, and a naturally trained teacher is
+forty times further from linear than the ones it was designed for.
 
 \subsection{Component Ablation}
 \label{sec:components}
@@ -248,5 +267,5 @@ accuracy is controlled to $0.32$ points, so accuracy cannot be the cause; what v
 the teacher's class separation.
 
 \paragraph{Larger architectures.} WideResNet-34-10 at the same recipe on both CIFAR datasets is
-reported in \Cref{tab:w10,tab:w100}, alongside the published WideResNet rows.
+reported in \Cref{tab:wrn}, alongside the published WideResNet rows.
 

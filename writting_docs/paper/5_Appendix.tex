@@ -40,7 +40,6 @@
 \end{algorithmic}
 \end{algorithm}
 
-
 \section{Two Partial Results on the Robustness Side}
 \label{app:robustness}
 
@@ -84,94 +83,12 @@ correct at $x$. The certificate is vacuous at the scales we train at, but the ra
 tracks both axes across the teacher ladder of \Cref{tab:teacherladder}. What it does not do is predict
 the size of the effect, and it saturates before AutoAttack does.
 
-
 \section{Additional Results}
 \label{app:more}
 
 The tables below are referred to from the main text and are placed here for space. They are the
 same measurements under the same protocol; nothing is reported here that is not stated in the main
 body.
-
-\begin{table}[h]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Tiny-ImageNet-200, ResNet-18. Every row is measured in this framework under the protocol of \Cref{tab:main}; \textbf{--} marks a cell we have not run yet. Our row uses the 200-epoch teacher; the 80-epoch teacher gives $57.08 / 18.96$ (NRR $28.46$), which is the teacher-length dial of \Cref{tab:teacherladder} on a third dataset.}
-  \label{tab:tin}
-  \begin{tabular}{llrrrr}
-    \toprule
-    Method & Teacher & Clean & AA & Avg & NRR \\
-    \midrule
-    PGD-AT                           & --    & -- & -- & -- & -- \\
-    TRADES                           & --    & -- & -- & -- & -- \\
-    MART                             & --    & -- & -- & -- & -- \\
-    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
-    \midrule
-    ARD                              & nat.  & -- & -- & -- & -- \\
-    RSLAD                            & nat.  & -- & -- & -- & -- \\
-    AdaAD                            & nat.  & -- & -- & -- & -- \\
-    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
-    \midrule
-    ADR                              & self  & -- & -- & -- & -- \\
-    CURE                             & self  & -- & -- & -- & -- \\
-    RPAT++                           & --    & -- & -- & -- & -- \\
-    \midrule
-    \textbf{CFA (ours)}              & nat.  & 55.16 & 20.54 & 37.85 & 29.93 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{table}[h]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{CIFAR-10, WideResNet-34-10. Every row is measured in this framework under the protocol of \Cref{tab:main}; \textbf{--} marks a cell we have not run yet. Our row is in progress.}
-  \label{tab:w10}
-  \begin{tabular}{llrrrr}
-    \toprule
-    Method & Teacher & Clean & AA & Avg & NRR \\
-    \midrule
-    PGD-AT                           & --    & -- & -- & -- & -- \\
-    TRADES                           & --    & -- & -- & -- & -- \\
-    MART                             & --    & -- & -- & -- & -- \\
-    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
-    \midrule
-    ARD                              & nat.  & -- & -- & -- & -- \\
-    RSLAD                            & nat.  & -- & -- & -- & -- \\
-    AdaAD                            & nat.  & -- & -- & -- & -- \\
-    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
-    \midrule
-    ADR                              & self  & -- & -- & -- & -- \\
-    CURE                             & self  & -- & -- & -- & -- \\
-    RPAT++                           & --    & -- & -- & -- & -- \\
-    \midrule
-    \textbf{CFA (ours)}              & nat.  & -- & -- & -- & -- \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{table}[h]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{CIFAR-100, WideResNet-34-10. Every row is measured in this framework under the protocol of \Cref{tab:main}; \textbf{--} marks a cell we have not run yet. Our row is in progress. The comparison line here is ADR's WideResNet-34-10 result, $62.21$ clean / $31.60$ AA (\Cref{tab:published}).}
-  \label{tab:w100}
-  \begin{tabular}{llrrrr}
-    \toprule
-    Method & Teacher & Clean & AA & Avg & NRR \\
-    \midrule
-    PGD-AT                           & --    & -- & -- & -- & -- \\
-    TRADES                           & --    & -- & -- & -- & -- \\
-    MART                             & --    & -- & -- & -- & -- \\
-    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
-    \midrule
-    ARD                              & nat.  & -- & -- & -- & -- \\
-    RSLAD                            & nat.  & -- & -- & -- & -- \\
-    AdaAD                            & nat.  & -- & -- & -- & -- \\
-    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
-    \midrule
-    ADR                              & self  & -- & -- & -- & -- \\
-    CURE                             & self  & -- & -- & -- & -- \\
-    RPAT++                           & --    & -- & -- & -- & -- \\
-    \midrule
-    \textbf{CFA (ours)}              & nat.  & -- & -- & -- & -- \\
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 \begin{table}[h]
   \centering \small \setlength{\tabcolsep}{4.5pt}
@@ -309,7 +226,6 @@ same pattern recurs across our ablations---the head-temperature sweep, the label
 directional-versus-raw comparison, and the radius sweep all show PGD-20 moving against CW and
 AutoAttack. We therefore report PGD-20 for completeness and read the trade-off on clean accuracy and
 AutoAttack, which is also what ADR and ARREST report in their main tables.
-
 
 \section{Published Results, for Context}
 \label{app:published}
