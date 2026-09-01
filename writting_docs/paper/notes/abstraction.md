@@ -1,7 +1,12 @@
 # Abstract
 
-**Working title.** Clean Feature Anchoring: Recovering Standard Accuracy in Adversarial Training
-without a Robust Teacher
+**Title (fixed 2026-09-01, see `main.tex`).** Clean Feature Anchoring: Mitigating the
+Accuracy–Robustness Trade-off by Self-Distilling a Naturally Trained Model
+
+⚠ The earlier working title ended *"...without a Robust Teacher"*. It invites the reading "so with a
+robust teacher you lose" — and we would, since IGDM+AdaAD reaches 64.44 / 30.32 on this architecture
+from a WRN-28-10 teacher. That is the ranking claim this file's own notes say never to make. Do not
+restore it.
 
 **Provisional method name.** CFA (Clean Feature Anchoring). Alternatives considered: SAFA
 (Self-Anchored Feature Adversarial training), NFA (Natural Feature Anchoring).

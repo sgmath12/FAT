@@ -100,3 +100,69 @@ same pattern recurs across our ablations---the head-temperature sweep, the label
 directional-versus-raw comparison, and the radius sweep all show PGD-20 moving against CW and
 AutoAttack. We therefore report PGD-20 for completeness and read the trade-off on clean accuracy and
 AutoAttack, which is also what ADR and ARREST report in their main tables.
+
+
+\section{Published Results, for Context}
+\label{app:published}
+
+\Cref{tab:c10,tab:c100} contain only numbers we measured ourselves. \Cref{tab:published} collects the
+published figures for the same and neighbouring methods, so that our runs can be placed against the
+literature without the two being mixed in one column. These are quoted as reported and were produced
+by other codebases, other schedules and other checkpoint-selection rules---RPAT selects its best
+checkpoint by PGD-20 and ADR by PGD-10, where every number of ours is the final epoch---so they should
+be compared within a source rather than across.
+
+\begin{table}[h]
+  \centering
+  \caption{Published results, ResNet-18, $\ell_\infty$, $\epsilon = 8/255$. Quoted as reported.}
+  \label{tab:published}
+  \begin{tabular}{llrrrrl}
+    \toprule
+    Method & Teacher & Clean & AA & Avg & NRR & Source \\
+    \midrule
+    \multicolumn{7}{l}{\emph{CIFAR-100}} \\
+    PGD-AT                    & --      & 56.56 & 25.02 & 40.79 & 34.69 & RPAT \\
+    TRADES                    & --      & 55.39 & 24.51 & 39.95 & 33.98 & RPAT \\
+    MART                      & --      & 49.83 & 25.00 & 37.41 & 33.30 & RPAT \\
+    Consistency-AT            & --      & 58.53 & 25.39 & 41.96 & 35.42 & RPAT \\
+    Consistency-AT + RPAT     & --      & 60.33 & 26.31 & 43.32 & 36.64 & RPAT \\
+    F\textsuperscript{2}AT    & --      & 54.19 & 23.24 & 38.71 & 32.53 & F\textsuperscript{2}AT \\
+    Generalist++              & co-tr.  & 62.97 & 23.96 & 43.47 & 34.71 & Generalist++ \\
+    ADR (AT + ADR)            & self    & 56.10 & 26.87 & 41.48 & 36.34 & ADR \\
+    ADR (AT + WA + AWP + ADR) & self    & 57.36 & 28.50 & 42.93 & 38.08 & ADR \\
+    \midrule
+    \multicolumn{7}{l}{\emph{CIFAR-10}} \\
+    PGD-AT                    & --      & 82.78 & 44.63 & 63.71 & 57.99 & CURE \\
+    TRADES                    & --      & 82.41 & 48.37 & 65.39 & 60.96 & CURE \\
+    MART                      & --      & 80.70 & 47.49 & 64.10 & 59.79 & CURE \\
+    ST-AT                     & --      & 83.10 & 50.50 & 66.80 & 62.82 & CURE \\
+    IAD                       & robust  & 80.63 & 50.17 & 65.40 & 61.85 & CURE \\
+    Consistency-AT + RPAT     & --      & 84.12 & 48.98 & 66.55 & 61.91 & RPAT \\
+    Generalist++              & co-tr.  & 89.09 & 46.07 & 67.58 & 60.73 & Generalist++ \\
+    ARREST                    & natural & 86.63 & 46.14 & 66.39 & 60.21 & ARREST \\
+    CURE                      & self    & 86.76 & 49.69 & 68.23 & 63.19 & CURE \\
+    ADR (AT + ADR)            & self    & 82.41 & 50.38 & 66.40 & 62.53 & ADR \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Read against \Cref{tab:c100}, our CFA row ($62.65 / 28.77$, Avg $45.71$) exceeds every published Avg
+and NRR on CIFAR-100, and on CIFAR-10 ($85.58 / 51.79$, Avg $68.69$) it exceeds every published Avg
+and NRR there as well. We state this as a comparison across codebases and not as a controlled result,
+which is what \Cref{tab:c10,tab:c100} are for.
+
+\section{The CURE Reproduction}
+\label{app:cure}
+
+Seven runs of the official CURE repository, from its own code and our shared CIFAR data, none of which
+reproduce the published $86.76 / 49.69$ on CIFAR-10. They fall short on \emph{different} axes: the
+closest on standard accuracy reaches $86.11$ at AA $40.65$, the closest on robustness AA $45.63$ at
+clean $81.15$, while the published pair has both. Running the repository unmodified gives
+$65.03 / 29.74$. Computing its RGP prominence mask on absolute values raises AA by $15.9$ points
+($29.74 \to 45.63$), which localizes the discrepancy to that step without closing it.
+
+We re-evaluated all five surviving checkpoints with our own pipeline and it agrees with the
+repository's own evaluation to within $0.05$ AutoAttack on every one, so the gap is in training rather
+than in measurement. For contrast, RPAT++ reproduces to within $0.31$ AutoAttack of its published
+numbers on both datasets under the same conditions. The CURE row of \Cref{tab:published} is therefore
+the paper's own number, and CURE is left empty in \Cref{tab:c10,tab:c100}.

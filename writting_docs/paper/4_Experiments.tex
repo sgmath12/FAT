@@ -57,57 +57,55 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 
 \begin{table}[t]
   \centering
-  \caption{CIFAR-10, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Teacher} states what each method assumes is available: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network, \emph{robust} an adversarially trained one. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD calls W-Robust; NRR is the harmonic mean. $^\ast$Generalist++ co-trains a natural and a robust learner rather than distilling from either. Per-attack metrics for our cells are in \Cref{tab:fullmetrics}.}
+  \caption{CIFAR-10, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Every row is measured in our framework}---same data pipeline, same attack implementation, same evaluation, final-epoch weight-averaged model---so the numbers are comparable to each other rather than across papers. \textbf{Teacher} states what each method assumes: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network. Rows we have not run are left empty with the reason; published numbers for the same methods are given separately in \Cref{tab:published} and are not mixed in here. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$; NRR is the harmonic mean. Per-attack metrics are in \Cref{tab:fullmetrics}.}
   \label{tab:c10}
-  \begin{tabular}{llrrrrc}
+  \begin{tabular}{llrrrrl}
     \toprule
-    Method & Teacher & Clean & AA & Avg & NRR & Src \\
+    Method & Teacher & Clean & AA & Avg & NRR & \\
     \midrule
-    PGD-AT                          & --             & 82.78 & 44.63 & 63.70 & 57.99 & CURE \\
-    TRADES                          & --             & 82.41 & 48.37 & 65.39 & 60.96 & CURE \\
-    MART                            & --             & 80.70 & 47.49 & 64.09 & 59.79 & CURE \\
-    ST-AT                           & --             & 83.10 & 50.50 & 66.80 & 62.82 & CURE \\
-    IAD                             & robust         & 80.63 & 50.17 & 65.40 & 61.85 & CURE \\
-    Consistency-AT                  & --             & 83.42 & 47.72 & 65.57 & 60.71 & RPAT \\
+    PGD-AT                                 & --       & -- & -- & -- & -- & \emph{vanilla; only the teacher-init variant is run} \\
+    PGD-AT, initialized at the teacher     & natural  & 82.23 & 50.72 & 66.47 & 62.74 &  \\
+    TRADES                                 & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
+    MART                                   & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
     \midrule
-    Consistency-AT + RPAT           & --             & 84.12 & 48.98 & 66.55 & 61.91 & RPAT \\
-    RPAT++ \emph{(ours, reprod.)}   & --             & 82.41 & 50.75 & 66.58 & 62.82 & ours \\
-    Generalist++                    & natural$^\ast$ & \textbf{89.09} & 46.07 & 67.58 & 60.73 & Gen++ \\
+    ARD                                    & natural  & 84.58 & 43.75 & 64.16 & 57.67 &  \\
+    RSLAD                                  & natural  & 85.15 & 42.91 & 64.03 & 57.06 &  \\
+    AdaAD                                  & natural  & 85.39 & 46.22 & 65.81 & 59.98 &  \\
+    AdaAD + IGDM ($\alpha=20$)             & natural  & 10.00 & 10.00 & 10.00 & 10.00 & \emph{collapses} \\
+    AdaAD + IGDM ($\alpha=1$)              & natural  & -- & -- & -- & -- & \emph{running} \\
     \midrule
-    LBGAT                           & natural        & -- & -- & -- & -- & \emph{n/a} \\
-    ARREST                          & natural        & 86.63 & 46.14 & 66.38 & 60.21 & ARREST \\
-    CURE                            & self           & 86.76 & 49.69 & 68.22 & 63.19 & CURE \\
-    ADR (AT + ADR)                  & self           & 82.41 & 50.38 & 66.39 & 62.53 & ADR \\
+    ADR                                    & self     & -- & -- & -- & -- & \emph{external repo present, not yet run} \\
+    CURE                                   & self     & -- & -- & -- & -- & \emph{seven runs, none reproduce; see \Cref{app:cure}} \\
+    RPAT++                                 & --       & 82.41 & 50.75 & 66.58 & 62.82 &  \\
     \midrule
-    \textbf{CFA (ours)}\dg          & natural        & 85.58 & \textbf{51.79} & \textbf{68.69} & \textbf{64.53} & ours \\
+    \textbf{CFA (ours)}\dg                 & natural  & \textbf{85.58} & \textbf{51.79} & \textbf{68.69} & \textbf{64.53} &  \\
     \bottomrule
   \end{tabular}
 \end{table}
 \begin{table}[t]
   \centering
-  \caption{CIFAR-100, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Teacher} states what each method assumes is available: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network, \emph{robust} an adversarially trained one. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD calls W-Robust; NRR is the harmonic mean. $^\ast$Generalist++ co-trains a natural and a robust learner rather than distilling from either. Per-attack metrics for our cells are in \Cref{tab:fullmetrics}.}
+  \caption{CIFAR-100, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Every row is measured in our framework}---same data pipeline, same attack implementation, same evaluation, final-epoch weight-averaged model---so the numbers are comparable to each other rather than across papers. \textbf{Teacher} states what each method assumes: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network. Rows we have not run are left empty with the reason; published numbers for the same methods are given separately in \Cref{tab:published} and are not mixed in here. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$; NRR is the harmonic mean. Per-attack metrics are in \Cref{tab:fullmetrics}.}
   \label{tab:c100}
-  \begin{tabular}{llrrrrc}
+  \begin{tabular}{llrrrrl}
     \toprule
-    Method & Teacher & Clean & AA & Avg & NRR & Src \\
+    Method & Teacher & Clean & AA & Avg & NRR & \\
     \midrule
-    PGD-AT                          & --             & 56.56 & 25.02 & 40.79 & 34.69 & RPAT \\
-    TRADES                          & --             & 55.39 & 24.51 & 39.95 & 33.98 & RPAT \\
-    MART                            & --             & 49.83 & 25.00 & 37.41 & 33.30 & RPAT \\
-    Consistency-AT                  & --             & 58.53 & 25.39 & 41.96 & 35.42 & RPAT \\
+    PGD-AT                                 & --       & -- & -- & -- & -- & \emph{vanilla; only the teacher-init variant is run} \\
+    PGD-AT, initialized at the teacher     & natural  & 57.73 & 26.46 & 42.09 & 36.29 &  \\
+    TRADES                                 & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
+    MART                                   & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
     \midrule
-    Consistency-AT + RPAT           & --             & 60.33 & 26.31 & 43.32 & 36.64 & RPAT \\
-    RPAT++ \emph{(ours, reprod.)}   & --             & 55.93 & 27.36 & 41.64 & 36.74 & ours \\
-    F\textsuperscript{2}AT          & --             & 54.19 & 23.24 & 38.71 & 32.53 & F2AT \\
-    Generalist++                    & natural$^\ast$ & \textbf{62.97} & 23.96 & 43.47 & 34.71 & Gen++ \\
+    ARD                                    & natural  & 57.61 & 20.24 & 38.92 & 29.96 &  \\
+    RSLAD                                  & natural  & 59.68 & 21.30 & 40.49 & 31.40 &  \\
+    AdaAD                                  & natural  & 59.79 & 23.19 & 41.49 & 33.42 &  \\
+    AdaAD + IGDM ($\alpha=20$)             & natural  & 1.00 & 1.00 & 1.00 & 1.00 & \emph{collapses} \\
+    AdaAD + IGDM ($\alpha=1$)              & natural  & 48.25 & 19.48 & 33.87 & 27.75 &  \\
     \midrule
-    LBGAT                           & natural        & -- & -- & -- & -- & \emph{n/a} \\
-    ARREST                          & natural        & -- & -- & -- & -- & \emph{WRN only} \\
-    CURE                            & self           & -- & -- & -- & -- & \emph{no AA} \\
-    ADR (AT + ADR)                  & self           & 56.10 & 26.87 & 41.48 & 36.34 & ADR \\
-    ADR (AT + WA + AWP + ADR)       & self           & 57.36 & 28.50 & 42.93 & 38.08 & ADR \\
+    ADR                                    & self     & -- & -- & -- & -- & \emph{external repo present, not yet run} \\
+    CURE                                   & self     & -- & -- & -- & -- & \emph{seven runs, none reproduce; see \Cref{app:cure}} \\
+    RPAT++                                 & --       & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule
-    \textbf{CFA (ours)}\dg          & natural        & 62.65 & \textbf{28.77} & \textbf{45.71} & \textbf{39.43} & ours \\
+    \textbf{CFA (ours)}\dg                 & natural  & \textbf{62.65} & \textbf{28.77} & \textbf{45.71} & \textbf{39.43} &  \\
     \bottomrule
   \end{tabular}
 \end{table}
