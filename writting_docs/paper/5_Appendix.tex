@@ -1,0 +1,44 @@
+\appendix
+
+\section{Two Partial Results on the Robustness Side}
+\label{app:robustness}
+
+\Cref{sec:decomp} explains why anchoring a non-robust teacher is \emph{free}. Neither result below
+closes the complementary question---how much robustness the objective buys---and both are reported
+with the reason they fall short, because each is instructive about where a proof would have to come
+from.
+
+\subsection{In the Two-Feature Model, the Non-Robust Coefficient Is Zeroed Rather Than Shrunk}
+
+Following \citet{tsipras2018robustness}: a robust feature $x_1 = y$ with probability $p$, non-robust
+features $z_j \sim \mathcal{N}(\eta y, 1)$, an $\ell_\infty$ adversary on $z$ only, and a natural
+teacher $\Phi_t = m(z)$. Take $\Phi_s = a x_1 + b\, m(z)$.
+
+\begin{proposition}
+\label{prop:l1}
+With the inner maximum exact,
+$J(a,b) = \mathbb{E}[R^2] + 2\epsilon\lvert b\rvert\,\mathbb{E}\lvert R\rvert + \epsilon^2 b^2$ with
+$R = a x_1 + (b-1)m$, kinked at $b = 0$ with subgradient jump
+$2\epsilon\,\mathbb{E}\lvert R(a,0)\rvert > 0$; above a threshold $\epsilon_0$ the minimizer has
+$b^\star = 0$ exactly.
+\end{proposition}
+
+The adversarial term is an $\ell_1$ penalty on the non-robust coefficient: the teacher supplies the
+value, and the inner maximization discards the route it took there. Verified numerically at $d = 512$:
+$b^\star = 0.510$ at $0.5\eta$ and exactly $0$ at $\eta$, $2\eta$ and $4\eta$. Since every $\epsilon$
+in $J$ multiplies $b$, at $b^\star = 0$ the objective is $\mathbb{E}(a x_1 - m)^2$ and is
+$\epsilon$-free---past the threshold a larger radius costs the anchor nothing, which matches the
+saturation measured in \Cref{tab:radius}, where AutoAttack and CW at $10/255$ are identical to the last
+decimal to those at $8.8/255$ on both datasets.
+
+This model rules out the paper's effect by construction, so \Cref{prop:l1} cannot be the explanation of
+it: its reliability spectrum has two atoms and no mass near $\eta_j/\epsilon = 1$, where the effect
+lives. It is a statement about the free half only.
+
+\subsection{What Robust Accuracy Tracks Is the Loss Measured Against a Margin}
+
+Writing $\gamma_t(x)$ for the teacher's margin at $x$ and $D_y$ for the relevant decision-boundary
+constant, Cauchy--Schwarz gives that $\gamma_t(x) > D_y \cdot L(x)$ implies the student is robustly
+correct at $x$. The certificate is vacuous at the scales we train at, but the ratio $D L/\gamma_t$
+tracks both axes across the teacher ladder of \Cref{tab:teacherladder}. What it does not do is predict
+the size of the effect, and it saturates before AutoAttack does.

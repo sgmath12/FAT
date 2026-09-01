@@ -1,0 +1,68 @@
+\documentclass{article} % For LaTeX2e
+% NOTE: target venue is ICLR 2027.  The style kit here is the 2025 one taken from
+% writting_docs/reference/IGDM_ICLR25; swap iclr2025_conference.{sty,bst} for the 2027 files and
+% change the two lines that name them.  Nothing else in the source depends on the year.
+\usepackage{iclr2025_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ADD PACKAGES %%%%%%%%%%%%%%%
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{cleveref}
+\usepackage{booktabs}
+\usepackage{multirow}
+\newcommand{\ie}{\emph{i.e.}}
+
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\usepackage{array}
+\usepackage{sidecap}
+\usepackage[table]{xcolor}
+\usepackage{xcolor}
+
+\usepackage{textgreek}
+\usepackage{tikz}
+\usepackage{wrapfig}
+
+\setlength{\aboverulesep}{0.6pt}
+\setlength{\belowrulesep}{1.5pt}
+
+\newtheorem{proposition}{Proposition}
+\newcommand{\dg}{\textsuperscript{\dag}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Clean Feature Anchoring: Recovering Standard Accuracy\\ in Adversarial Training without a Robust Teacher}
+
+\author{
+Anonymous authors\\
+Paper under double-blind review
+}
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+% \iclrfinalcopy   % uncomment only for the camera-ready; submissions must stay anonymous
+
+\begin{document}
+
+\maketitle
+
+\input{0_Abstract}
+\input{1_Intro}
+\input{2_Analysis}
+\input{3_Method}
+\input{4_Experiments}
+\input{5_Appendix}
+
+\bibliography{AT,cfa}
+\bibliographystyle{iclr2025_conference}
+
+\end{document}

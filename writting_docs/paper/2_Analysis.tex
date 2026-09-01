@@ -1,0 +1,109 @@
+\section{Analysis}
+\label{sec:analysis}
+
+\subsection{Preliminaries}
+
+Let $f=h\circ\Phi$ be a classifier with feature map $\Phi$ and linear head $h$. Adversarial training
+\citep{PGD} solves
+\begin{equation}
+\min_\theta\ \mathbb{E}_{(x,y)}\ \max_{x'\in B(x,\epsilon)}\ \ell\big(f_\theta(x'),y\big),
+\qquad B(x,\epsilon)=\{x':\lVert x'-x\rVert_\infty\le\epsilon\}.
+\label{eqn:at}
+\end{equation}
+The supervisory signal is the label, and it is asserted uniformly over $B(x,\epsilon)$: every point
+of the ball must reach full confidence in one class. That is where the accuracy cost comes from.
+We write $\Phi_t$ for the frozen feature map of a network of the same architecture trained naturally on
+the same data---the teacher throughout---and ask what it can supply.
+
+\subsection{The Teacher Is Fragile, and Its Logits Are Worse Than No Teacher at All}
+\label{sec:fragile}
+
+The objection to a naturally trained teacher is not hypothetical. Under $\epsilon=8/255$ its own
+feature rotates by $63.8^\circ$ and its norm inflates by $\times2.45$; its accuracy rests on
+directions an adversary controls.
+
+That fragility appears immediately if the teacher is consumed the way adversarial distillation
+consumes one. \Cref{tab:natteacher} gives the published objectives with our natural teacher in
+place of the robust teacher they assume, each at its own published recipe, against plain adversarial
+training initialized from the same teacher.
+
+\begin{table}[t]
+  \centering
+  \caption{Published adversarial-distillation objectives given a \emph{naturally} trained teacher.
+  CIFAR-100, ResNet-18, 100 epochs, each method at its published recipe. Every one lands below simply
+  not distilling.}
+  \label{tab:natteacher}
+  \begin{tabular}{lrrr}
+    \toprule
+    & clean & AA & NRR \\
+    \midrule
+    ARD \citep{ard}   & 57.61 & 20.24 & 29.96 \\
+    RSLAD \citep{rslad}          & 59.68 & 21.30 & 31.40 \\
+    AdaAD \citep{adaad}         & 59.79 & 23.19 & 33.42 \\
+    PGD-AT, initialized at the teacher      & 57.73 & \textbf{26.46} & \textbf{36.29} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+None of it is a temperature that was left untuned: swept in a fixed base regime, the logit target
+peaks at $24.48$ AutoAttack ($\tau=4$) and the curve is unimodal because $\tau$ is squeezed from both
+sides---at $\tau=1$ the teacher's maximum probability is $0.820$ against the student's $0.016$, and at
+$\tau=16$ the target is within $1\%$ of uniform.
+
+\paragraph{Two defects, and they separate.} A method can go wrong in \emph{where} it reads the teacher
+and in \emph{what} it reads from it, and \Cref{tab:natteacher} confounds them. Holding the read
+point fixed at $x$ and changing only what is read---the teacher's logits against its features, same
+regime, same attack, same teacher---gives $24.48\to\mathbf{25.88}$ AutoAttack. That isolates the
+second defect.
+
+The first is larger, and is visible where a method reads the teacher \emph{off} the clean point. IGDM
+\citep{igdm} matches a finite difference $f_T(x+\delta)-f_T(x-\delta)$ as a stand-in for
+the teacher's input gradient, which is a gradient only while the teacher is locally linear; its own
+diagnostic reports a Taylor remainder proportion of $0.012$ for adversarially trained teachers.
+Applying that diagnostic to our checkpoints gives $0.0111$ for an adversarially trained
+ResNet-18---reproducing their value, so the measurement is calibrated---and $\mathbf{0.4763}$ for the
+natural teacher, forty times further from linear. The target it constructs is correspondingly
+degenerate: $\lVert f_T(x+\delta)-f_T(x-\delta)\rVert=14.14$ against $\lVert f_T(x)\rVert=18.36$, with
+the softmax of that difference placing $0.917$ on a single class.
+
+The teacher therefore holds accuracy that adversarial training gives up, and the logit route does not
+recover it. What follows keeps the read point at $x$, where the first defect cannot arise, and takes
+the features, which the isolation above shows to be the better read.
+
+\subsection{What a Clean-Feature Anchor Controls}
+\label{sec:decomp}
+
+Consider matching the teacher's feature at the \emph{clean} input against the student's feature at the
+\emph{adversarial} input. Fix $x$, write $B=B(x,\epsilon)$, and let
+\begin{equation}
+L=\max_{x'\in B}\lVert\Phi_s(x')-\Phi_t(x)\rVert,\quad
+F=\lVert\Phi_s(x)-\Phi_t(x)\rVert,\quad
+O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert,
+\label{eqn:lfo}
+\end{equation}
+so $L$ is that quantity, $F$ is fidelity to the teacher at the clean point, and $O$ is the oscillation
+of the student's own map over the ball.
+
+\begin{proposition}
+\label{prop:decomp}
+$L\le F+O\le 3L$.
+\end{proposition}
+
+\begin{proof}
+$F\le L$ since $x\in B$; $O\le 2L$ by inserting $\Phi_t(x)$; and
+$\lVert\Phi_s(x')-\Phi_t(x)\rVert\le\lVert\Phi_s(x')-\Phi_s(x)\rVert+F\le O+F$, so $L\le F+O$.
+\end{proof}
+
+A single term therefore controls fidelity and local stability together, within a factor of three, with
+no coefficient trading them off---the first is what adversarial training gives up, the second what its
+label term buys. The proof uses only the triangle inequality, so it holds for the networks we train.
+
+Two consequences decide the design. First, $\Phi_t$ is evaluated at $x$ alone, so the instability
+measured in \Cref{sec:fragile} never enters the objective---and, symmetrically, the teacher
+cannot supply robustness. Second, the decomposition holds only when the anchor \emph{is} the
+objective: added to a cross-entropy term it characterizes nothing.
+
+Both are verifiable, and we verify them. On the trained student over $\epsilon=8/255$ balls,
+$L=7.58$, $F=6.30$ and $O_{\mathrm{lb}}=2.16$ against the teacher's own $O=6.68$: the student is
+$3.1\times$ more stable than the teacher it was distilled from, and what remains in the loss is
+fidelity rather than instability.
