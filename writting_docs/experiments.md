@@ -56,55 +56,115 @@ without any adversarial example.
 
 ### 5.2 Main results
 
-**Table 2.** CIFAR-100, ResNet-18, $\ell_\infty$, $\varepsilon=8/255$. Published numbers carry their
-source; rows marked *(ours)* we ran. `↑` marks the best in each column.
+Baselines are grouped by what they assume is available, since that is what the comparison turns on.
+**(a)** standard adversarial training, which needs no other network; **(b)** adversarial distillation
+from an *adversarially trained* teacher; **(c)** methods guided by a *naturally* trained network,
+which is the family ours belongs to; **(d)** the current accuracy–robustness trade-off methods.
+Published numbers carry their source and their backbone where it differs; `—` means the paper does not
+report that cell for this dataset and architecture.
 
-| Method | clean | PGD-20 | CW | **AA** | **NRR** | source |
-|---|---:|---:|---:|---:|---:|:--:|
-| PGD-AT | 56.56 | 28.80 | — | 25.02 | 34.69 | RPAT |
-| TRADES | 55.39 | 29.36 | — | 24.51 | 33.98 | RPAT |
-| MART | 49.83 | 30.38 | — | 25.00 | 33.30 | RPAT |
-| Consistency-AT | 58.53 | 29.28 | — | 25.39 | 35.42 | RPAT |
-| Consistency-AT + RPAT | 60.33 | 29.97 | — | 26.31 | 36.64 | RPAT |
-| RPAT++ *(ours, reproduced)* | 55.93 | 32.44 | 29.37 | 27.36 | 36.74 | ours |
-| ADR (AT + ADR) | 56.10 | — | — | 26.87 | 36.34 | ADR |
-| ADR (AT + WA + AWP + ADR) | 57.36 | — | — | 28.50 | 38.08 | ADR |
-| F²AT | 54.19 | 26.75 | 25.14 | 23.24 | 32.53 | F²AT |
-| Generalist++ | 62.97 | 29.48 | — | 23.96 | 34.71 | Gen++ |
-| **CFA (ours)** † | **62.65** | 32.63 | **30.66** | **28.77** ↑ | **39.43** ↑ | ours |
+**Table 2.** CIFAR-10, ResNet-18, $\ell_\infty$, $\varepsilon=8/255$.
 
-**Table 3.** CIFAR-10, ResNet-18, same protocol.
+| | Method | clean | PGD-20 | CW | **AA** | **NRR** | src |
+|---|---|---:|---:|---:|---:|---:|:--:|
+| (a) | PGD-AT | 82.78 | 51.30 | 49.72 | 44.63 | 57.99 | CURE |
+| | TRADES | 82.41 | 52.76 | 50.43 | 48.37 | 60.96 | CURE |
+| | MART | 80.70 | 54.02 | 49.35 | 47.49 | 59.79 | CURE |
+| | Consistency-AT | 83.42 | 51.96 | — | 47.72 | 60.71 | RPAT |
+| (b) | ARD | 85.04 | 53.27 | 50.27 | 49.49 | 62.55 | IGDM |
+| | RSLAD | 83.59 | 55.98 | 53.15 | 52.13 | 64.16 | IGDM |
+| | IAD | 84.33 | 54.24 | 50.97 | 50.09 | 62.85 | IGDM |
+| | AdaAD | 84.74 | 56.78 | 53.51 | 52.79 | 65.03 | IGDM |
+| | AdaAD + IGDM | 84.83 | 57.61 | 55.09 | **54.02** | **65.98** | IGDM |
+| (c) | LBGAT | — | — | — | — | — | *(not obtained)* |
+| | ARREST | 86.63 | — | — | 46.14 | 60.21 | ARREST |
+| | CURE | 86.76 | 54.92 | 52.48 | 49.69 | 63.19 | CURE |
+| | ADR (AT + ADR) | 82.41 | — | — | 50.38 | 62.53 | ADR |
+| (d) | Consistency-AT + RPAT | 84.12 | 52.33 | — | 48.98 | 61.91 | RPAT |
+| | RPAT++ *(ours, reproduced)* | 82.41 | 55.72 | 52.88 | 50.75 | 62.82 | ours |
+| | **CFA (ours)** † | 85.58 | 52.94 | 53.88 | 51.79 | **64.53** | ours |
 
-| Method | clean | PGD-20 | CW | **AA** | **NRR** | source |
-|---|---:|---:|---:|---:|---:|:--:|
-| PGD-AT | 82.78 | 51.30 | 49.72 | 44.63 | 57.99 | CURE |
-| TRADES | 82.41 | 52.76 | 50.43 | 48.37 | 60.96 | CURE |
-| MART | 80.70 | 54.02 | 49.35 | 47.49 | 59.79 | CURE |
-| ST-AT | 83.10 | 54.62 | 51.43 | 50.50 | 62.82 | CURE |
-| IAD | 80.63 | 53.84 | 51.60 | 50.17 | 61.85 | CURE |
-| Consistency-AT + RPAT | 84.12 | 52.33 | — | 48.98 | 61.91 | RPAT |
-| RPAT++ *(ours, reproduced)* | 82.41 | 55.72 | 52.88 | 50.75 | 62.82 | ours |
-| CURE | 86.76 | 54.92 | 52.48 | 49.69 | 63.19 | CURE |
-| ADR (AT + ADR) | 82.41 | — | — | 50.38 | 62.53 | ADR |
-| ARREST | 86.63 | — | — | 46.14 | 60.21 | ARREST |
-| Generalist++ | 89.09 ↑ | 50.01 | — | 46.07 | 60.73 | Gen++ |
-| **CFA (ours)** † | 85.58 | 52.94 | 53.88 ↑ | **51.79** ↑ | **64.53** ↑ | ours |
+**Table 3.** CIFAR-100, ResNet-18.
 
-**Table 4.** Tiny-ImageNet-200, ResNet-18. The recipe is transferred unchanged.
+| | Method | clean | PGD-20 | CW | **AA** | **NRR** | src |
+|---|---|---:|---:|---:|---:|---:|:--:|
+| (a) | PGD-AT | 56.56 | 28.80 | — | 25.02 | 34.69 | RPAT |
+| | TRADES | 55.39 | 29.36 | — | 24.51 | 33.98 | RPAT |
+| | MART | 49.83 | 30.38 | — | 25.00 | 33.30 | RPAT |
+| | Consistency-AT | 58.53 | 29.28 | — | 25.39 | 35.42 | RPAT |
+| (b) | ARD | 61.51 | 30.23 | 26.97 | 24.77 | 35.29 | IGDM |
+| | RSLAD | 60.22 | 32.16 | 27.96 | 26.76 | 37.15 | IGDM |
+| | IAD | 59.92 | 31.47 | 26.91 | 25.15 | 35.42 | IGDM |
+| | AdaAD | 64.43 | 33.21 | 29.53 | 28.06 | 39.10 | IGDM |
+| | AdaAD + IGDM | **64.44** | 36.19 | 31.75 | **30.32** | **41.24** | IGDM |
+| (c) | LBGAT | — | — | — | — | — | *(not obtained)* |
+| | ARREST | — | — | — | — | — | *WRN only* |
+| | CURE | — | — | — | — | — | *no AA on C100* |
+| | ADR (AT + ADR) | 56.10 | — | — | 26.87 | 36.34 | ADR |
+| | ADR (AT + WA + AWP + ADR) | 57.36 | — | — | 28.50 | 38.08 | ADR |
+| (d) | Consistency-AT + RPAT | 60.33 | 29.97 | — | 26.31 | 36.64 | RPAT |
+| | RPAT++ *(ours, reproduced)* | 55.93 | 32.44 | 29.37 | 27.36 | 36.74 | ours |
+| | **CFA (ours)** † | 62.65 | 32.63 | 30.66 | 28.77 | **39.43** | ours |
 
-| Method | clean | **AA** | **NRR** |
-|---|---:|---:|---:|
-| ADR (AT + WA + AWP + ADR) | 48.27 | 20.10 | 28.38 |
-| **CFA (ours)**, 200-epoch teacher † | **55.16** | **20.54** | **29.93** |
-| CFA, 80-epoch teacher † | 57.08 | 18.96 | 28.46 |
+**Table 4.** Tiny-ImageNet-200, ResNet-18.
 
-⚠ **Reproductions.** RPAT++ we reproduce to within $0.31$ AutoAttack of its published
-PreActResNet-18 numbers on both datasets ($27.68 \to 27.36$, $51.00 \to 50.75$), and we report our own
-measurement. CURE we could **not** reproduce: seven runs of the official repository fall short on
-*different* axes — the closest on standard accuracy reaches $86.11$ at AA $40.65$, the closest on
-robustness reaches AA $45.63$ at clean $81.15$, while the published pair has both. Computing its RGP
-prominence mask on absolute values moves AA by $+15.9$ ($29.74 \to 45.63$), which localizes the
-discrepancy without closing it. The CURE row above is therefore the paper's own number.
+| | Method | clean | **AA** | **NRR** | src |
+|---|---|---:|---:|---:|:--:|
+| (a) | PGD-AT | 45.87 | 18.06 | 25.91 | ADR |
+| | Rade & Moosavi-Dezfooli | 52.60 | 18.14 | 26.96 | ADR |
+| | Dong et al. | 47.46 | 18.29 | 26.42 | ADR |
+| (b) | ARD / RSLAD / AdaAD / IGDM | — | — | — | *not reported* |
+| (c) | LBGAT / ARREST / CURE | — | — | — | *not reported* |
+| | ADR (AT + ADR) | 48.55 | 20.23 | 28.61 | ADR |
+| (d) | RPAT | — | — | — | *not reported* |
+| | **CFA (ours)**, 200-epoch teacher † | **55.16** | **20.54** | **29.93** | ours |
+| | CFA (ours), 80-epoch teacher † | 57.08 | 18.96 | 28.46 | ours |
+
+**Table 5.** CIFAR-10, WideResNet-34-10.
+
+| | Method | clean | **AA** | **NRR** | src |
+|---|---|---:|---:|---:|:--:|
+| (a) | PGD-AT / TRADES | — | — | — | *to fill* |
+| (b) | ARD / RSLAD / AdaAD / IGDM | — | — | — | *to fill* |
+| (c) | LBGAT | 88.22 | 52.18 | 65.57 | ARREST |
+| | ARREST | 90.24 | 50.20 | 64.51 | ARREST |
+| | CURE | 87.05 | 52.10 | 65.19 | RPAT |
+| | ADR | 84.67 | 53.25 | 65.38 | RPAT |
+| (d) | ReBAT | 85.25 | 54.78 | 66.70 | RPAT |
+| | RPAT++ | 86.76 | **54.97** | **67.30** | RPAT |
+| | **CFA (ours)** | *running* | | | ours |
+
+**Table 6.** CIFAR-100, WideResNet-34-10.
+
+| | Method | clean | **AA** | **NRR** | src |
+|---|---|---:|---:|---:|:--:|
+| (a) | PGD-AT (SAT) | 53.64 | 21.01 | 30.20 | F²AT |
+| (b) | ARD / RSLAD / AdaAD / IGDM | — | — | — | *to fill* |
+| (c) | LBGAT | 70.25 | 26.73 | 38.72 | ADR |
+| | ARREST | **73.05** | 24.32 | 36.50 | ADR |
+| | CURE | — | — | — | *no AA on C100* |
+| | ADR (AT + ADR) | 62.21 | **31.60** | **41.90** | ADR |
+| (d) | F²AT | 60.21 | 26.91 | 37.23 | F²AT |
+| | RPAT | — | — | — | *PreActResNet-18 only* |
+| | **CFA (ours)** | *running* | | | ours |
+
+⚠ **Group (b) is not a like-for-like comparison and is printed to make that visible.** Those rows are
+produced from a WideResNet-28-10 or WRN-70-16 teacher adversarially trained with generated data — a
+network more expensive than the student it teaches — so their robustness originates outside the
+student. §5.3 gives the same four objectives the teacher they would have in our setting, and every one
+of them then falls below not distilling at all. The two settings assume different inputs and are best
+read side by side rather than ranked.
+
+⚠ **Backbone caveats.** ARREST's CIFAR-10 headline is WideResNet-34-10 (Table 5); the ResNet-18 row in
+Table 2 is its smaller-backbone entry. CURE reports no AutoAttack on CIFAR-100. RPAT's WideResNet
+results are PreActResNet-18 on CIFAR-100. Each cell states the backbone its source used.
+
+**Reproductions.** RPAT++ we reproduce to within $0.31$ AutoAttack of its published numbers on both
+datasets and report our own measurement. CURE we could **not** reproduce: seven runs of the official
+repository fall short on *different* axes — the closest on standard accuracy reaches $86.11$ at AA
+$40.65$, the closest on robustness AA $45.63$ at clean $81.15$, while the published pair has both.
+Computing its RGP prominence mask on absolute values moves AA by $+15.9$, which localizes the
+discrepancy without closing it, so the CURE rows above are the paper's own numbers.
 
 ---
 
@@ -116,7 +176,7 @@ epochs 70 and 90, random initialization, no weight averaging, no AWP, 100 epochs
 is plain PGD-AT initialized from the same teacher — that is, using the teacher for nothing but the
 starting point.
 
-**Table 5.** Adversarial distillation with a natural teacher. ResNet-18, 100 epochs.
+**Table 7.** Adversarial distillation with a natural teacher. ResNet-18, 100 epochs.
 
 | | CIFAR-100 clean | AA | NRR | | CIFAR-10 clean | AA | NRR |
 |---|---:|---:|---:|---|---:|---:|---:|
@@ -134,7 +194,7 @@ $\mathrm{softmax}(f_T(x{+}\delta)-f_T(x{-}\delta))$ places $0.917$ of its mass o
 term reaches $17.3\times$ the AdaAD loss, and $\alpha=1$ — which puts the two terms on comparable
 scales — trains normally and still finishes far below AdaAD alone.
 
-**Table 6.** Local linearity, which IGDM's construction requires of the teacher. Remainder proportion
+**Table 8.** Local linearity, which IGDM's construction requires of the teacher. Remainder proportion
 of the first-order Taylor expansion over an $\varepsilon=8/255$ ball, computed as in IGDM §3.1.
 
 | network | remainder proportion |
@@ -153,7 +213,7 @@ a gradient there.
 
 ### 5.4 Component ablation
 
-**Table 7.** CIFAR-100, ResNet-18, raw-$\ell_2$ anchor, $\varepsilon_{\mathrm{train}}=8.8/255$ held
+**Table 9.** CIFAR-100, ResNet-18, raw-$\ell_2$ anchor, $\varepsilon_{\mathrm{train}}=8.8/255$ held
 fixed, no `freeze_lr`. Each row adds one component to the row above it.
 
 | | clean | PGD-20 | CW | **AA** | **NRR** |
@@ -175,7 +235,7 @@ with schedule length: $-0.25$ NRR at 50 epochs, $+1.21$ at 100. And **50 epochs 
 alone already exceeds ADR's full stack** ($38.46$ against $38.08$), at half the schedule and one fewer
 component — so the gain is not the stack.
 
-**Table 8.** What to do with the classifier. CIFAR-100, base regime (50 epochs, raw features, no WA,
+**Table 10.** What to do with the classifier. CIFAR-100, base regime (50 epochs, raw features, no WA,
 no AWP, $\varepsilon=8/255$), so no component of the stack can absorb the difference.
 
 | | clean | PGD-20 | CW | **AA** | **NRR** |
@@ -199,7 +259,7 @@ the method.
 
 ### 5.5 Training radius
 
-**Table 9.** $\varepsilon_{\mathrm{train}}$ swept with everything else fixed; evaluation is at
+**Table 11.** $\varepsilon_{\mathrm{train}}$ swept with everything else fixed; evaluation is at
 $\varepsilon=8/255$ in every cell.
 
 | | clean | PGD-20 | CW | **AA** | **NRR** |
@@ -224,7 +284,7 @@ $\varepsilon$-independence that Appendix A predicts above the threshold.
 
 ### 5.6 What the teacher transfers
 
-**Table 10.** Only the teacher checkpoint changes; the student configuration is untouched.
+**Table 12.** Only the teacher checkpoint changes; the student configuration is untouched.
 CIFAR-100, ResNet-18.
 
 | teacher | teacher clean | teacher $S_w/S_b$ | student clean | student AA | NRR |
@@ -253,7 +313,7 @@ comparison line is ADR's WRN-34-10 row, $62.21$ clean / $31.63$ AA on CIFAR-100.
 ## Writer's notes
 
 **What is still missing from this section.** (i) The WideResNet block, §5.7, has no numbers yet.
-(ii) Table 5's CIFAR-10 column needs `adaadigdm` and `ladder_p0_100ep`, both queued. (iii) Nine cells
+(ii) Table 7's CIFAR-10 column needs `adaadigdm` and `ladder_p0_100ep`, both queued. (iii) Nine cells
 marked † are being re-measured under the corrected AWP ascent objective; the ladder's six non-AWP
 rows and every baseline in Table 5 are unaffected and final.
 
