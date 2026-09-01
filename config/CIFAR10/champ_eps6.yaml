@@ -1,0 +1,59 @@
+# EXTENDING THE OPERATING CURVE TO A SMALLER RADIUS (2026-09-02).
+#
+# Figure 1 plots the method as a curve rather than a point, because the training radius moves along the
+# frontier at no cost.  At eps_tr = 8/255 the curve already dominates Generalist++ on CIFAR-100
+# (63.89 / 27.78 against 62.97 / 23.96, both axes) and CURE and ARREST on CIFAR-10
+# (87.22 / 51.15 against 86.76 / 49.69 and 86.63 / 46.14).  What it does not yet reach is
+# Generalist++'s CIFAR-10 clean accuracy of 89.09.
+#
+# The measured trend is that clean falls ~1.9 points per +1/255 of radius while AutoAttack is flat
+# (8 -> 8.8 -> 10 gives clean 87.22 / 85.58 / 83.29 and AA 51.15 / 51.79 / 51.79), so a smaller radius
+# should buy clean accuracy cheaply.  Linear extrapolation puts eps_tr = 6 near clean 91 on CIFAR-10,
+# past Generalist++, at an AA still far above its 46.07.  These two cells test that; nothing else in
+# the recipe changes and evaluation stays at eps = 8/255.
+#
+# THIS CELL: CIFAR10, eps_train = 6/255.
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.023529411764705882
+steps : 10
+step_size : 2/255/1
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_rawteacher : True
+featdir_rawstudent : True
+aa_batch_size : 256

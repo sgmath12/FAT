@@ -94,71 +94,81 @@ body.
 
 \begin{table}[h]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Tiny-ImageNet-200, ResNet-18.}
+  \caption{Tiny-ImageNet-200, ResNet-18. Every row is measured in this framework under the protocol of \Cref{tab:main}; \textbf{--} marks a cell we have not run yet. Our row uses the 200-epoch teacher; the 80-epoch teacher gives $57.08 / 18.96$ (NRR $28.46$), which is the teacher-length dial of \Cref{tab:teacherladder} on a third dataset.}
   \label{tab:tin}
-  \begin{tabular}{llrrrc}
+  \begin{tabular}{llrrrr}
     \toprule
-    & Method & Clean & AA & NRR & Src \\
-    \multirow{3}{*}{(a)} & PGD-AT & 45.87 & 18.06 & 25.91 & ADR \\
-     & Rade \& Moosavi-Dezfooli & 52.60 & 18.14 & 26.96 & ADR \\
-     & Dong et al. & 47.46 & 18.29 & 26.42 & ADR \\
+    Method & Teacher & Clean & AA & Avg & NRR \\
     \midrule
-    (b) & ARD / RSLAD / AdaAD / IGDM & -- & -- & -- & \emph{not reported} \\
+    PGD-AT                           & --    & -- & -- & -- & -- \\
+    TRADES                           & --    & -- & -- & -- & -- \\
+    MART                             & --    & -- & -- & -- & -- \\
+    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
     \midrule
-    \multirow{2}{*}{(c)} & LBGAT / ARREST / CURE & -- & -- & -- & \emph{not reported} \\
-     & ADR (AT + ADR) & 48.55 & 20.23 & 28.61 & ADR \\
+    ARD                              & nat.  & -- & -- & -- & -- \\
+    RSLAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
     \midrule
-    (d) & RPAT & -- & -- & -- & \emph{not reported} \\
+    ADR                              & self  & -- & -- & -- & -- \\
+    CURE                             & self  & -- & -- & -- & -- \\
+    RPAT++                           & --    & -- & -- & -- & -- \\
     \midrule
-    & \textbf{CFA (ours)}, 200-epoch teacher\dg & \textbf{55.16} & \textbf{20.54} & \textbf{29.93} & ours \\
-    & CFA (ours), 80-epoch teacher\dg & 57.08 & 18.96 & 28.46 & ours \\
+    \textbf{CFA (ours)}              & nat.  & 55.16 & 20.54 & 37.85 & 29.93 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \begin{table}[h]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{CIFAR-10, WideResNet-34-10.}
+  \caption{CIFAR-10, WideResNet-34-10. Every row is measured in this framework under the protocol of \Cref{tab:main}; \textbf{--} marks a cell we have not run yet. Our row is in progress.}
   \label{tab:w10}
-  \begin{tabular}{llrrrc}
+  \begin{tabular}{llrrrr}
     \toprule
-    & Method & Clean & AA & NRR & Src \\
-    (a) & PGD-AT / TRADES & -- & -- & -- & \emph{to fill} \\
+    Method & Teacher & Clean & AA & Avg & NRR \\
     \midrule
-    (b) & ARD / RSLAD / AdaAD / IGDM & -- & -- & -- & \emph{to fill} \\
+    PGD-AT                           & --    & -- & -- & -- & -- \\
+    TRADES                           & --    & -- & -- & -- & -- \\
+    MART                             & --    & -- & -- & -- & -- \\
+    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
     \midrule
-    \multirow{4}{*}{(c)} & LBGAT & 88.22 & 52.18 & 65.57 & ARREST \\
-     & ARREST & \textbf{90.24} & 50.20 & 64.51 & ARREST \\
-     & CURE & 87.05 & 52.10 & 65.19 & RPAT \\
-     & ADR & 84.67 & 53.25 & 65.38 & RPAT \\
+    ARD                              & nat.  & -- & -- & -- & -- \\
+    RSLAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
     \midrule
-    \multirow{2}{*}{(d)} & ReBAT & 85.25 & 54.78 & 66.70 & RPAT \\
-     & RPAT++ & 86.76 & \textbf{54.97} & \textbf{67.30} & RPAT \\
+    ADR                              & self  & -- & -- & -- & -- \\
+    CURE                             & self  & -- & -- & -- & -- \\
+    RPAT++                           & --    & -- & -- & -- & -- \\
     \midrule
-    & \textbf{CFA (ours)} & \emph{running} & & & ours \\
+    \textbf{CFA (ours)}              & nat.  & -- & -- & -- & -- \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \begin{table}[h]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{CIFAR-100, WideResNet-34-10.}
+  \caption{CIFAR-100, WideResNet-34-10. Every row is measured in this framework under the protocol of \Cref{tab:main}; \textbf{--} marks a cell we have not run yet. Our row is in progress. The comparison line here is ADR's WideResNet-34-10 result, $62.21$ clean / $31.60$ AA (\Cref{tab:published}).}
   \label{tab:w100}
-  \begin{tabular}{llrrrc}
+  \begin{tabular}{llrrrr}
     \toprule
-    & Method & Clean & AA & NRR & Src \\
-    (a) & PGD-AT (SAT) & 53.64 & 21.01 & 30.20 & F\textsuperscript{2}AT \\
+    Method & Teacher & Clean & AA & Avg & NRR \\
     \midrule
-    (b) & ARD / RSLAD / AdaAD / IGDM & -- & -- & -- & \emph{to fill} \\
+    PGD-AT                           & --    & -- & -- & -- & -- \\
+    TRADES                           & --    & -- & -- & -- & -- \\
+    MART                             & --    & -- & -- & -- & -- \\
+    PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
     \midrule
-    \multirow{3}{*}{(c)} & LBGAT & 70.25 & 26.73 & 38.72 & ADR \\
-     & ARREST & \textbf{73.05} & 24.32 & 36.50 & ADR \\
-     & ADR (AT + ADR) & 62.21 & \textbf{31.60} & \textbf{41.90} & ADR \\
+    ARD                              & nat.  & -- & -- & -- & -- \\
+    RSLAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD                            & nat.  & -- & -- & -- & -- \\
+    AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
     \midrule
-    \multirow{2}{*}{(d)} & F\textsuperscript{2}AT & 60.21 & 26.91 & 37.23 & F\textsuperscript{2}AT \\
-     & RPAT & -- & -- & -- & \emph{PreActRN-18 only} \\
+    ADR                              & self  & -- & -- & -- & -- \\
+    CURE                             & self  & -- & -- & -- & -- \\
+    RPAT++                           & --    & -- & -- & -- & -- \\
     \midrule
-    & \textbf{CFA (ours)} & \emph{running} & & & ours \\
+    \textbf{CFA (ours)}              & nat.  & -- & -- & -- & -- \\
     \bottomrule
   \end{tabular}
 \end{table}
