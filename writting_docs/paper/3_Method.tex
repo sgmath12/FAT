@@ -39,19 +39,13 @@ $63.8^\circ$ of rotation under attack is exactly such a difference, and it is th
 training. The converse holds by the same argument: a quantity the objective cannot see cannot be a
 source of robustness either.
 
-\paragraph{(ii) The objective is exactly zero at initialization.} Since $\Phi_s \leftarrow \Phi_t$,
-\begin{equation}
-\mathcal{L}\big|_{\Phi_s = \Phi_t} \;=\; \mathbb{E}_x \big\lVert \Phi_t(x_{\mathrm{adv}}) - \Phi_t(x)
-\big\rVert^2 \;\ne\; 0 \quad\text{in general},
-\qquad\text{but}\qquad
-\big\lVert \Phi_s(x) - \Phi_t(x) \big\rVert = 0 ,
-\label{eqn:zeroinit}
-\end{equation}
-so the loss is nonzero only because of the perturbation: every gradient the backbone receives at the
-start of training is attributable to the attack, which is the quantity to be trained. A logit target
-has this property only at temperature $1$, where it carries no dark knowledge. It also has a practical
-consequence used in \Cref{sec:angeps}: at the first step the per-sample sensitivities are identical,
-so the radius allocation begins uniform and differentiates only as the student moves.
+\paragraph{(ii) The anchor is exactly zero at the clean point at initialization.} Since
+$\Phi_s \leftarrow \Phi_t$, we have $\lVert \Phi_s(x) - \Phi_t(x) \rVert = 0$ for every $x$, so the loss
+is nonzero only because of the perturbation: every gradient the backbone receives at the start of
+training is attributable to the attack, which is the quantity to be trained. A logit target has this
+property only at temperature $1$, where it carries no dark knowledge. It also has a consequence used
+in \Cref{sec:angeps}: at the first step the per-sample sensitivities are identical, so the radius
+allocation begins uniform and differentiates only as the student moves away from the teacher.
 
 \paragraph{(iii) The classifier is inherited, and this is what a feature target buys.} At test time
 the student is $h_t \circ \Phi_s$: the head is never trained. This is available because the target is
@@ -184,6 +178,5 @@ temperature and no auxiliary head, and the only quantity we vary between dataset
 checkpoint.
 
 \paragraph{Caveats.} \Cref{eqn:firstorder} asks for the $\ell_1$ norm and our runs use $\ell_2$; both
-were trained and agree within noise, so the derivation is printed as stated. And $g_i$ is a single
-backward pass at the clean $x_i$, so it is the sensitivity at the attack's starting point rather than
-along its trajectory; \Cref{eqn:equalize} is first-order in $\epsilon$ throughout.
+were trained and agree within noise. And $g_i$ is a single backward pass at the clean $x_i$, so it is
+the sensitivity at the attack's starting point rather than along its trajectory.

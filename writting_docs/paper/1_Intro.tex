@@ -28,34 +28,21 @@ teacher: ARD \citep{ard}, IAD \citep{iad}, RSLAD \citep{rslad}, AdaAD \citep{ada
 \citep{igdm} differ in which teacher quantity is matched and where the teacher is evaluated, and
 together they define the strongest reported accuracy--robustness frontiers for small architectures.
 
-The two lines leave a gap between them.
-Adversarial distillation presupposes that an already-robust network exists, and in practice that
-network is a WideResNet adversarially trained with large volumes of generated data
-\citep{wang2023better}---costlier to obtain than the student it teaches.
-The robustness such methods report therefore originates outside the student, and the contribution
-being measured is the quality of the transfer.
-The teacher that is genuinely free, a naturally trained copy of the student's own architecture, is not
-used as a source of guidance for the adversarial term, and the reason is well founded: a naturally
-trained network attains its accuracy through features an adversary can manipulate
-\citep{ilyas2019adversarial}, so transferring what it computes is expected to transfer that fragility
-as well.
-ARREST \citep{arrest} comes closest to using one---it initializes the student from a standardly
-pretrained network and penalizes the angular distance between the student's representation of an
-adversarial example and the pretrained network's representation of the clean example---but there the
-penalty is added to the label cross-entropy as one weighted term among several, so the backbone is
-still driven by hard labels and the balance between the two must be tuned.
-DP-FAT \citep{dpfat} distills a naturally trained teacher directly, in the fast single-step regime,
-and reports that the teacher's logit \emph{magnitudes} are the unreliable part, rescaling them per
-sample so that only the class-discriminative direction is transferred.
-That is the closest existing use of a natural teacher, and the difference from ours is what the
-teacher is asked for: DP-FAT repairs a logit target so that it can be trusted, where we remove the
-logit target and place the anchor on the feature, which is where the magnitude question does not
-arise.
-B-MTARD \citep{bmtard} goes further still and uses a naturally trained network explicitly to recover
-accuracy, pairing a clean teacher with a robust one so that each handles the examples it is good at.
-That is the closest prior statement of the idea we pursue, and it still requires the robust
-teacher---a WideResNet-70-16 on CIFAR-100, far larger than the student---because the clean teacher
-supplies logits and cannot supply robustness.
+The two lines leave a gap between them. Adversarial distillation presupposes that an already-robust
+network exists, and in practice that network is a WideResNet adversarially trained with large volumes
+of generated data \citep{wang2023better}---costlier to obtain than the student it teaches. The
+robustness such methods report therefore originates outside the student, and what is being measured is
+the quality of the transfer. The teacher that is genuinely free, a naturally trained copy of the
+student's own architecture, is not used as a source of guidance for the adversarial term, and the
+reason is well founded: a naturally trained network attains its accuracy through features an adversary
+can manipulate \citep{ilyas2019adversarial}, so transferring what it computes is expected to transfer
+that fragility as well. Three lines of work come close and are discussed in
+\Cref{sec:related}---ARREST \citep{arrest} initializes from a standardly pretrained network and adds a
+representation-distance term to the label loss; DP-FAT \citep{dpfat} distills a natural teacher
+directly, rescaling its logits per sample so that only the class-discriminative direction transfers;
+and B-MTARD \citep{bmtard} pairs a clean teacher with a robust one so that each handles the examples it
+is good at. In all three the natural network supplies logits and is balanced against another term or
+another teacher, and the balance is what has to be tuned.
 
 We do not claim that a naturally trained teacher is preferable to a robust one, and we do not compete
 with methods that have one.

@@ -32,7 +32,7 @@ accuracy. All of our numbers are the final-epoch weight-averaged model, with no 
 selection.
 
 \begin{table}[t]
-  \centering
+  \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Teacher models. AutoAttack accuracy is $0$ by construction: these networks never see an
   adversarial example.}
   \label{tab:teachers}
@@ -56,152 +56,54 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 `--' means the paper does not report that cell for this dataset and architecture.
 
 \begin{table}[t]
-  \centering
-  \caption{CIFAR-10, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Every row is measured in our framework}---same data pipeline, same attack implementation, same evaluation, final-epoch weight-averaged model---so the numbers are comparable to each other rather than across papers. \textbf{Teacher} states what each method assumes: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network. Rows we have not run are left empty with the reason; published numbers for the same methods are given separately in \Cref{tab:published} and are not mixed in here. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$; NRR is the harmonic mean. Per-attack metrics are in \Cref{tab:fullmetrics}.}
-  \label{tab:c10}
-  \begin{tabular}{llrrrrl}
+  \centering \small \setlength{\tabcolsep}{3.4pt}
+  \caption{Main results. ResNet-18, $\ell_\infty$, $\epsilon = 8/255$. \textbf{Every number is measured
+  in this framework}---one data pipeline, one attack implementation, one evaluation, the final-epoch
+  weight-averaged model---so the rows are comparable to each other rather than across papers, and no
+  source column is needed. \textbf{Teacher} is what the method assumes available: \emph{--} none,
+  \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
+  left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
+  calls W-Robust; NRR is the harmonic mean. Published figures for these methods are in
+  \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:w10,tab:w100}, and
+  per-attack metrics in \Cref{tab:fullmetrics}.}
+  \label{tab:main}
+  \begin{tabular}{llrrrrrrrrl}
     \toprule
-    Method & Teacher & Clean & AA & Avg & NRR & \\
+    & & \multicolumn{4}{c}{CIFAR-10} & \multicolumn{4}{c}{CIFAR-100} & \\
+    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
+    Method & T. & Clean & AA & Avg & NRR & Clean & AA & Avg & NRR & \\
     \midrule
-    PGD-AT                                 & --       & -- & -- & -- & -- & \emph{vanilla; only the teacher-init variant is run} \\
-    PGD-AT, initialized at the teacher     & natural  & 82.23 & 50.72 & 66.47 & 62.74 &  \\
-    TRADES                                 & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
-    MART                                   & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
+    PGD-AT                           & --    & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
+    TRADES                           & --    & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
+    MART                             & --    & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
+    PGD-AT, init.\ at the teacher    & nat.  & 82.23 & 50.72 & 66.47 & 62.74 & 57.73 & 26.46 & 42.09 & 36.29 &  \\
     \midrule
-    ARD                                    & natural  & 84.58 & 43.75 & 64.16 & 57.67 &  \\
-    RSLAD                                  & natural  & 85.15 & 42.91 & 64.03 & 57.06 &  \\
-    AdaAD                                  & natural  & 85.39 & 46.22 & 65.81 & 59.98 &  \\
-    AdaAD + IGDM ($\alpha=20$)             & natural  & 10.00 & 10.00 & 10.00 & 10.00 & \emph{collapses} \\
-    AdaAD + IGDM ($\alpha=1$)              & natural  & -- & -- & -- & -- & \emph{running} \\
+    ARD                              & nat.  & 84.58 & 43.75 & 64.16 & 57.67 & 57.61 & 20.24 & 38.92 & 29.96 &  \\
+    RSLAD                            & nat.  & 85.15 & 42.91 & 64.03 & 57.06 & 59.68 & 21.30 & 40.49 & 31.40 &  \\
+    AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
+    AdaAD + IGDM                     & nat.  & 10.00 & 10.00 & 10.00 & 10.00 & 1.00 & 1.00 & 1.00 & 1.00 & \emph{collapses} \\
+    \quad at $\alpha=1$              & nat.  & -- & -- & -- & -- & 48.25 & 19.48 & 33.87 & 27.75 &  \\
     \midrule
-    ADR                                    & self     & -- & -- & -- & -- & \emph{external repo present, not yet run} \\
-    CURE                                   & self     & -- & -- & -- & -- & \emph{seven runs, none reproduce; see \Cref{app:cure}} \\
-    RPAT++                                 & --       & 82.41 & 50.75 & 66.58 & 62.82 &  \\
+    ADR                              & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{not run} \\
+    CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{does not reproduce} \\
+    RPAT++                           & --    & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule
-    \textbf{CFA (ours)}\dg                 & natural  & \textbf{85.58} & \textbf{51.79} & \textbf{68.69} & \textbf{64.53} &  \\
+    \textbf{CFA (ours)}\dg           & nat.  & \textbf{85.58} & \textbf{51.79} & \textbf{68.69} & \textbf{64.53} & \textbf{62.65} & \textbf{28.77} & \textbf{45.71} & \textbf{39.43} &  \\
     \bottomrule
   \end{tabular}
 \end{table}
-\begin{table}[t]
-  \centering
-  \caption{CIFAR-100, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Every row is measured in our framework}---same data pipeline, same attack implementation, same evaluation, final-epoch weight-averaged model---so the numbers are comparable to each other rather than across papers. \textbf{Teacher} states what each method assumes: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network. Rows we have not run are left empty with the reason; published numbers for the same methods are given separately in \Cref{tab:published} and are not mixed in here. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$; NRR is the harmonic mean. Per-attack metrics are in \Cref{tab:fullmetrics}.}
-  \label{tab:c100}
-  \begin{tabular}{llrrrrl}
-    \toprule
-    Method & Teacher & Clean & AA & Avg & NRR & \\
-    \midrule
-    PGD-AT                                 & --       & -- & -- & -- & -- & \emph{vanilla; only the teacher-init variant is run} \\
-    PGD-AT, initialized at the teacher     & natural  & 57.73 & 26.46 & 42.09 & 36.29 &  \\
-    TRADES                                 & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
-    MART                                   & --       & -- & -- & -- & -- & \emph{not implemented in our framework} \\
-    \midrule
-    ARD                                    & natural  & 57.61 & 20.24 & 38.92 & 29.96 &  \\
-    RSLAD                                  & natural  & 59.68 & 21.30 & 40.49 & 31.40 &  \\
-    AdaAD                                  & natural  & 59.79 & 23.19 & 41.49 & 33.42 &  \\
-    AdaAD + IGDM ($\alpha=20$)             & natural  & 1.00 & 1.00 & 1.00 & 1.00 & \emph{collapses} \\
-    AdaAD + IGDM ($\alpha=1$)              & natural  & 48.25 & 19.48 & 33.87 & 27.75 &  \\
-    \midrule
-    ADR                                    & self     & -- & -- & -- & -- & \emph{external repo present, not yet run} \\
-    CURE                                   & self     & -- & -- & -- & -- & \emph{seven runs, none reproduce; see \Cref{app:cure}} \\
-    RPAT++                                 & --       & 55.93 & 27.36 & 41.64 & 36.74 &  \\
-    \midrule
-    \textbf{CFA (ours)}\dg                 & natural  & \textbf{62.65} & \textbf{28.77} & \textbf{45.71} & \textbf{39.43} &  \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-\begin{table}[t]
-  \centering
-  \caption{Tiny-ImageNet-200, ResNet-18.}
-  \label{tab:tin}
-  \begin{tabular}{llrrrc}
-    \toprule
-    & Method & Clean & AA & NRR & Src \\
-    \multirow{3}{*}{(a)} & PGD-AT & 45.87 & 18.06 & 25.91 & ADR \\
-     & Rade \& Moosavi-Dezfooli & 52.60 & 18.14 & 26.96 & ADR \\
-     & Dong et al. & 47.46 & 18.29 & 26.42 & ADR \\
-    \midrule
-    (b) & ARD / RSLAD / AdaAD / IGDM & -- & -- & -- & \emph{not reported} \\
-    \midrule
-    \multirow{2}{*}{(c)} & LBGAT / ARREST / CURE & -- & -- & -- & \emph{not reported} \\
-     & ADR (AT + ADR) & 48.55 & 20.23 & 28.61 & ADR \\
-    \midrule
-    (d) & RPAT & -- & -- & -- & \emph{not reported} \\
-    \midrule
-    & \textbf{CFA (ours)}, 200-epoch teacher\dg & \textbf{55.16} & \textbf{20.54} & \textbf{29.93} & ours \\
-    & CFA (ours), 80-epoch teacher\dg & 57.08 & 18.96 & 28.46 & ours \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-\begin{table}[t]
-  \centering
-  \caption{CIFAR-10, WideResNet-34-10.}
-  \label{tab:w10}
-  \begin{tabular}{llrrrc}
-    \toprule
-    & Method & Clean & AA & NRR & Src \\
-    (a) & PGD-AT / TRADES & -- & -- & -- & \emph{to fill} \\
-    \midrule
-    (b) & ARD / RSLAD / AdaAD / IGDM & -- & -- & -- & \emph{to fill} \\
-    \midrule
-    \multirow{4}{*}{(c)} & LBGAT & 88.22 & 52.18 & 65.57 & ARREST \\
-     & ARREST & \textbf{90.24} & 50.20 & 64.51 & ARREST \\
-     & CURE & 87.05 & 52.10 & 65.19 & RPAT \\
-     & ADR & 84.67 & 53.25 & 65.38 & RPAT \\
-    \midrule
-    \multirow{2}{*}{(d)} & ReBAT & 85.25 & 54.78 & 66.70 & RPAT \\
-     & RPAT++ & 86.76 & \textbf{54.97} & \textbf{67.30} & RPAT \\
-    \midrule
-    & \textbf{CFA (ours)} & \emph{running} & & & ours \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-\begin{table}[t]
-  \centering
-  \caption{CIFAR-100, WideResNet-34-10.}
-  \label{tab:w100}
-  \begin{tabular}{llrrrc}
-    \toprule
-    & Method & Clean & AA & NRR & Src \\
-    (a) & PGD-AT (SAT) & 53.64 & 21.01 & 30.20 & F\textsuperscript{2}AT \\
-    \midrule
-    (b) & ARD / RSLAD / AdaAD / IGDM & -- & -- & -- & \emph{to fill} \\
-    \midrule
-    \multirow{3}{*}{(c)} & LBGAT & 70.25 & 26.73 & 38.72 & ADR \\
-     & ARREST & \textbf{73.05} & 24.32 & 36.50 & ADR \\
-     & ADR (AT + ADR) & 62.21 & \textbf{31.60} & \textbf{41.90} & ADR \\
-    \midrule
-    \multirow{2}{*}{(d)} & F\textsuperscript{2}AT & 60.21 & 26.91 & 37.23 & F\textsuperscript{2}AT \\
-     & RPAT & -- & -- & -- & \emph{PreActRN-18 only} \\
-    \midrule
-    & \textbf{CFA (ours)} & \emph{running} & & & ours \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-\paragraph{Adversarial distillation is deliberately absent here.} ARD, RSLAD, AdaAD and IGDM report
-their results from a WideResNet-28-10 or WRN-70-16 teacher adversarially trained with generated
-data---a network more expensive than the student it teaches---so their robustness originates outside
-the student and is not comparable to a row produced without one. Placing those numbers in the same
-column as ours would compare methods that assume different inputs. \Cref{sec:natteacher} gives them
-their own table, with each objective run twice: once as published, and once with the teacher it would
-actually have in our setting.
 
-\paragraph{Backbone caveats.} ARREST's CIFAR-10 headline is WideResNet-34-10
-(\Cref{tab:w10}); the ResNet-18 row in \Cref{tab:c10} is its smaller-backbone entry. CURE
-reports no AutoAttack on CIFAR-100. RPAT's WideResNet results on CIFAR-100 are PreActResNet-18. Each
-cell states the backbone its source used.
-
-\paragraph{Reproductions.} We reproduce RPAT++ to within $0.31$ AutoAttack of its published numbers on
-both datasets and report our own measurement. CURE we could \emph{not} reproduce: seven runs of the
-official repository fall short on \emph{different} axes---the closest on standard accuracy reaches
-$86.11$ at AA $40.65$, the closest on robustness AA $45.63$ at clean $81.15$, while the published pair
-has both. Computing its RGP prominence mask on absolute values moves AA by $+15.9$, which localizes the
-discrepancy without closing it, so the CURE rows above are the paper's own numbers.
+\paragraph{Reproductions, and one failure.} RPAT++ we reproduce to within $0.31$ AutoAttack of its
+published numbers on both datasets and report our own measurement. CURE we could \emph{not}: seven runs
+of the official repository fall short on \emph{different} axes, and \Cref{app:cure} gives the detail.
+Its row is therefore left empty rather than filled from the paper. Published figures for every method
+here, including the ones we did not run, are collected in \Cref{tab:published}.
 
 \subsection{Published Distillation Objectives, Given a Natural Teacher}
 \label{sec:natteacher}
 
 \begin{table}[t]
-  \centering
+  \centering \small \setlength{\tabcolsep}{4pt}
   \caption{The four published distillation objectives, given the teacher they would have in our
   setting. The right block of each dataset is \textbf{measured in our framework}: ResNet-18, 100
   epochs, each method at its own published recipe, same data pipeline and same evaluation as every
@@ -210,7 +112,6 @@ discrepancy without closing it, so the CURE rows above are the paper's own numbe
   changing the teacher is visible, and it is not a comparison against our own numbers. Blank cells are
   runs that have not finished.}
   \label{tab:natteacher}
-  \setlength{\tabcolsep}{4.5pt}
   \begin{tabular}{lrrcrrcrrcrr}
     \toprule
     & \multicolumn{5}{c}{CIFAR-100} & & \multicolumn{5}{c}{CIFAR-10} \\
@@ -236,7 +137,7 @@ discrepancy without closing it, so the CURE rows above are the paper's own numbe
 \end{table}
 
 Two readings, and the first is why these numbers are here rather than in
-\Cref{tab:c10,tab:c100}. \textbf{Changing the teacher costs these objectives $4.5$ to $9$ points of
+\Cref{tab:main}. \textbf{Changing the teacher costs these objectives $4.5$ to $9$ points of
 AutoAttack while barely moving standard accuracy}---ARD $24.77 \to 20.24$ and $49.49 \to 43.75$,
 RSLAD $26.76 \to 21.30$ and $52.13 \to 42.91$, AdaAD $28.06 \to 23.19$ and $52.79 \to 46.22$. What
 those methods deliver is therefore mostly attributable to the teacher, which is why their published
@@ -254,24 +155,6 @@ weight to $\alpha = 1$, which puts the two terms on comparable scales and is the
 reading available, trains normally and still finishes far below AdaAD alone. \Cref{tab:linearity}
 gives the structural reason.
 
-\begin{table}[t]
-  \centering
-  \caption{Local linearity, which IGDM's construction requires of the teacher: remainder proportion of
-  the first-order Taylor expansion over an $\epsilon=8/255$ ball, computed as in IGDM's Sec.~3.1.}
-  \label{tab:linearity}
-  \begin{tabular}{lr}
-    \toprule
-    Network & Remainder proportion \\
-    \midrule
-    IGDM's robust teachers (LTD / BDM-AT / IKL-AT, published) & 0.012 / 0.012 / 0.016 \\
-    PGD-AT ResNet-18 (ours)          & 0.0111 \\
-    \textbf{Natural teacher (ours)}  & \textbf{0.4763} \\
-    Anchored student, $p=0$          & 0.0029 \\
-    Anchored student, shipped recipe & 0.0202 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
 Our adversarially trained network reproduces IGDM's reported value, so the measurement is calibrated;
 the natural teacher is forty times further from linear, and the finite difference IGDM matches is not
 a gradient there.
@@ -280,7 +163,7 @@ a gradient there.
 \label{sec:components}
 
 \begin{table}[t]
-  \centering
+  \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{CIFAR-100, ResNet-18, raw-$\ell_2$ anchor with $\epsilon_{\mathrm{train}}=8.8/255$ held
   fixed and no learning-rate freeze. Each row adds one component to the row above.}
   \label{tab:ladder}
@@ -309,94 +192,34 @@ length: $-0.25$ NRR at 50 epochs, $+1.21$ at 100. And 50 epochs with weight aver
 exceeds ADR's full stack ($38.46$ against $38.08$), at half the schedule and one fewer component, so
 the gain is not the stack.
 
-\begin{table}[t]
-  \centering
-  \caption{What to do with the classifier. CIFAR-100 base regime (50 epochs, raw features, no weight
-  averaging, no AWP, $\epsilon=8/255$), so that no stack component can absorb the difference.}
-  \label{tab:ablation}
-  \begin{tabular}{lrrrrr}
-    \toprule
-    & Clean & PGD-20 & CW & AA & NRR \\
-    \midrule
-    Logit target only, $\tau=1$               & 58.26 & 22.62 & 22.79 & 20.84 & 30.70 \\
-    Logit target only, $\tau=4$               & 59.39 & 30.30 & 26.84 & 24.48 & 34.67 \\
-    Logit target only, $\tau=16$              & 57.78 & 31.57 & 26.11 & 24.00 & 33.91 \\
-    Feature anchor + head KD, $\tau=1$        & 62.34 & 26.34 & 26.11 & 23.93 & 34.58 \\
-    Feature anchor + head KD, $\tau=16$       & 62.61 & 32.47 & 27.32 & 25.61 & 36.35 \\
-    \textbf{Feature anchor, head untouched}   & \textbf{62.72} & 28.69 & \textbf{27.80} & \textbf{25.88} & \textbf{36.64} \\
-    \quad head refit, adversarial CE          & 62.77 & 29.93 & 27.66 & 25.65 & 36.42 \\
-    \quad head refit, adv.\ CE + smoothing 0.1& 62.57 & 30.43 & 27.55 & 25.66 & 36.39 \\
-    \quad head refit, clean CE                & 62.70 & 28.90 & 27.23 & 25.15 & 35.90 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
 Leaving the teacher's classifier alone beats every alternative, including the best temperature. At the
 full recipe the same holds---freezing the head scores $62.65/28.77/$NRR $39.43$ against
 $62.35/28.68/39.29$ with the head-KD term retained---and this is what removes $\tau$ and $\beta$ from
 the method.
 
-\subsection{Training Radius}
+\subsection{Training Radius, Teacher Length, and Larger Architectures}
 \label{sec:radius}
-
-\begin{table}[t]
-  \centering
-  \caption{$\epsilon_{\mathrm{train}}$ swept with everything else fixed. Evaluation is at
-  $\epsilon=8/255$ in every cell.}
-  \label{tab:radius}
-  \begin{tabular}{lrrrrr}
-    \toprule
-    & Clean & PGD-20 & CW & AA & NRR \\
-    \midrule
-    \multicolumn{6}{l}{\emph{CIFAR-100}} \\
-    $8/255$      & \textbf{63.89} & 31.41 & 29.83 & 27.78 & 38.72 \\
-    $8.8/255$\dg & 62.65 & 32.63 & \textbf{30.66} & \textbf{28.77} & \textbf{39.43} \\
-    $10/255$\dg  & 59.99 & \textbf{32.82} & 30.53 & \textbf{28.77} & 38.89 \\
-    \midrule
-    \multicolumn{6}{l}{\emph{CIFAR-10}} \\
-    $8/255$\dg   & \textbf{87.22} & 52.43 & 53.55 & 51.15 & 64.48 \\
-    $8.8/255$\dg & 85.58 & 52.94 & \textbf{53.88} & \textbf{51.79} & \textbf{64.53} \\
-    $10/255$\dg  & 83.29 & \textbf{53.25} & \textbf{53.88} & \textbf{51.79} & 63.87 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-Two things hold on both datasets. NRR peaks at $8.8/255$, but the curve is mild and the standard
-$8/255$ already exceeds the best published result on either dataset ($38.72$ against ADR's $38.08$;
-$64.48$ against CURE's $63.19$), so the non-standard radius is a refinement rather than the source of
-the result. And past $8.8/255$ the radius buys nothing: AutoAttack and CW are identical to the last
-decimal at $10/255$ while standard accuracy falls $2.66$ and $2.29$, matching the
-$\epsilon$-independence \Cref{app:robustness} predicts above the threshold.
-
-\subsection{What the Teacher Transfers}
 \label{sec:geometry}
-
-\begin{table}[t]
-  \centering
-  \caption{Only the teacher checkpoint changes; the student configuration is untouched. CIFAR-100,
-  ResNet-18. $S_w/S_b$ is the ratio of within-class to between-class scatter on the unit sphere.}
-  \label{tab:teacherladder}
-  \begin{tabular}{lrrrrr}
-    \toprule
-    Teacher & Teacher clean & Teacher $S_w/S_b$ & Student clean & Student AA & NRR \\
-    \midrule
-    50 epochs  & 75.81 & 1.100 & \textbf{64.28} & 24.38 & 35.35 \\
-    100 epochs & 76.62 & 0.982 & 63.65 & 25.20 & 36.11 \\
-    150 epochs & 77.52 & 0.887 & 62.93 & 25.78 & 36.51 \\
-    200 epochs & 77.65 & 0.808 & 62.72 & \textbf{25.88} & \textbf{36.64} \\
-    300 epochs & 78.32 & 0.712 & 62.24 & 25.80 & 36.48 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-Here $r(\text{teacher clean},\ \text{student clean}) = -0.999$: the teacher gains $2.51$ points across
-the ladder and the student \emph{loses} $2.04$. NRR peaks in the middle, so the teacher's training
-length is a control on the operating point, and locating it costs five natural-training runs and no
-adversarial ones. The effect reproduces on Tiny-ImageNet, where it is accuracy-controlled: two
-teachers $0.32$ apart move the student by $1.92$ clean and $1.58$ AA.
-
-\subsection{Larger Architecture}
 \label{sec:wrn}
 
-WideResNet-34-10 at the same recipe on both CIFAR datasets. \emph{(Running; the comparison line is
-ADR's WRN-34-10 row, $62.21$ clean / $31.63$ AA on CIFAR-100.)}
+\paragraph{The training radius is a plateau, not a tuned point.} Sweeping
+$\epsilon_{\mathrm{train}} \in \{8, 8.8, 10\}/255$ with everything else fixed and evaluating at
+$8/255$ throughout (\Cref{tab:radius}), NRR peaks at $8.8/255$ on both datasets but the curve is mild,
+and the standard $8/255$ already exceeds the best published result on either ($38.72$ against ADR's
+$38.08$; $64.48$ against CURE's $63.19$). Past $8.8/255$ the radius buys nothing: AutoAttack and CW at
+$10/255$ are identical to the last decimal to those at $8.8/255$ on both datasets, while standard
+accuracy falls $2.66$ and $2.29$---the $\epsilon$-independence \Cref{app:robustness} predicts above the
+threshold.
+
+\paragraph{What the teacher transfers is geometry, not accuracy.} Changing only the teacher checkpoint
+and leaving the student configuration untouched (\Cref{tab:teacherladder}), teacher accuracy and
+student accuracy are anti-correlated at $r = -0.999$ across five teachers trained for 50 to 300
+epochs: the teacher gains $2.51$ points and the student \emph{loses} $2.04$. NRR peaks in the middle,
+so the teacher's training length is a control on the operating point, and locating it costs five
+natural-training runs and no adversarial ones. The effect reproduces on Tiny-ImageNet where teacher
+accuracy is controlled to $0.32$ points, so accuracy cannot be the cause; what varies monotonically is
+the teacher's class separation.
+
+\paragraph{Larger architectures.} WideResNet-34-10 at the same recipe on both CIFAR datasets is
+reported in \Cref{tab:w10,tab:w100}, alongside the published WideResNet rows.
+

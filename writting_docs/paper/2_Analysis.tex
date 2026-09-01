@@ -27,24 +27,6 @@ consumes one. \Cref{tab:natteacher} gives the published objectives with our natu
 place of the robust teacher they assume, each at its own published recipe, against plain adversarial
 training initialized from the same teacher.
 
-\begin{table}[t]
-  \centering
-  \caption{Published adversarial-distillation objectives given a \emph{naturally} trained teacher.
-  CIFAR-100, ResNet-18, 100 epochs, each method at its published recipe. Every one lands below simply
-  not distilling.}
-  \label{tab:natteacher}
-  \begin{tabular}{lrrr}
-    \toprule
-    & clean & AA & NRR \\
-    \midrule
-    ARD \citep{ard}   & 57.61 & 20.24 & 29.96 \\
-    RSLAD \citep{rslad}          & 59.68 & 21.30 & 31.40 \\
-    AdaAD \citep{adaad}         & 59.79 & 23.19 & 33.42 \\
-    PGD-AT, initialized at the teacher      & 57.73 & \textbf{26.46} & \textbf{36.29} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
 None of it is a temperature that was left untuned: swept in a fixed base regime, the logit target
 peaks at $24.48$ AutoAttack ($\tau=4$) and the curve is unimodal because $\tau$ is squeezed from both
 sides---at $\tau=1$ the teacher's maximum probability is $0.820$ against the student's $0.016$, and at
