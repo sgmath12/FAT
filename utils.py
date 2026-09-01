@@ -483,30 +483,43 @@ def get_model(config):
         mean = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
         std = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
 
-        from CIFAR10.models.resnet import ResNet18
-        from CIFAR10.models.resnet_z import ResNet18_z
-        model = ResNet18(num_classes=100)
-        if bool(getattr(config, "block_norm", False)):
-            from CIFAR10.models.resnet_zbn import ResNet18_zbn
-            model_reform = ResNet18_zbn(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0), block_norm=True)
-        elif bool(getattr(config, "p_adapt", False)):
-            from CIFAR10.models.resnet_zp import ResNet18_zp
-            model_reform = ResNet18_zp(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
-        elif bool(getattr(config, "p_global", False)):
-            from CIFAR10.models.resnet_zp import ResNet18_zpg
-            model_reform = ResNet18_zpg(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
-        elif bool(getattr(config, "cos_head", False)):
-            # fully directional student: feature AND classifier weights normalized, logits = s*cos.
-            # See resnet_zcos.py for the fair-start/learnable-s rationale.
-            from CIFAR10.models.resnet_zcos import ResNet18_zcos
-            model_reform = ResNet18_zcos(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
-        elif bool(getattr(config, "gain_head", False)):
-            # gain-only student head: w_s,c = exp(log_g_c) * w_t,c, direction frozen at the
-            # teacher head (finetune load), 100 learnable gains. See resnet_zgain.py.
-            from CIFAR10.models.resnet_zgain import ResNet18_zgain
-            model_reform = ResNet18_zgain(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+        # WideResNet-34-10 on CIFAR-100 (2026-09-01).  Until today this branch DID NOT EXIST: the
+        # CIFAR-10 side had it but the CIFAR-100 side fell straight through to ResNet18, so
+        # `arch: WideResNet` on CIFAR-100 silently built an 11.2M-parameter ResNet-18 instead of the
+        # 46.2M WideResNet and reported it under the WRN name.  Any CIFAR-100 WRN result produced
+        # before this date is a ResNet-18 result.  Same construction as the CIFAR-10 branch, so a
+        # clean WideResNet checkpoint loads into either variant with strict=True.
+        if str(getattr(config, "arch", "ResNet18")) == "WideResNet":
+            from CIFAR10.models.WideResNet import WideResNet
+            from CIFAR10.models.WideResNet_z import WideResNet_z
+            model = WideResNet(depth=34, num_classes=100, widen_factor=10)
+            model_reform = WideResNet_z(depth=34, num_classes=100, widen_factor=10,
+                                        scale=(getattr(config, "feat_scale", 1.0) or 1.0))
         else:
-            model_reform = ResNet18_z(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+            from CIFAR10.models.resnet import ResNet18
+            from CIFAR10.models.resnet_z import ResNet18_z
+            model = ResNet18(num_classes=100)
+            if bool(getattr(config, "block_norm", False)):
+                from CIFAR10.models.resnet_zbn import ResNet18_zbn
+                model_reform = ResNet18_zbn(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0), block_norm=True)
+            elif bool(getattr(config, "p_adapt", False)):
+                from CIFAR10.models.resnet_zp import ResNet18_zp
+                model_reform = ResNet18_zp(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+            elif bool(getattr(config, "p_global", False)):
+                from CIFAR10.models.resnet_zp import ResNet18_zpg
+                model_reform = ResNet18_zpg(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+            elif bool(getattr(config, "cos_head", False)):
+                # fully directional student: feature AND classifier weights normalized, logits = s*cos.
+                # See resnet_zcos.py for the fair-start/learnable-s rationale.
+                from CIFAR10.models.resnet_zcos import ResNet18_zcos
+                model_reform = ResNet18_zcos(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+            elif bool(getattr(config, "gain_head", False)):
+                # gain-only student head: w_s,c = exp(log_g_c) * w_t,c, direction frozen at the
+                # teacher head (finetune load), 100 learnable gains. See resnet_zgain.py.
+                from CIFAR10.models.resnet_zgain import ResNet18_zgain
+                model_reform = ResNet18_zgain(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
+            else:
+                model_reform = ResNet18_z(num_classes=100, scale=(getattr(config, "feat_scale", 1.0) or 1.0))
 
         # student & teacher feature-normalization are INDEPENDENT toggles.
         # Fall back to config.reformation when the explicit flags are absent (old configs unchanged).

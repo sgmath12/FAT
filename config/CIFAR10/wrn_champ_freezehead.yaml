@@ -1,0 +1,73 @@
+# WIDE-RESNET-34-10 AT THE CURRENT CHAMPION RECIPE (2026-09-01), for the other server.
+#
+# This is the ResNet-18 champion `l2_bestrecipe_freezehead` transplanted to WideResNet-34-10, i.e.
+# exactly the configuration the paper describes, with three differences from the older
+# `wrn_champ_angeps_*` cells that were built for the directional design:
+#
+#   student_norm : False        raw L2 anchor.  The design axis was judged a TIE at each design's own
+#                               schedule (NRR 39.17 directional vs 39.29 raw on CIFAR-100), and the
+#                               paper states the objective unnormalized, so the runs must match it.
+#   featdir_freeze_head : True  the classifier stays exactly as the teacher's and is never trained.
+#                               Verified better on ResNet-18/CIFAR-100 this week: 62.65 / 28.77 /
+#                               NRR 39.43 with the head frozen against 62.35 / 28.68 / 39.29 with the
+#                               detached head-KD term.  It also removes tau and beta from the method.
+#   freeze_lr_epoch  REMOVED    a net loss for the raw target (it cost the L2 design 0.46 NRR while
+#                               paying the directional design +0.30).
+#
+# NO feat_scale.  That knob exists because a DIRECTIONAL student hands the frozen head a unit-norm
+# vector against a bias calibrated for the teacher's norm; a raw student is already on the teacher's
+# scale, so `head_hat = bool(student_norm)` is false and `scale` stays 1.0.  Do not add it.
+#
+# aa_batch_size is kept at 256: AutoAttack on WRN was measured 12x slower than expected on the WSL2
+# box, and the cause was kernel-launch bound rather than VRAM (memory utilisation 2%, low power), so
+# a larger batch is what helps.  Raise it if the other server has headroom.
+#
+# CIFAR-10.  ResNet-18 reference at this recipe: 85.58 / 51.79 / NRR 64.53.
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: WideResNet
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+# AA only: bs chunks the work, it does not change the result. WRN eval on WSL2 is kernel-launch
+# bound (2026-08-05: GPU util 100% but memory util 2%, 77W/360W), so 256 halves launches per
+# sample. Kept at 256 rather than 512 to leave APGD activation headroom -- an OOM here would
+# throw away a 14 h training run's AA.
+aa_batch_size : 256
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR10/checkpoint/clean_wrn_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_wrn_200ep/clean_last.pkl
+data_root : ./data
+featdir_angeps_p : 1.0
