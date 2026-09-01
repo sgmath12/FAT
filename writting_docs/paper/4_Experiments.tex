@@ -57,49 +57,57 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 
 \begin{table}[t]
   \centering
-  \caption{CIFAR-10, ResNet-18, $\ell_\infty$, $\epsilon=8/255$.}
+  \caption{CIFAR-10, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Teacher} states what each method assumes is available: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network, \emph{robust} an adversarially trained one. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD calls W-Robust; NRR is the harmonic mean. $^\ast$Generalist++ co-trains a natural and a robust learner rather than distilling from either. Per-attack metrics for our cells are in \Cref{tab:fullmetrics}.}
   \label{tab:c10}
-  \begin{tabular}{llrrrrrc}
+  \begin{tabular}{llrrrrc}
     \toprule
-    & Method & Clean & PGD-20 & CW & AA & NRR & Src \\
-    \multirow{4}{*}{(a)} & PGD-AT & 82.78 & 51.30 & 49.72 & 44.63 & 57.99 & CURE \\
-     & TRADES & 82.41 & 52.76 & 50.43 & 48.37 & 60.96 & CURE \\
-     & MART & 80.70 & 54.02 & 49.35 & 47.49 & 59.79 & CURE \\
-     & Consistency-AT & 83.42 & 51.96 & -- & 47.72 & 60.71 & RPAT \\
+    Method & Teacher & Clean & AA & Avg & NRR & Src \\
     \midrule
-    \multirow{4}{*}{(c)} & LBGAT & -- & -- & -- & -- & -- & \emph{n/a} \\
-     & ARREST & 86.63 & -- & -- & 46.14 & 60.21 & ARREST \\
-     & CURE & 86.76 & 54.92 & 52.48 & 49.69 & 63.19 & CURE \\
-     & ADR (AT + ADR) & 82.41 & -- & -- & 50.38 & 62.53 & ADR \\
+    PGD-AT                          & --             & 82.78 & 44.63 & 63.70 & 57.99 & CURE \\
+    TRADES                          & --             & 82.41 & 48.37 & 65.39 & 60.96 & CURE \\
+    MART                            & --             & 80.70 & 47.49 & 64.09 & 59.79 & CURE \\
+    ST-AT                           & --             & 83.10 & 50.50 & 66.80 & 62.82 & CURE \\
+    IAD                             & robust         & 80.63 & 50.17 & 65.40 & 61.85 & CURE \\
+    Consistency-AT                  & --             & 83.42 & 47.72 & 65.57 & 60.71 & RPAT \\
     \midrule
-    \multirow{2}{*}{(d)} & Consistency-AT + RPAT & 84.12 & 52.33 & -- & 48.98 & 61.91 & RPAT \\
-     & RPAT++ \emph{(ours, reprod.)} & 82.41 & 55.72 & 52.88 & 50.75 & 62.82 & ours \\
+    Consistency-AT + RPAT           & --             & 84.12 & 48.98 & 66.55 & 61.91 & RPAT \\
+    RPAT++ \emph{(ours, reprod.)}   & --             & 82.41 & 50.75 & 66.58 & 62.82 & ours \\
+    Generalist++                    & natural$^\ast$ & \textbf{89.09} & 46.07 & 67.58 & 60.73 & Gen++ \\
     \midrule
-    & \textbf{CFA (ours)}\dg & 85.58 & 52.94 & 53.88 & 51.79 & \textbf{64.53} & ours \\
+    LBGAT                           & natural        & -- & -- & -- & -- & \emph{n/a} \\
+    ARREST                          & natural        & 86.63 & 46.14 & 66.38 & 60.21 & ARREST \\
+    CURE                            & self           & 86.76 & 49.69 & 68.22 & 63.19 & CURE \\
+    ADR (AT + ADR)                  & self           & 82.41 & 50.38 & 66.39 & 62.53 & ADR \\
+    \midrule
+    \textbf{CFA (ours)}\dg          & natural        & 85.58 & \textbf{51.79} & \textbf{68.69} & \textbf{64.53} & ours \\
     \bottomrule
   \end{tabular}
 \end{table}
 \begin{table}[t]
   \centering
-  \caption{CIFAR-100, ResNet-18.}
+  \caption{CIFAR-100, ResNet-18, $\ell_\infty$, $\epsilon=8/255$. \textbf{Teacher} states what each method assumes is available: \emph{--} none, \emph{self} its own weight average, \emph{natural} a naturally trained network, \emph{robust} an adversarially trained one. $\mathrm{Avg}=\tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD calls W-Robust; NRR is the harmonic mean. $^\ast$Generalist++ co-trains a natural and a robust learner rather than distilling from either. Per-attack metrics for our cells are in \Cref{tab:fullmetrics}.}
   \label{tab:c100}
-  \begin{tabular}{llrrrrrc}
+  \begin{tabular}{llrrrrc}
     \toprule
-    & Method & Clean & PGD-20 & CW & AA & NRR & Src \\
-    \multirow{4}{*}{(a)} & PGD-AT & 56.56 & 28.80 & -- & 25.02 & 34.69 & RPAT \\
-     & TRADES & 55.39 & 29.36 & -- & 24.51 & 33.98 & RPAT \\
-     & MART & 49.83 & 30.38 & -- & 25.00 & 33.30 & RPAT \\
-     & Consistency-AT & 58.53 & 29.28 & -- & 25.39 & 35.42 & RPAT \\
+    Method & Teacher & Clean & AA & Avg & NRR & Src \\
     \midrule
-    \multirow{4}{*}{(c)} & LBGAT & -- & -- & -- & -- & -- & \emph{n/a} \\
-     & ARREST & -- & -- & -- & -- & -- & \emph{WRN only} \\
-     & ADR (AT + ADR) & 56.10 & -- & -- & 26.87 & 36.34 & ADR \\
-     & ADR (AT + WA + AWP + ADR) & 57.36 & -- & -- & 28.50 & 38.08 & ADR \\
+    PGD-AT                          & --             & 56.56 & 25.02 & 40.79 & 34.69 & RPAT \\
+    TRADES                          & --             & 55.39 & 24.51 & 39.95 & 33.98 & RPAT \\
+    MART                            & --             & 49.83 & 25.00 & 37.41 & 33.30 & RPAT \\
+    Consistency-AT                  & --             & 58.53 & 25.39 & 41.96 & 35.42 & RPAT \\
     \midrule
-    \multirow{2}{*}{(d)} & Consistency-AT + RPAT & 60.33 & 29.97 & -- & 26.31 & 36.64 & RPAT \\
-     & RPAT++ \emph{(ours, reprod.)} & 55.93 & 32.44 & 29.37 & 27.36 & 36.74 & ours \\
+    Consistency-AT + RPAT           & --             & 60.33 & 26.31 & 43.32 & 36.64 & RPAT \\
+    RPAT++ \emph{(ours, reprod.)}   & --             & 55.93 & 27.36 & 41.64 & 36.74 & ours \\
+    F\textsuperscript{2}AT          & --             & 54.19 & 23.24 & 38.71 & 32.53 & F2AT \\
+    Generalist++                    & natural$^\ast$ & \textbf{62.97} & 23.96 & 43.47 & 34.71 & Gen++ \\
     \midrule
-    & \textbf{CFA (ours)}\dg & 62.65 & 32.63 & 30.66 & 28.77 & \textbf{39.43} & ours \\
+    LBGAT                           & natural        & -- & -- & -- & -- & \emph{n/a} \\
+    ARREST                          & natural        & -- & -- & -- & -- & \emph{WRN only} \\
+    CURE                            & self           & -- & -- & -- & -- & \emph{no AA} \\
+    ADR (AT + ADR)                  & self           & 56.10 & 26.87 & 41.48 & 36.34 & ADR \\
+    ADR (AT + WA + AWP + ADR)       & self           & 57.36 & 28.50 & 42.93 & 38.08 & ADR \\
+    \midrule
+    \textbf{CFA (ours)}\dg          & natural        & 62.65 & \textbf{28.77} & \textbf{45.71} & \textbf{39.43} & ours \\
     \bottomrule
   \end{tabular}
 \end{table}

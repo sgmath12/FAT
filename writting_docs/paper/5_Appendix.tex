@@ -42,3 +42,61 @@ constant, Cauchy--Schwarz gives that $\gamma_t(x) > D_y \cdot L(x)$ implies the 
 correct at $x$. The certificate is vacuous at the scales we train at, but the ratio $D L/\gamma_t$
 tracks both axes across the teacher ladder of \Cref{tab:teacherladder}. What it does not do is predict
 the size of the effect, and it saturates before AutoAttack does.
+
+
+\section{Per-Attack Metrics}
+\label{app:fullmetrics}
+
+\Cref{tab:fullmetrics} gives every attack we measure for our own cells. The main tables report clean
+accuracy and AutoAttack because those are the two axes the trade-off is defined on, and because
+PGD-20 is not a faithful reading of this method.
+
+\begin{table}[h]
+  \centering
+  \caption{Per-attack accuracy (\%) for our cells. ResNet-18, $\epsilon = 8/255$, final-epoch
+  weight-averaged model, full test set.}
+  \label{tab:fullmetrics}
+  \begin{tabular}{llrrrrrr}
+    \toprule
+    Dataset & Cell & Clean & FGSM & PGD-20 & CW & AA & NRR \\
+    \midrule
+    CIFAR-100 & CFA, head frozen (shipped)   & 62.65 & 37.08 & 32.63 & 30.66 & 28.77 & 39.43 \\
+              & CFA, head-KD term retained   & 62.35 & 38.80 & 36.26 & 30.65 & 28.68 & 39.29 \\
+              & CFA, $\epsilon_{\mathrm{tr}} = 8/255$ & 63.89 & 36.67 & 31.41 & 29.83 & 27.78 & 38.72 \\
+              & CFA, $\epsilon_{\mathrm{tr}} = 10/255$& 59.99 & 36.50 & 32.82 & 30.53 & 28.77 & 38.89 \\
+              & CFA, no WA / AWP             & 61.21 & 35.54 & 31.26 & 26.82 & 25.24 & 35.74 \\
+              & RPAT++ (our reproduction)    & 55.93 & 34.46 & 32.44 & 29.37 & 27.36 & 36.74 \\
+    \midrule
+    CIFAR-10  & CFA, $\epsilon_{\mathrm{tr}} = 8.8/255$ (shipped) & 85.58 & 59.77 & 52.94 & 53.88 & 51.79 & 64.53 \\
+              & CFA, $\epsilon_{\mathrm{tr}} = 8/255$  & 87.22 & 59.92 & 52.43 & 53.55 & 51.15 & 64.48 \\
+              & CFA, $\epsilon_{\mathrm{tr}} = 10/255$ & 83.29 & 58.98 & 53.25 & 53.88 & 51.79 & 63.87 \\
+              & RPAT++ (our reproduction)    & 82.41 & 59.73 & 55.72 & 52.88 & 50.75 & 62.82 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Why PGD-20 is not the metric here.} The student inherits the teacher's classifier and never
+retrains it. PGD-20 ascends the cross-entropy \emph{through that classifier}, so it reads a head that
+was fitted for a different feature distribution; AutoAttack, which includes a targeted APGD, and
+CW$_\infty$, which attacks the logit margin directly, do not depend on that fit in the same way. The
+consequence is measurable on a controlled pair. The first two rows of \Cref{tab:fullmetrics} share a
+backbone objective, a schedule and an attack, and differ only in whether the classifier is refit:
+
+\begin{center}
+\begin{tabular}{lrrr}
+  \toprule
+  & PGD-20 & CW & AA \\
+  \midrule
+  head-KD term retained & 36.26 & 30.65 & 28.68 \\
+  head frozen           & 32.63 & 30.66 & 28.77 \\
+  \midrule
+  difference            & $-3.63$ & $+0.01$ & $+0.09$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+Changing the classifier moves PGD-20 by $3.63$ points and moves CW and AutoAttack by hundredths. The
+same pattern recurs across our ablations---the head-temperature sweep, the label-smoothing sweep, the
+directional-versus-raw comparison, and the radius sweep all show PGD-20 moving against CW and
+AutoAttack. We therefore report PGD-20 for completeness and read the trade-off on clean accuracy and
+AutoAttack, which is also what ADR and ARREST report in their main tables.
