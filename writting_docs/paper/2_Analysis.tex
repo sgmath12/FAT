@@ -74,36 +74,96 @@ the features, which the isolation above shows to be the better read.
 \label{sec:decomp}
 
 Consider matching the teacher's feature at the \emph{clean} input against the student's feature at the
-\emph{adversarial} input. Fix $x$, write $B=B(x,\epsilon)$, and let
+\emph{adversarial} input, that is, minimizing
 \begin{equation}
-L=\max_{x'\in B}\lVert\Phi_s(x')-\Phi_t(x)\rVert,\quad
-F=\lVert\Phi_s(x)-\Phi_t(x)\rVert,\quad
-O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert,
-\label{eqn:lfo}
+\mathcal{L}(x) \;=\; \max_{x' \in B(x,\epsilon)} \big\lVert \Phi_s(x') - \Phi_t(x) \big\rVert^2 .
+\label{eqn:anchor_percell}
 \end{equation}
-so $L$ is that quantity, $F$ is fidelity to the teacher at the clean point, and $O$ is the oscillation
-of the student's own map over the ball.
+Read literally, \Cref{eqn:anchor_percell} asks the student to reproduce a \emph{fixed} vector from
+every point of the ball. That is a fidelity constraint, and a fidelity constraint alone would have no
+reason to produce robustness. It turns out not to be one, and the reason is visible once the quantity
+is compared with the two properties one would otherwise have to impose separately.
+
+Fix $x$, write $B = B(x,\epsilon)$, and define
+\begin{align}
+L &= \max_{x' \in B} \lVert \Phi_s(x') - \Phi_t(x) \rVert , \label{eqn:L}\\
+F &= \lVert \Phi_s(x) - \Phi_t(x) \rVert , \label{eqn:F}\\
+O &= \max_{x', x'' \in B} \lVert \Phi_s(x') - \Phi_s(x'') \rVert . \label{eqn:O}
+\end{align}
+Here $L$ is the square root of \Cref{eqn:anchor_percell}, the quantity the method minimizes; $F$ is
+\emph{fidelity}, how far the student is from the teacher at the clean point; and $O$ is
+\emph{oscillation}, the diameter of the student's own feature map over the ball. $F$ is what
+adversarial training gives up relative to natural training, and $O$ is what its label term buys. They
+are ordinarily two objectives.
 
 \begin{proposition}
 \label{prop:decomp}
-$L\le F+O\le 3L$.
+For every $x$ and every $\epsilon \ge 0$,
+\begin{equation}
+L \;\le\; F + O \;\le\; 3L .
+\label{eqn:decomp}
+\end{equation}
 \end{proposition}
 
 \begin{proof}
-$F\le L$ since $x\in B$; $O\le 2L$ by inserting $\Phi_t(x)$; and
-$\lVert\Phi_s(x')-\Phi_t(x)\rVert\le\lVert\Phi_s(x')-\Phi_s(x)\rVert+F\le O+F$, so $L\le F+O$.
+For the right-hand inequality, $F \le L$ because $x \in B$, so the maximum in \Cref{eqn:L} is at least
+the value at $x$. For $O$, insert $\Phi_t(x)$ between the two student features: for any
+$x', x'' \in B$,
+\begin{equation*}
+\lVert \Phi_s(x') - \Phi_s(x'') \rVert
+\;\le\; \lVert \Phi_s(x') - \Phi_t(x) \rVert + \lVert \Phi_t(x) - \Phi_s(x'') \rVert
+\;\le\; 2L ,
+\end{equation*}
+and taking the maximum over $x', x''$ gives $O \le 2L$. Adding the two bounds gives $F + O \le 3L$.
+For the left-hand inequality, insert $\Phi_s(x)$ instead: for any $x' \in B$,
+\begin{equation*}
+\lVert \Phi_s(x') - \Phi_t(x) \rVert
+\;\le\; \lVert \Phi_s(x') - \Phi_s(x) \rVert + \lVert \Phi_s(x) - \Phi_t(x) \rVert
+\;\le\; O + F ,
+\end{equation*}
+and taking the maximum over $x'$ gives $L \le F + O$.
 \end{proof}
 
-A single term therefore controls fidelity and local stability together, within a factor of three, with
-no coefficient trading them off---the first is what adversarial training gives up, the second what its
-label term buys. The proof uses only the triangle inequality, so it holds for the networks we train.
+Only the triangle inequality is used, so \Cref{prop:decomp} holds for the networks we actually train:
+no smoothness, no linearity, no assumption on the architecture or on the attack that realizes the
+maximum. Two consequences follow immediately.
 
-Two consequences decide the design. First, $\Phi_t$ is evaluated at $x$ alone, so the instability
-measured in \Cref{sec:fragile} never enters the objective---and, symmetrically, the teacher
-cannot supply robustness. Second, the decomposition holds only when the anchor \emph{is} the
-objective: added to a cross-entropy term it characterizes nothing.
+\begin{corollary}
+\label{cor:both}
+If the anchor is driven to $L \le \delta$ at $x$, then $F \le \delta$ and $O \le 2\delta$ at $x$.
+\end{corollary}
 
-Both are verifiable, and we verify them. On the trained student over $\epsilon=8/255$ balls,
-$L=7.58$, $F=6.30$ and $O_{\mathrm{lb}}=2.16$ against the teacher's own $O=6.68$: the student is
-$3.1\times$ more stable than the teacher it was distilled from, and what remains in the loss is
-fidelity rather than instability.
+That is the operative statement: driving one scalar down bounds \emph{both} properties, at rates that
+differ by a factor of two and by nothing else. Conversely, by the left inequality, $L$ cannot be small
+unless both are, so the objective admits no solution that satisfies one at the expense of the other.
+A weighted sum $F + \lambda O$ has no such property for any fixed $\lambda$: its level sets contain
+points where either term is arbitrarily large. This is why the anchor is stated as the whole objective
+rather than as a regularizer, and why there is no coefficient to select.
+
+\paragraph{Where the constant $3$ comes from, and how tight it is.} The factor is $1 + 2$: one from
+$F \le L$ and two from $O \le 2L$, and the second is attained when the student's outputs at the two
+extreme points of the ball sit on opposite sides of $\Phi_t(x)$ at distance $L$ each. Our trained
+students are far from that configuration, which is the content of the measurement below.
+
+\paragraph{The teacher appears at $x$ and nowhere else.} \Cref{eqn:anchor_percell} evaluates $\Phi_t$
+at the clean point only, in the loss and in the attack that realizes the maximum. Whatever the teacher
+does inside $B$ is therefore absent from the objective, and the instability measured in
+\Cref{sec:fragile}---$63.8^\circ$ of rotation, $\times 2.45$ of norm---has no path into the
+optimization. The same fact settles the symmetric question: since the teacher is never asked to resist
+a perturbation, it cannot supply robustness either, and all of it is produced by the student's inner
+maximization. \Cref{sec:components} tests this by moving the read point and changing nothing else.
+
+\paragraph{Verification.} \Cref{prop:decomp} predicts that a student trained on $L$ ends up with a
+small $O$, and the prediction is checkable on the trained network. Measured over $\epsilon = 8/255$
+balls on CIFAR-100, $L = 7.58$, $F = 6.30$ and $O_{\mathrm{lb}} = 2.16$, against the teacher's own
+$O = 6.68$: the student is $3.1\times$ more stable than the network it was distilled from, on the same
+balls. Two things follow. The teacher's instability was not inherited, which is what the construction
+predicts. And $F \gg O_{\mathrm{lb}}$, so what remains in the loss at convergence is fidelity rather
+than instability---the anchor is not being satisfied by making the student flat.
+
+\paragraph{What \Cref{prop:decomp} does not establish.} It bounds $F + O$, and $O$ is not a sufficient
+statistic for robust accuracy: across the teacher ladder of \Cref{sec:geometry} it correlates with
+AutoAttack at $r = +0.83$, the wrong sign. The proposition explains why anchoring to a non-robust
+teacher is \emph{free}; it is not a robustness bound and we do not present it as one.
+\Cref{app:robustness} gives two partial results on the complementary question, each with the reason it
+falls short.

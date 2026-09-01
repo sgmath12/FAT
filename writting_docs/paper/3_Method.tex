@@ -2,52 +2,141 @@
 \label{sec:method}
 
 \subsection{Clean Feature Anchoring}
+\label{sec:anchor}
 
 Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
-same data. The student is initialized at $\Phi_s=\Phi_t$ and trained with
+same data, and let $h_t$ be its classifier. The student's feature map is initialized at
+$\Phi_s \leftarrow \Phi_t$ and trained with
 \begin{equation}
-\mathcal{L}=\mathbb{E}_x\big\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\big\rVert^2,
+\mathcal{L} \;=\; \mathbb{E}_x \big\lVert \Phi_s(x_{\mathrm{adv}}) - \Phi_t(x) \big\rVert^2 ,
 \qquad
-x_{\mathrm{adv}}=\operatorname*{arg\,max}_{x'\in B(x,\epsilon)}\big\lVert\Phi_s(x')-\Phi_t(x)\big\rVert.
+x_{\mathrm{adv}} \;=\; \operatorname*{arg\,max}_{x' \in B(x,\epsilon)}
+  \big\lVert \Phi_s(x') - \Phi_t(x) \big\rVert ,
 \label{eqn:anchor}
 \end{equation}
-The head is never trained: at test time the student is $h_t\circ\Phi_s$. Writing the target on the
-feature is what makes this possible---a logit loss constrains $W\Phi$ and so determines $(\Phi,W)$
-only up to $(A\Phi,WA^{-1})$, while a feature target pins the representation itself, so the teacher's
-classifier remains calibrated for it. Two further properties are worth naming: \Cref{eqn:anchor} has
-no weight and no temperature, being the whole objective rather than a term added to another; and it is
-exactly zero at initialization, so every gradient the backbone receives is attributable to the attack.
+where the inner maximization is realized by $K$ steps of projected gradient ascent on the same
+quantity the outer problem minimizes,
+\begin{equation}
+x^{(k+1)} \;=\; \Pi_{B(x,\epsilon)}\!\left(
+  x^{(k)} + a \cdot \mathrm{sign}\, \nabla_{x}
+  \big\lVert \Phi_s(x^{(k)}) - \Phi_t(x) \big\rVert^2 \right),
+\qquad x^{(0)} = x + \eta ,
+\label{eqn:pgd}
+\end{equation}
+with $\eta$ a small random initialization and $\Pi$ the projection onto the ball. Inner and outer
+problems therefore agree, as they do in standard adversarial training and unlike methods whose attack
+is generated against a different objective from the one being trained.
+
+\Cref{eqn:anchor} is the \emph{entire} objective for the backbone. No label term, no logit term, and
+no coefficient joining them. Three properties follow from that form, and each is a statement about the
+construction rather than an empirical observation.
+
+\paragraph{(i) The teacher never enters the perturbation ball.} In both \Cref{eqn:anchor} and
+\Cref{eqn:pgd} the teacher is evaluated at $x$ alone. Formally, the objective is a functional of
+$\Phi_t$ only through the single vector $\Phi_t(x)$, so two teachers agreeing at $x$ and differing
+arbitrarily on $B(x,\epsilon) \setminus \{x\}$ induce the same optimization problem. The teacher's
+$63.8^\circ$ of rotation under attack is exactly such a difference, and it is therefore invisible to
+training. The converse holds by the same argument: a quantity the objective cannot see cannot be a
+source of robustness either.
+
+\paragraph{(ii) The objective is exactly zero at initialization.} Since $\Phi_s \leftarrow \Phi_t$,
+\begin{equation}
+\mathcal{L}\big|_{\Phi_s = \Phi_t} \;=\; \mathbb{E}_x \big\lVert \Phi_t(x_{\mathrm{adv}}) - \Phi_t(x)
+\big\rVert^2 \;\ne\; 0 \quad\text{in general},
+\qquad\text{but}\qquad
+\big\lVert \Phi_s(x) - \Phi_t(x) \big\rVert = 0 ,
+\label{eqn:zeroinit}
+\end{equation}
+so the loss is nonzero only because of the perturbation: every gradient the backbone receives at the
+start of training is attributable to the attack, which is the quantity to be trained. A logit target
+has this property only at temperature $1$, where it carries no dark knowledge. It also has a practical
+consequence used in \Cref{sec:angeps}: at the first step the per-sample sensitivities are identical,
+so the radius allocation begins uniform and differentiates only as the student moves.
+
+\paragraph{(iii) The classifier is inherited, and this is what a feature target buys.} At test time
+the student is $h_t \circ \Phi_s$: the head is never trained. This is available because the target is
+written on the feature. A loss written on logits constrains only the composition $W\Phi$, so it
+determines the pair $(\Phi, W)$ up to the gauge
+\begin{equation}
+(\Phi, W) \;\longmapsto\; (A\Phi,\; W A^{-1}), \qquad A \in \mathrm{GL}(d),
+\label{eqn:gauge}
+\end{equation}
+and the same logits are reachable from a continuum of representations, none of which the teacher's
+classifier is calibrated for. Fixing the target at the feature removes that freedom and pins $\Phi_s$
+to $\Phi_t$ itself, so $h_t$ remains the right classifier for it. \Cref{tab:ablation} shows this is not
+merely permissible but preferred: every alternative we tried, including the best head temperature,
+scores below leaving the classifier alone. It is also what removes the last two hyperparameters, since
+a head distillation term would reintroduce a temperature and a weight.
 
 \subsection{Sensitivity-Matched $\epsilon$}
 \label{sec:angeps}
 
-A fixed pixel radius is not a fixed amount of pressure on the objective. Within an $\ell_\infty$ ball
-of radius $e$,
+\paragraph{The problem a uniform radius creates.} \Cref{eqn:anchor} is optimized over a \emph{pixel}
+ball while what it measures is a \emph{feature} displacement, and the two are not proportional. The
+same $\epsilon$ moves the objective by an amount that varies across the dataset, and by a lot: logged
+over training, the coefficient of variation of $\lVert \nabla_x \mathcal{L} \rVert$ across a minibatch
+is $0.64$. A fixed radius therefore delivers a strongly non-uniform amount of pressure---some examples
+are attacked hard in the geometry the loss lives in, others barely at all---even though every example
+is allotted the same pixel budget. Nothing in \Cref{eqn:anchor} asks for that.
+
+\paragraph{Equalizing the movement.} Inside an $\ell_\infty$ ball of radius $e$ the first-order change
+of any differentiable loss is
 \begin{equation}
-\max_{\lVert\delta\rVert_\infty\le e}\langle\nabla_x\mathcal{L},\delta\rangle
-=e\,\lVert\nabla_x\mathcal{L}\rVert_1,
+\max_{\lVert \delta \rVert_\infty \le e} \langle \nabla_x \mathcal{L}, \delta \rangle
+\;=\; e \, \lVert \nabla_x \mathcal{L} \rVert_1 ,
 \label{eqn:firstorder}
 \end{equation}
-so with $g_i=\lVert\nabla_x\mathcal{L}(x_i)\rVert$ the same radius moves the objective by amounts that
-differ as $g_i$ does. Equalizing that movement at fixed total budget $\sum_i\epsilon_i=N\epsilon$
-gives
+since $\ell_1$ is the dual norm of $\ell_\infty$. Writing $g_i = \lVert \nabla_x \mathcal{L}(x_i)
+\rVert$, the movement induced at example $i$ by a radius $\epsilon_i$ is $\epsilon_i g_i$ to first
+order, so equalizing it across a minibatch of $N$ examples means imposing
 \begin{equation}
-\epsilon_i\propto g_i^{-p},\qquad
-\epsilon_i\leftarrow\mathrm{clip}\big(\epsilon_i,0.5\epsilon,1.5\epsilon\big),\qquad
-\epsilon_i\leftarrow\epsilon_i\cdot N\epsilon\Big/\sum\nolimits_j\epsilon_j,
+\epsilon_i \, g_i \;=\; c \quad \text{for all } i ,
+\qquad \text{subject to} \qquad
+\sum_{i=1}^{N} \epsilon_i \;=\; N \epsilon .
+\label{eqn:equalize}
+\end{equation}
+The constraint is what makes the rule comparable to a uniform one: it holds the \emph{total} attack
+budget fixed. Solving \Cref{eqn:equalize} gives $c = N\epsilon \big/ \sum_j g_j^{-1}$ and hence
+\begin{equation}
+\epsilon_i \;=\; N\epsilon \cdot \frac{g_i^{-1}}{\sum_j g_j^{-1}} ,
+\qquad\text{generalized to}\qquad
+\epsilon_i \;\propto\; g_i^{-p} ,
+\label{eqn:angeps_ideal}
+\end{equation}
+with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization above. Equivalently
+\Cref{eqn:angeps_ideal} is the max--min allocation: moving budget from the example whose objective
+moves most to the one whose objective moves least always improves the worst case, and the optimum is
+where no such move remains.
+
+\paragraph{Keeping the radii in range.} Left alone, \Cref{eqn:angeps_ideal} assigns unbounded radii to
+examples where $g_i \to 0$, which happens at the start of training by property (ii) above. We therefore
+constrain $\epsilon_i / \epsilon \in [w_{\mathrm{lo}}, w_{\mathrm{hi}}] = [0.5, 1.5]$ and solve the
+budget constraint inside the box: with $r_i = (\bar g / g_i)^p$, the exact solution is the scale $t$
+with
+\begin{equation}
+\sum_{i=1}^{N} \mathrm{clip}\big(t\, r_i,\; w_{\mathrm{lo}},\; w_{\mathrm{hi}}\big) \;=\; N ,
+\qquad
+\epsilon_i \;=\; \epsilon \cdot \mathrm{clip}\big(t\, r_i,\; w_{\mathrm{lo}}, w_{\mathrm{hi}}\big) .
 \label{eqn:angeps}
 \end{equation}
-with $p=1$---equivalently the max--min allocation, since budget moved to the sample whose objective
-moves least always improves the worst case. Budget preservation is what makes the comparison
-interpretable: $p{=}1$ and $p{=}0$ spend the same total attack budget, so any difference between them
-is allocation and not strength.
+The left side is continuous and nondecreasing in $t$ from $N w_{\mathrm{lo}}$ to $N w_{\mathrm{hi}}$,
+so the root exists and is found by bisection; when no clip is active it reduces to restoring the mean.
+We use $p = 1$ throughout and never tune it, and \Cref{tab:ablation} reports the surrounding values.
 
-Per-sample radii are not new; IAAT, MMA and CAT assign one from the difficulty of the sample or its
-margin in \emph{input} space. This rule assigns one from the input-sensitivity of the \emph{training
-loss}, the geometry the objective is written in. Holding the exact multiset of weights
-\Cref{eqn:angeps} produces and only reassigning which sample receives which, by difficulty, pays
-$0.74$ AutoAttack and falls below the uniform baseline on CW and NRR: the same weights in a different
-order move \emph{along} the frontier, and only this order moves the frontier itself.
+\paragraph{Why this is not the existing per-sample radius.} Assigning a different $\epsilon$ per
+example is not new: IAAT \citep{iaat}, MMA \citep{mma} and CAT \citep{cat} all do it. They assign it
+from the \emph{difficulty} of the example or from its margin in \textbf{input} space.
+\Cref{eqn:angeps} assigns it from the input-sensitivity of the \textbf{training loss}---the geometry
+the objective is actually written in---and the two are not the same signal. Measured on the same
+batches, the difficulty score has a coefficient of variation of $0.03$ where the sensitivity has
+$0.64$: allocating by difficulty is close to allocating uniformly.
+
+The distinction is testable without confounding it with the budget. Holding the exact multiset of
+weights \Cref{eqn:angeps} produces---same values, same clip, same mean, therefore the same total
+attack budget---and only reassigning which example receives which, ordered by difficulty as
+IAAT and CAT would, costs $0.74$ AutoAttack and lands below the uniform baseline on both CW and NRR
+(\Cref{tab:ablation}). The same weights in a different order move \emph{along} the frontier; only this
+order moves the frontier itself.
 
 \subsection{Algorithm}
 
@@ -55,34 +144,29 @@ order move \emph{along} the frontier, and only this order moves the frontier its
 \caption{Clean Feature Anchoring (CFA)}
 \label{alg:cfa}
 \begin{algorithmic}[1]
-\Require dataset $\mathcal{D}$, radius $\epsilon$, steps $K$, exponent $p=1$
-\State $\Phi_t \gets$ train $f_t$ naturally on $\mathcal{D}$
+\Require dataset $\mathcal{D}$, radius $\epsilon$, steps $K$, step size $a$, exponent $p = 1$
+\State $\Phi_t, h_t \gets$ train $f_t$ naturally on $\mathcal{D}$
   \Comment{same architecture, no adversarial cost}
 \State $\Phi_s \gets \Phi_t$, \ $h \gets h_t$ \Comment{student initialized at the teacher}
 \For{each epoch, each minibatch $\{x_i\}_{i=1}^{N}$}
-  \State $g_i \gets \big\lVert\nabla_x\lVert\Phi_s(x_i)-\Phi_t(x_i)\rVert^2\big\rVert$
-    \Comment{one backward pass at $x$}
-  \State $\epsilon_i \gets \mathrm{clip}\big(\epsilon(g_i/\bar g)^{-p},
-    0.5\epsilon, 1.5\epsilon\big)$;\ \
-    $\epsilon_i \gets \epsilon_i N\epsilon/\sum_j\epsilon_j$
-    \Comment{budget preserved}
-  \State $x_i^{\mathrm{adv}} \gets \mathrm{PGD}_K\big(\max_{x'\in B(x_i,\epsilon_i)}
-    \lVert\Phi_s(x')-\Phi_t(x_i)\rVert\big)$
-  \State update $\Phi_s$ on
-    $\frac{1}{N}\sum_i\lVert\Phi_s(x_i^{\mathrm{adv}})-\Phi_t(x_i)\rVert^2$
+  \State $g_i \gets \big\lVert \nabla_x \lVert \Phi_s(x_i) - \Phi_t(x_i) \rVert^2 \big\rVert$
+    \Comment{one backward pass at the clean input}
+  \State $\epsilon_i \gets \epsilon \cdot \mathrm{clip}(t\,(\bar g/g_i)^p, w_{\mathrm{lo}},
+    w_{\mathrm{hi}})$ with $t$ from \Cref{eqn:angeps}
+    \Comment{total budget preserved}
+  \State $x_i^{\mathrm{adv}} \gets K$ steps of \Cref{eqn:pgd} inside $B(x_i, \epsilon_i)$
+  \State update $\Phi_s$ on $\frac{1}{N}\sum_i \lVert \Phi_s(x_i^{\mathrm{adv}}) - \Phi_t(x_i)
+    \rVert^2$
     \Comment{$h$ is never updated}
 \EndFor
 \end{algorithmic}
 \end{algorithm}
 
-Line~1 of \Cref{alg:cfa} is the only place labels appear, and it is ordinary supervised
-training; the remainder uses none.
+Line~1 of \Cref{alg:cfa} is the only place labels appear, and it is ordinary supervised training;
+lines 3--8 use none. The method introduces no loss weight, no temperature and no auxiliary head, and
+the only quantity we vary between datasets is the teacher checkpoint.
 
-\paragraph{Caveats.} \Cref{prop:decomp} bounds $F+O$, and $O$ is not a sufficient statistic
-for robust accuracy---across the teacher ladder of \Cref{sec:geometry} it correlates with
-AutoAttack at $r=+0.83$, the wrong sign. It explains why anchoring to a non-robust teacher is
-\emph{free}, not how much robustness the objective buys; \Cref{app:robustness} gives two
-partial results on the latter, each with the reason it falls short. In \Cref{eqn:firstorder} the
-derivation asks for the $\ell_1$ norm and our runs use $\ell_2$; both were trained and agree within
-noise. Finally, $g_i$ is one backward pass at the clean $x_i$, so it is the sensitivity at the
-attack's starting point rather than along it.
+\paragraph{Caveats.} \Cref{eqn:firstorder} asks for the $\ell_1$ norm and our runs use $\ell_2$; both
+were trained and agree within noise, so the derivation is printed as stated. And $g_i$ is a single
+backward pass at the clean $x_i$, so it is the sensitivity at the attack's starting point rather than
+along its trajectory; \Cref{eqn:equalize} is first-order in $\epsilon$ throughout.
