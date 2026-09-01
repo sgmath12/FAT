@@ -160,6 +160,20 @@ Our adversarially trained network reproduces IGDM's reported value, so the measu
 the natural teacher is forty times further from linear, and the finite difference IGDM matches is not
 a gradient there.
 
+\paragraph{The anchor against the label, at matched everything.} `at_teacherinit_matched' is plain
+PGD-AT started from the same natural teacher, with the same weight averaging, the same AWP, the same
+schedule and the same training radius---byte-identical configurations apart from the loss. Against it
+the anchor gains \textbf{$+4.92$ clean and $+2.31$ AutoAttack} ($62.65 / 28.77$ against
+$57.73 / 26.46$). The clean half is what \Cref{prop:decomp} accounts for. The robustness half is
+reported as a measurement and not claimed as a consequence of the proposition, and it is larger than
+sensitivity-matched $\epsilon$ can explain: in isolation that rule is worth $+0.19$ to $+0.21$
+AutoAttack (\Cref{tab:ladder}), under a tenth of the gap.
+
+Two things change at once between those two rows, since PGD-AT attacks label cross-entropy and trains
+on it while we attack the anchor and train on the anchor. \Cref{tab:ablation} separates them: keeping
+the anchor as the training loss and reverting only the attack to a true-label CE-PGD says whether the
+gain belongs to the objective or to searching for the perturbation in feature space.
+
 \subsection{Component Ablation}
 \label{sec:components}
 

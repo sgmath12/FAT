@@ -1,0 +1,56 @@
+# WHICH HALF EARNS THE ROBUSTNESS: THE LOSS OR THE ATTACK? (2026-09-02)
+#
+# At matched stack and matched initialization the anchor beats label cross-entropy by +4.92 clean AND
+# +2.31 AA (62.65 / 28.77 against at_teacherinit_matched's 57.73 / 26.46).  Proposition 1 explains why
+# the anchor does not COST robustness; it does not explain that +2.31, and sensitivity-matched eps
+# cannot account for it either -- measured in isolation at both schedule lengths it is worth +0.19 to
+# +0.21 AA, under a tenth of the gap.
+#
+# The reason the gap is unattributed is that TWO things change at once.  PGD-AT attacks label
+# cross-entropy and trains on it; we attack the anchor and train on the anchor.  This cell keeps the
+# anchor as the training loss and generates x_adv with a plain true-label CE-PGD, so only the attack
+# objective reverts.
+#
+#   result >= 26.19 (ladder_p0_50ep, both halves ours)  -> the anchor carries it, the attack is incidental
+#   result ~  the CE baseline                           -> attacking in feature space is what earns it
+#
+# Base regime (50 ep, no WA, no AWP, eps 8/255, p = 0) so nothing absorbs the difference; read against
+# `ladder_p0_50ep` 61.33 / 26.19 / NRR 36.71.
+
+method : feat_direction
+featdir_ce_attack : True
+weight_avg : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

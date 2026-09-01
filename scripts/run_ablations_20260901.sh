@@ -25,6 +25,7 @@ run () {
   echo "=== $(date '+%m-%d %H:%M') done $1 (exit $?) ==="
 }
 run abl_teacher_at_adv
+run abl_ce_attack
 run abl_ce_lam03
 run abl_ce_lam01
 run abl_ce_lam10

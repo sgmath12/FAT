@@ -18,9 +18,10 @@ datasets and for all four published objectives. And what the teacher transfers i
 rather than its accuracy, with the two anti-correlated at $r = -0.999$ across training lengths, which
 turns the teacher's own schedule into a trade-off control that costs nothing to exercise.
 
-What we do not have is an account of how much robustness the objective buys. \Cref{prop:decomp}
-explains why anchoring a non-robust teacher is \emph{free}; it is not a robustness bound, and the two
-partial results in \Cref{app:robustness} each fall short for a reason we state. Closing that is the
-obvious next step, and the measurements that would constrain it---the oscillation $O$ correlating with
-AutoAttack at the wrong sign, and the $\varepsilon$-independence above the threshold---are reported
-here rather than set aside.
+What the paper does not settle is where the robustness \emph{gain} comes from. At matched stack and
+matched initialization the anchor beats label cross-entropy by $2.31$ points of AutoAttack as well as
+$4.92$ of standard accuracy, and \Cref{prop:decomp} accounts for the second but not the first. Two
+design elements are candidates---the attack searches in feature space rather than against labels, and
+the per-sample radius is set by the loss's own sensitivity---and \Cref{tab:ablation} separates them.
+Turning that into a bound is the obvious next step, and the measurements that would constrain it are
+reported here rather than set aside.

@@ -143,9 +143,9 @@ balls. Two things follow. The teacher's instability was not inherited, which is 
 predicts. And $F \gg O_{\mathrm{lb}}$, so what remains in the loss at convergence is fidelity rather
 than instability---the anchor is not being satisfied by making the student flat.
 
-\paragraph{What \Cref{prop:decomp} does not establish.} It bounds $F + O$, and $O$ is not a sufficient
-statistic for robust accuracy: across the teacher ladder of \Cref{sec:geometry} it correlates with
-AutoAttack at $r = +0.83$, the wrong sign. The proposition explains why anchoring to a non-robust
-teacher is \emph{free}; it is not a robustness bound and we do not present it as one.
-\Cref{app:robustness} gives two partial results on the complementary question, each with the reason it
-falls short.
+\paragraph{What the proposition is for.} \Cref{prop:decomp} says the anchor does not \emph{cost}
+robustness: local stability is bounded by the same scalar as fidelity, so the two cannot be traded
+against each other. That is what the anchor is asked to do, since robustness is produced by the inner
+maximization exactly as in standard adversarial training. It is not a lower bound on how much
+robustness the objective buys, and we do not read it as one; \Cref{app:robustness} gives two partial
+results in that direction, each with the reason it falls short.

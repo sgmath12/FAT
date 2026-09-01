@@ -2518,7 +2518,16 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             # particular way.  Setting this True leaves the attack at full rank so that k varies the
             # supervision rank alone.  Default False = unchanged behaviour.
             _Q_atk = None if bool(getattr(config, "featdir_attack_full_rank", False)) else Q
-            if bool(getattr(config, "featdir_teacher_at_adv", False)):
+            # featdir_ce_attack (2026-09-02): keep the ANCHOR as the training loss but generate x_adv
+            # with a plain true-label CE-PGD instead.  This is the missing isolation between the two
+            # things that differ between our method and PGD-AT at matched stack and matched
+            # initialization: the training objective AND the attack objective both change, and the
+            # +2.31 AA the anchor gains (62.65 / 28.77 against 57.73 / 26.46) has never been attributed
+            # to either.  With this flag only the loss is ours; if the gain survives, the anchor
+            # carries it, and if it disappears, the credit belongs to attacking in feature space.
+            if bool(getattr(config, "featdir_ce_attack", False)):
+                x_pgd = _pgd_attack_true_label(model, x, y, config.step_size, eps_use if not torch.is_tensor(eps_use) else eps_train, config.steps)
+            elif bool(getattr(config, "featdir_teacher_at_adv", False)):
                 x_pgd = inner_featdir_teacher_at_adv(model, origin_model, x, optimizer, step_use,
                                                      eps_use, perturb_steps=config.steps, Q=_Q_atk,
                                                      raw_student=raw_s, raw_teacher=raw_t)
