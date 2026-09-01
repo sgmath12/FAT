@@ -1,0 +1,42 @@
+# VANILLA PGD-AT IN OUR FRAMEWORK (2026-09-02).
+#
+# The tables carry `at_teacherinit_matched`, which is PGD-AT started from the natural teacher's
+# weights -- a variant, not the baseline.  This is the baseline: random initialization, label CE on
+# the adversarial example, nothing else.  Same protocol as the rest of the baseline block.
+
+method : madry_at
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

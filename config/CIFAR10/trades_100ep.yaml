@@ -1,0 +1,46 @@
+# TRADES (Zhang et al., ICML 2019) IN OUR FRAMEWORK (2026-09-02).
+#
+# The main tables report only numbers measured here, so this row could not be quoted from the
+# literature without reintroducing the cross-codebase mixing those tables exist to avoid.
+#
+# Published form: CE(f(x), y) + beta * KL(f(x_adv) || f(x)), attack = KL to the model's own clean
+# prediction, beta = 6.  No teacher.  Protocol shared with the other baseline cells (SGD 0.1, step
+# decay at epochs 70 and 90, 100 epochs, eps 8/255, 10-step attack) so the block is internally
+# comparable; that is one epoch schedule away from TRADES' own 75/90 and is stated in the paper.
+
+method : trades
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

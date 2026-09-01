@@ -4283,3 +4283,107 @@ def train_adaad_igdm(model, train_loader, optimizer, origin_model, epoch, config
         optimizer.step()
         st.restore()
         st.after_step(scheduler, exp_avg)
+
+
+# =====================================================================================================
+# TRADES AND MART (2026-09-02) -- the two standard adversarial-training baselines the main tables were
+# leaving empty.  Every other row of those tables is measured in this framework; quoting these two from
+# the literature would have reintroduced exactly the cross-codebase mixing the tables exist to avoid.
+#
+# Both are implemented as published and share the protocol of the other baseline cells (SGD 0.1,
+# momentum 0.9, step decay x0.1 at epochs 70 and 90, 100 epochs, eps 8/255, 10-step attack), so the
+# whole baseline block is internally comparable.  Neither uses a teacher: `origin_model` is ignored.
+# The `train_madry_at` stack knobs are wired in and inert unless set.
+# =====================================================================================================
+
+
+def _trades_inner_attack(model, x_natural, step_size, epsilon, perturb_steps):
+    """TRADES inner maximization: maximize KL(f(x') || f(x)) with the CLEAN prediction as the fixed
+    target for the duration of the attack (Zhang et al., ICML 2019, Eq. 6).  Unlike a label attack it
+    never sees y, which is the whole point -- the perturbation is chosen to move the prediction, not to
+    cross a labelled boundary."""
+    was_training = model.training
+    model.eval()
+    with torch.no_grad():
+        p_nat = F.softmax(model(x_natural), dim=1)
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            loss_kl = F.kl_div(F.log_softmax(model(x_adv), dim=1), p_nat, reduction='sum')
+        grad = torch.autograd.grad(loss_kl, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    if was_training:
+        model.train()
+    return x_adv.detach()
+
+
+def train_trades(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """TRADES (Zhang et al., ICML 2019).
+
+        L = CE(f(x), y) + beta * KL(f(x_adv) || f(x)) / N
+
+    with x_adv from the KL attack above.  The clean term keeps accuracy and the KL term buys
+    smoothness; `beta` (config.beta, 6.0 as published) is the trade-off knob, and it is the thing our
+    own method does not have.  origin_model is unused."""
+    model.train()
+    st = _DistillStack(train_trades, model, epoch, config)
+    beta = float(config.beta if config.beta is not None else 6.0)
+    for x, y in tqdm(train_loader):
+        x, y = x.cuda(), y.cuda()
+        x_adv = _trades_inner_attack(model, x, config.step_size, st.eps, config.steps)
+
+        def _loss(m, _x=x, _xa=x_adv, _y=y):
+            logits_nat = m(_x)
+            return (F.cross_entropy(logits_nat, _y)
+                    + beta * F.kl_div(F.log_softmax(m(_xa), dim=1),
+                                      F.softmax(logits_nat, dim=1), reduction='batchmean'))
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
+
+
+def train_mart(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """MART (Wang et al., ICLR 2020).
+
+        L = BCE(f(x_adv), y) + lambda * E_i [ KL(f(x_adv) || f(x))_i * (1 - p_y(x)_i) ]
+        BCE(f(x'), y) = -log p_y(x') - log(1 - max_{k != y} p_k(x'))
+
+    Two differences from TRADES.  The adversarial term is a boosted cross-entropy that also pushes down
+    the strongest wrong class, and the KL term is re-weighted per sample by the model's clean error
+    probability, so examples the model already gets wrong on clean data are regularized harder.  The
+    attack is a plain true-label CE-PGD.  `lambda` is config.beta (5.0 as published).  origin_model is
+    unused."""
+    model.train()
+    st = _DistillStack(train_mart, model, epoch, config)
+    lam = float(config.beta if config.beta is not None else 5.0)
+    eps_small = 1e-12
+    for x, y in tqdm(train_loader):
+        x, y = x.cuda(), y.cuda()
+        x_adv = _pgd_attack_true_label(model, x, y, config.step_size, st.eps, config.steps)
+
+        def _loss(m, _x=x, _xa=x_adv, _y=y):
+            logits_adv, logits_nat = m(_xa), m(_x)
+            p_adv = F.softmax(logits_adv, dim=1)
+            p_nat = F.softmax(logits_nat, dim=1)
+            # strongest wrong class under the attack
+            tmp = torch.argsort(p_adv, dim=1, descending=True)[:, :2]
+            other = torch.where(tmp[:, 0] == _y, tmp[:, 1], tmp[:, 0])
+            bce = (F.cross_entropy(logits_adv, _y)
+                   + F.nll_loss(torch.log(1.0001 - p_adv + eps_small), other))
+            kl = (F.kl_div(F.log_softmax(logits_adv, dim=1), p_nat, reduction='none').sum(dim=1)
+                  * (1.0 - p_nat.gather(1, _y.unsqueeze(1)).squeeze(1)))
+            return bce + lam * kl.mean()
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
