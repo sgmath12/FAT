@@ -3,34 +3,26 @@
 
 \subsection{Experimental Settings}
 
-\paragraph{Datasets.} CIFAR-10, CIFAR-100 \citep{krizhevsky2009learning} and Tiny-ImageNet-200
-\citep{le2015tiny}. Random crop with 4-pixel padding and random horizontal flip; no other
-augmentation.
+\paragraph{Setup.} CIFAR-10, CIFAR-100 \citep{krizhevsky2009learning} and Tiny-ImageNet-200
+\citep{le2015tiny}, with random crop and horizontal flip only. For each dataset the teacher is a
+network of the same architecture trained naturally for 200 epochs on the same data
+(\Cref{tab:teachers}); no adversarial training enters its construction. The student is initialized
+from it and trained for 100 epochs with AdamW at learning rate $0.021$ under a one-cycle schedule,
+batch size $128$, with a 10-step PGD attack at step size $2/255$ and training radius $8.8/255$
+(\Cref{sec:radius} varies it). Weight averaging ($\kappa = 0.999$, from $20\%$ of the run) and an AWP
+proxy \citep{2020_awp} ($\gamma = 0.005$, after epoch $10$) are used and ablated in
+\Cref{sec:components}. Every dataset uses this identical configuration; only the teacher checkpoint
+changes. ResNet-18 throughout except \Cref{tab:wrn}.
 
-\paragraph{Teacher.} For each dataset, a network of the same architecture as the student, trained
-naturally for 200 epochs on the same data (\Cref{tab:teachers}). No adversarial training is
-performed at any point in the teacher's construction.
-
-\paragraph{Training details.} ResNet-18 throughout the main tables, WideResNet-34-10 in
-\Cref{sec:wrn}. The student is initialized from the teacher and trained for 100 epochs with
-AdamW at learning rate $0.021$ under a one-cycle schedule, batch size $128$. The attack is 10-step PGD
-at step size $2/255$ with a training radius of $8.8/255$; \Cref{sec:radius} varies that radius.
-Weight averaging ($\kappa=0.999$, from $20\%$ of the run) and an AWP proxy \citep{2020_awp}
-($\gamma=0.005$, after epoch $10$) are used and ablated in \Cref{sec:components}. Every dataset
-uses this identical configuration; only the dataset name and the teacher checkpoint change.
-
-\paragraph{Comparison models.} Every baseline in \Cref{tab:main} is run here rather than quoted, so
-that the rows are comparable to each other: PGD-AT, TRADES and MART as standard adversarial training;
-ARD, RSLAD, AdaAD and IGDM as adversarial distillation, given our natural teacher in place of the
-robust one they assume; and RPAT++ reproduced from its own repository. Each row states in its
-\emph{Teacher} column what it assumes available. Methods we could not run are left empty with the
-reason, and the published figures for all of them---including ADR, CURE, ARREST, LBGAT, Generalist++
-and B-MTARD---are collected separately in \Cref{tab:published}.
-
-\paragraph{Evaluation.} Clean accuracy, FGSM, PGD-20/10/50, CW$_\infty$ and AutoAttack (standard
-version) on the full test set at $\epsilon=8/255$. NRR is the harmonic mean of clean and AutoAttack
-accuracy. All of our numbers are the final-epoch weight-averaged model, with no best-checkpoint
-selection.
+\paragraph{Baselines and evaluation.} Every baseline in \Cref{tab:main} is run here rather than
+quoted: PGD-AT, TRADES and MART as standard adversarial training; ARD, RSLAD, AdaAD and IGDM as
+adversarial distillation, given our natural teacher in place of the robust one they assume; and
+RPAT++ reproduced from its own repository. Each row states in its \emph{Teacher} column what it
+assumes available, cells we could not run are left empty with the reason, and published figures for
+all of them are collected in \Cref{tab:published}. We report clean accuracy and AutoAttack (standard
+version) on the full test set at $\epsilon = 8/255$, with $\mathrm{Avg}$ their mean and NRR their
+harmonic mean; per-attack values are in \Cref{tab:fullmetrics}. All of our numbers are the final-epoch
+weight-averaged model, with no best-checkpoint selection.
 
 \begin{table}[t]
   \centering \small \setlength{\tabcolsep}{4.5pt}

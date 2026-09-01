@@ -23,7 +23,7 @@
       \hfill \COMMENT{one backward pass}
     \STATE $r_i \leftarrow (\bar g / g_i)^{p}$; \ \ solve
       $\textstyle\sum_i \mathrm{clip}(t r_i, w_{\mathrm{lo}}, w_{\mathrm{hi}}) = N$ for $t$
-      \hfill \COMMENT{\Cref{eqn:angeps}}
+      \hfill \COMMENT{\Cref{eqn:box}}
     \STATE $\epsilon_i \leftarrow \epsilon \cdot \mathrm{clip}(t r_i, w_{\mathrm{lo}},
       w_{\mathrm{hi}})$ \hfill \COMMENT{$\textstyle\sum_i \epsilon_i = N\epsilon$}
     \STATE $x_i^{0} \leftarrow x_i + \eta_i$
@@ -169,6 +169,21 @@ body.
     \bottomrule
   \end{tabular}
 \end{table}
+
+\section{The Box-Constrained Budget Solve}
+\label{app:box}
+
+With $r_i = (\bar g / g_i)^p$ and box $[w_{\mathrm{lo}}, w_{\mathrm{hi}}] = [0.5, 1.5]$, the radii that
+satisfy both the box and the budget exactly are $\epsilon_i = \epsilon \cdot \mathrm{clip}(t r_i,
+w_{\mathrm{lo}}, w_{\mathrm{hi}})$ with $t$ the solution of
+\begin{equation}
+\sum_{i=1}^{N} \mathrm{clip}\big(t\, r_i,\; w_{\mathrm{lo}},\; w_{\mathrm{hi}}\big) \;=\; N .
+\label{eqn:box}
+\end{equation}
+The left side is continuous and nondecreasing in $t$ from $N w_{\mathrm{lo}}$ to $N w_{\mathrm{hi}}$,
+so a root exists and bisection finds it; when no clip is active it reduces to $t = N / \sum_i r_i$,
+that is, to restoring the mean. Clipping first and rescaling afterwards, the obvious alternative, does
+not preserve the box---the rescaling moves the clipped entries back out of it.
 
 \section{Per-Attack Metrics}
 \label{app:fullmetrics}

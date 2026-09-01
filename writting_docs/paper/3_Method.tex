@@ -103,31 +103,22 @@ with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization abo
 moves most to the one whose objective moves least always improves the worst case, and the optimum is
 where no such move remains.
 
-\paragraph{Keeping the radii in range.} Left alone, \Cref{eqn:angeps_ideal} assigns unbounded radii to
-examples where $g_i \to 0$, which happens at the start of training by property (ii) above. We therefore
-constrain $\epsilon_i / \epsilon \in [w_{\mathrm{lo}}, w_{\mathrm{hi}}] = [0.5, 1.5]$ and solve the
-budget constraint inside the box: with $r_i = (\bar g / g_i)^p$, the exact solution is the scale $t$
-with
-\begin{equation}
-\sum_{i=1}^{N} \mathrm{clip}\big(t\, r_i,\; w_{\mathrm{lo}},\; w_{\mathrm{hi}}\big) \;=\; N ,
-\qquad
-\epsilon_i \;=\; \epsilon \cdot \mathrm{clip}\big(t\, r_i,\; w_{\mathrm{lo}}, w_{\mathrm{hi}}\big) .
-\label{eqn:angeps}
-\end{equation}
-The left side is continuous and nondecreasing in $t$ from $N w_{\mathrm{lo}}$ to $N w_{\mathrm{hi}}$,
-so the root exists and is found by bisection; when no clip is active it reduces to restoring the mean.
-We use $p = 1$ throughout and never tune it, and \Cref{tab:ablation} reports the surrounding values.
+\paragraph{Keeping the radii in range.} Left alone, \Cref{eqn:angeps_ideal} assigns unbounded radii
+where $g_i \to 0$, which happens at the start of training by property (ii). We therefore constrain
+$\epsilon_i / \epsilon \in [0.5, 1.5]$ and solve the budget constraint inside that box, which
+\Cref{app:box} states exactly and which reduces to restoring the mean when no clip is active. We use
+$p = 1$ throughout and never tune it; \Cref{tab:ablation} reports the surrounding values.
 
 \paragraph{Why this is not the existing per-sample radius.} Assigning a different $\epsilon$ per
 example is not new: IAAT \citep{iaat}, MMA \citep{mma} and CAT \citep{cat} all do it. They assign it
 from the \emph{difficulty} of the example or from its margin in \textbf{input} space.
-\Cref{eqn:angeps} assigns it from the input-sensitivity of the \textbf{training loss}---the geometry
+\Cref{eqn:angeps_ideal} assigns it from the input-sensitivity of the \textbf{training loss}---the geometry
 the objective is actually written in---and the two are not the same signal. Measured on the same
 batches, the difficulty score has a coefficient of variation of $0.03$ where the sensitivity has
 $0.64$: allocating by difficulty is close to allocating uniformly.
 
 The distinction is testable without confounding it with the budget. Holding the exact multiset of
-weights \Cref{eqn:angeps} produces---same values, same clip, same mean, therefore the same total
+weights \Cref{eqn:angeps_ideal} produces---same values, same clip, same mean, therefore the same total
 attack budget---and only reassigning which example receives which, ordered by difficulty as
 IAAT and CAT would, costs $0.74$ AutoAttack and lands below the uniform baseline on both CW and NRR
 (\Cref{tab:ablation}). The same weights in a different order move \emph{along} the frontier; only this

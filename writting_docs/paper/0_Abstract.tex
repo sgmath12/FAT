@@ -1,31 +1,20 @@
 \begin{abstract}
 Adversarial training is among the most reliable defenses against adversarial examples, but it degrades
-standard accuracy, and this trade-off remains the central obstacle to its practical use.
-The accuracy that is lost is not lost in general: a network of the same architecture, trained
-naturally on the same data, still holds it.
-We therefore ask whether that accuracy can be put back by self-distillation, using the model's own
-naturally trained counterpart---available at no adversarial cost---for the single purpose of restoring
-what adversarial training gives up, while robustness continues to be produced entirely by the inner
-maximization.
-Such a teacher is the extreme case of what adversarial distillation says goes wrong: four separate
-lines of work diagnose the target as too sharp and each builds machinery to soften it, from soft labels
-to annealed and entropy-matched softmax temperatures, and a naturally trained network's maximum
-softmax probability is $0.820$ against an adversarially trained student's $0.016$. Softening does help,
-raising AutoAttack accuracy from $20.84$ to $24.48$ across a temperature sweep, and it leaves standard
-accuracy flat at $58$ while the teacher holds $77.66$---so it repairs robustness and not the axis we
-came for. Every published
-objective given this teacher lands below not distilling at all.
-We show that the fragility is not transferred when the teacher is used as a \emph{feature anchor}
-instead.
-Matching the teacher's clean feature at the adversarial input means the teacher is never evaluated
-under attack, so it transfers neither its instability nor any robustness, and we prove that this
-single term is equivalent within a constant factor to fidelity plus local stability, with no
-coefficient between them.
-Combined with a per-sample attack radius set by the input sensitivity of the loss at fixed total
-budget, the method has no loss weight, no temperature and no trained classifier, and transfers across
-datasets unchanged.
-On CIFAR-100 with ResNet-18 it improves standard accuracy by $5.3$ points at no cost in AutoAttack,
-and it sets a new accuracy--robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet.
-Because the teacher is naturally trained, its training length becomes a trade-off control that costs
-nothing to exercise.
+standard accuracy, and this trade-off is the central obstacle to its use. The accuracy is not lost in
+general: a network of the same architecture trained naturally on the same data still holds it. We ask
+whether self-distillation can put it back, leaving robustness where it already is, in the inner
+maximization. Such a teacher is the extreme case of what adversarial distillation says goes wrong---the
+field diagnoses the target as too sharp and builds machinery to soften it, and a naturally trained
+network's maximum softmax probability is $0.820$ against an adversarially trained student's $0.016$.
+Softening does help, raising AutoAttack accuracy from $20.84$ to $24.48$ across a temperature sweep,
+and it leaves standard accuracy flat at $58$ while the teacher holds $77.66$: it repairs robustness,
+not the axis we came for. Reading the same teacher's \emph{feature} instead recovers both. We anchor
+the student's adversarial feature to the teacher's clean feature, so the teacher is never evaluated
+under attack and transfers neither its instability nor any robustness, and prove that this single term
+is equivalent within a constant factor to fidelity plus local stability, with no coefficient between
+them. Combined with a per-sample attack radius set by the input sensitivity of the loss at fixed total
+budget, the method has no loss weight, no temperature and no trained classifier. At a fixed
+weight-averaging and AWP stack it matches the best published AutoAttack accuracy on CIFAR-100 to within
+$0.27$ points while keeping $5.29$ more points of standard accuracy, and transfers unchanged to
+CIFAR-10 and Tiny-ImageNet.
 \end{abstract}

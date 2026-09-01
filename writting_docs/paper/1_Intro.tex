@@ -63,22 +63,17 @@ another teacher, and the balance is what has to be tuned.
 Our question is about the other axis. Adversarial training discards standard accuracy that a
 naturally trained copy of the same network still holds, and we ask whether self-distillation can put
 it back---leaving robustness where it already is, in the student's own inner maximization. The answer
-turns on \emph{what the teacher is asked to supply}, and the field already has a candidate. Four separate lines of
-work---LTD \citep{LTD}, RSLAD \citep{rslad}, ADR \citep{adr} and B-MTARD \citep{bmtard}---converge on
-the same diagnosis, that the target is too sharp, and each builds its own machinery to soften it: soft
-labels, smooth teacher logits, an annealed softmax temperature, an online temperature that equalizes
-two teachers' entropies. A naturally trained network is the extreme case of what they describe, with a
-maximum softmax probability of $0.820$ against an adversarially trained student's $0.016$. Softening it is the obvious repair and it works,
-lifting AutoAttack accuracy from $20.84$ to $24.48$ across a temperature sweep. It also leaves standard
-accuracy flat near $58$ while the teacher being distilled from has $77.66$. Temperature moves
-robustness; it does not move the quantity we came for, and that quantity does not survive the teacher's
-own softmax.
-None of this is a claim that a naturally trained teacher is preferable to a robust one. A robust
-teacher is better guidance for robustness, obtaining it is precisely the expensive part, and we do not
-compete with methods that have one.
-We ask it for standard accuracy alone and leave robustness entirely to the student's inner
-maximization, and under that division the expected fragility does not materialize---for a structural
-reason rather than an empirical one.
+turns on \emph{what the teacher is asked to supply}, and the field already has a candidate that is only
+half right. Adversarial distillation diagnoses
+the target as too sharp and softens it---soft labels, smooth teacher logits, annealed and
+entropy-matched softmax temperatures \citep{LTD, rslad, adr, bmtard}---and a naturally trained network
+is the extreme case, with a maximum softmax probability of $0.820$ against an adversarially trained
+student's $0.016$. Softening works: it lifts AutoAttack accuracy from $20.84$ to $24.48$ across a
+temperature sweep. It also leaves standard accuracy flat near $58$ while the teacher holds $77.66$.
+Temperature moves robustness and not the quantity we came for, because that quantity does not survive
+the teacher's own softmax---it survives one layer earlier, which is where we put the anchor. None of this is a claim that a
+naturally trained teacher is preferable to a robust one: a robust teacher is better guidance for
+robustness, obtaining it is the expensive part, and we do not compete with methods that have one.
 Our objective matches the teacher's feature at the \emph{clean} input against the student's feature at
 the \emph{adversarial} input, and it is the entire objective for the backbone: the label term is
 removed rather than supplemented.
