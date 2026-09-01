@@ -1,0 +1,45 @@
+# CIFAR-10 COUNTERPART (2026-09-01).  Ported from the CIFAR-100 cell of the same name by changing
+# the dataset and the teacher checkpoint only -- every hyperparameter is byte-identical, so the two
+# datasets are read on the same footing.  Teacher: CIFAR10/checkpoint/clean_200ep (clean 95.32).
+#
+# PGD-AT initialized at the natural teacher -- the "do not distil at all" row.  On CIFAR-100 every
+# published distillation objective given the same teacher landed BELOW this cell, which is the
+# punchline of the analysis section; CIFAR-10 cannot make that claim without it.
+
+method : madry_at
+dataset : CIFAR10
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+val : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

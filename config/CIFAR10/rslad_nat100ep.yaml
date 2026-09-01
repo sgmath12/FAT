@@ -1,0 +1,47 @@
+# CIFAR-10 COUNTERPART (2026-09-01).  Ported from the CIFAR-100 cell of the same name by changing
+# the dataset and the teacher checkpoint only -- every hyperparameter is byte-identical, so the two
+# datasets are read on the same footing.  Teacher: CIFAR10/checkpoint/clean_200ep (clean 95.32).
+#
+# RSLAD.  Note the reduction quirk documented on train_rslad works OUT on CIFAR-10: their term is
+# `10 * mean(elementwise KL)`, which for C = 10 is exactly the batch mean.  So `rslad_scale: 10.0`
+# is the intended scale here, where on CIFAR-100 the same constant silently divided the only loss
+# term by ten.  Same config value, different meaning -- worth stating when the two are compared.
+
+method : rslad
+rslad_scale : 10.0
+rslad_w_adv : 0.8333333333333334
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

@@ -19,14 +19,17 @@ from utils import load_config, get_model, evaluate, evaluate_final_aa
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--cell', default='featdir_tin_100ep')
+    ap.add_argument('--dataset', default='TinyImageNet')
     ap.add_argument('--bs', type=int, default=64)
     ap.add_argument('--aa_bs', type=int, default=64)
     a = ap.parse_args()
 
-    args = make_args(a.cell + '.yaml'); args.dataset = 'TinyImageNet'
+    args = make_args(a.cell + '.yaml'); args.dataset = a.dataset
     cfg = load_config(args)
     _, student = get_model(cfg)
-    ck = 'TinyImageNet/checkpoint/%s/feat_direction_last.pkl' % a.cell
+    # `_last.pkl` is written before the evaluation block and, since the 2026-08-17 fix, holds the
+    # true final-epoch (weight-averaged) model -- so a run killed during evaluation loses nothing.
+    ck = '%s/checkpoint/%s/feat_direction_last.pkl' % (a.dataset, a.cell)
     student.load_state_dict(torch.load(ck, map_location='cpu'))
     student = student.cuda().eval()
 

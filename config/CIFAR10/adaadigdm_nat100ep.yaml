@@ -1,0 +1,49 @@
+# CIFAR-10 COUNTERPART (2026-09-01).  Ported from the CIFAR-100 cell of the same name by changing
+# the dataset and the teacher checkpoint only -- every hyperparameter is byte-identical, so the two
+# datasets are read on the same footing.  Teacher: CIFAR10/checkpoint/clean_200ep (clean 95.32).
+#
+# AdaAD + IGDM at their published alpha = 20.  On CIFAR-100 this COLLAPSED to chance; the diagnosis
+# was that softmax(t+ - t-) is near one-hot for a natural teacher and the term reaches 17x the AdaAD
+# loss.  CIFAR-10 has 10 classes rather than 100, so uniform is 0.1 and the geometry differs; the
+# published weight is run first because it is the faithful baseline, with `adaadigdm_nat100ep_a1`
+# ready as the alpha = 1 control if this one dies the same way.
+
+method : adaad_igdm
+igdm_alpha : 20.0
+igdm_beta : 1.0
+igdm_gamma : 1.0
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

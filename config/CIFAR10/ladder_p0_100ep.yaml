@@ -1,0 +1,43 @@
+# CIFAR-10 COUNTERPART (2026-09-01).  Ported from the CIFAR-100 cell of the same name by changing
+# the dataset and the teacher checkpoint only -- every hyperparameter is byte-identical, so the two
+# datasets are read on the same footing.  Teacher: CIFAR10/checkpoint/clean_200ep (clean 95.32).
+#
+# Our anchor at p = 0, 100 epochs, NO weight averaging and NO AWP -- the stack-free cell that the
+# baselines (which carry no stack either) are read against.
+
+method : feat_direction
+weight_avg : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
