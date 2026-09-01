@@ -14,6 +14,19 @@ This accuracy--robustness trade-off is partly intrinsic to the objective
 \citep{tsipras2018robustness, TRADES} and it is the principal obstacle to deploying adversarially
 trained models in practice.
 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figure/frontier.pdf}
+  \caption{The accuracy--robustness frontier on ResNet-18, $\ell_\infty$, $\epsilon = 8/255$. Grey
+  points are published results (\Cref{tab:published}); the dashed line is a least-squares fit through
+  the Pareto-optimal ones and is drawn for reading rather than fitted for a claim. CFA (red) sits
+  above the frontier on both datasets: on CIFAR-100 it gains $5.29$ points of standard accuracy over
+  the strongest method at comparable robustness and $4.81$ points of AutoAttack over the strongest at
+  comparable standard accuracy, and no method exceeds it on both axes. Its teacher is a naturally
+  trained network of the same architecture, obtained at no adversarial cost.}
+  \label{fig:frontier}
+\end{figure}
+
 Two lines of work reduce it.
 The first modifies the target inside adversarial training.
 Hard labels are a poor supervisory signal for perturbed inputs, since they assert that every point of
@@ -95,7 +108,8 @@ comparable displacement of the input.
 The resulting method has no temperature, no loss weight and no auxiliary head, and we apply an
 identical configuration to every dataset, changing only the dataset name and the teacher checkpoint.
 
-On CIFAR-100 with ResNet-18, CFA reaches $62.65\%$ standard accuracy at $28.77\%$ AutoAttack accuracy.
+On CIFAR-100 with ResNet-18, CFA reaches $62.65\%$ standard accuracy at $28.77\%$ AutoAttack
+accuracy (\Cref{fig:frontier}).
 Against the strongest method at comparable robustness this is $+5.29$ points of standard accuracy, and
 against the strongest method at comparable standard accuracy it is $+4.81$ points of AutoAttack
 accuracy; no method in this setting exceeds ours on both axes.

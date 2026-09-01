@@ -1,5 +1,46 @@
 \appendix
 
+\section{Algorithm}
+\label{app:alg}
+
+\begin{algorithm}[h]
+\caption{Clean Feature Anchoring (CFA)}
+\label{alg:cfa}
+\begin{algorithmic}[1]
+\STATE {\bfseries Input:} dataset $\mathcal{D}$, radius $\epsilon$, attack steps $K$, step size $a$,
+  exponent $p$, box $[w_{\mathrm{lo}}, w_{\mathrm{hi}}]$
+\STATE {\bfseries Output:} robust student $h_t \circ \Phi_s$
+\STATE
+\STATE \COMMENT{\emph{Phase 1 --- natural self-teacher.} The only stage that uses labels.}
+\STATE Train $f_t = h_t \circ \Phi_t$ on $\mathcal{D}$ with standard cross-entropy; freeze it
+\STATE
+\STATE \COMMENT{\emph{Phase 2 --- anchored adversarial training.} No labels, no head update.}
+\STATE $\Phi_s \leftarrow \Phi_t$ \hfill \COMMENT{student initialized at the teacher}
+\FOR{$\mathrm{epoch} = 1$ {\bfseries to} $T$}
+  \FOR{minibatch $\{x_i\}_{i=1}^{N} \subset \mathcal{D}$}
+    \STATE $\phi_i \leftarrow \Phi_t(x_i)$ \hfill \COMMENT{teacher read once, at the clean input}
+    \STATE $g_i \leftarrow \lVert \nabla_x \lVert \Phi_s(x_i) - \phi_i \rVert^2 \rVert$
+      \hfill \COMMENT{one backward pass}
+    \STATE $r_i \leftarrow (\bar g / g_i)^{p}$; \ \ solve
+      $\textstyle\sum_i \mathrm{clip}(t r_i, w_{\mathrm{lo}}, w_{\mathrm{hi}}) = N$ for $t$
+      \hfill \COMMENT{\Cref{eqn:angeps}}
+    \STATE $\epsilon_i \leftarrow \epsilon \cdot \mathrm{clip}(t r_i, w_{\mathrm{lo}},
+      w_{\mathrm{hi}})$ \hfill \COMMENT{$\textstyle\sum_i \epsilon_i = N\epsilon$}
+    \STATE $x_i^{0} \leftarrow x_i + \eta_i$
+    \FOR{$k = 0$ {\bfseries to} $K-1$}
+      \STATE $x_i^{k+1} \leftarrow \Pi_{B(x_i, \epsilon_i)}
+        \big( x_i^{k} + a\,\mathrm{sign}\,\nabla_x \lVert \Phi_s(x_i^{k}) - \phi_i \rVert^2 \big)$
+    \ENDFOR
+    \STATE $\mathcal{L} \leftarrow \frac{1}{N} \sum_i
+      \lVert \Phi_s(x_i^{K}) - \phi_i \rVert^2$
+    \STATE $\Phi_s \leftarrow \Phi_s - \mu \nabla_{\Phi_s} \mathcal{L}$
+      \hfill \COMMENT{$h_t$ is never updated}
+  \ENDFOR
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+
 \section{Two Partial Results on the Robustness Side}
 \label{app:robustness}
 
