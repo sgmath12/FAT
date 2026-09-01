@@ -7,9 +7,11 @@ We therefore ask whether that accuracy can be put back by self-distillation, usi
 naturally trained counterpart---available at no adversarial cost---for the single purpose of restoring
 what adversarial training gives up, while robustness continues to be produced entirely by the inner
 maximization.
-Such a teacher is fragile---under $\epsilon = 8/255$ its own feature rotates by $63.8^\circ$---and
-consuming it as adversarial distillation does makes matters worse: every published objective given
-this teacher lands below simply not distilling.
+Such a teacher is a hard case for the usual account of what a teacher supplies. Adversarial
+distillation attributes its effect to the smoothness of the teacher's soft labels, and a naturally
+trained network's logits are sharp; softening them does help, raising AutoAttack accuracy from $20.84$
+to $24.48$, but it leaves standard accuracy flat, which is the axis we came for. Every published
+objective given this teacher lands below not distilling at all.
 We show that the fragility is not transferred when the teacher is used as a \emph{feature anchor}
 instead.
 Matching the teacher's clean feature at the adversarial input means the teacher is never evaluated

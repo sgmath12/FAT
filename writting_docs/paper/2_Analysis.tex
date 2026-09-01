@@ -23,12 +23,43 @@ A method that consumes a teacher can go wrong in two independent places: \emph{w
 teacher, and \emph{what} it reads from it. Both defects are present when a naturally trained network is
 used the way adversarial distillation uses one, and they can be measured separately.
 
-\paragraph{What is read: the logits are the wrong quantity.} Holding the read point fixed at $x$ and
-changing only the read quantity---the teacher's logits against its features, same base regime, same
-attack, same teacher---gives $24.48 \to \mathbf{25.88}$ AutoAttack. The logit figure is the best over a
-temperature sweep, not an untuned default: the curve is unimodal because $\tau$ is squeezed from both
-sides, with the teacher's maximum probability at $0.820$ against the student's $0.016$ at $\tau = 1$,
-and a target within $1\%$ of uniform at $\tau = 16$.
+\paragraph{What is read: softening the logits is a real fix, but not for the thing we came for.}
+The adversarial-distillation literature has an explanation for what goes wrong with a sharp teacher,
+and it is a good one. RSLAD \citep{rslad} makes the smoothness of the teacher's soft labels its
+central claim; B-MTARD \citep{bmtard} goes as far as adjusting each teacher's temperature online so
+that the two teachers' predictive entropies match. By that account a naturally trained teacher is
+exactly the hard case, and the measurement agrees: on clean test data its maximum softmax probability
+is $0.820$ against the adversarially trained student's $0.016$, so the student is asked for a
+confidence twenty times sharper than its own.
+
+The prescription follows, and it works. Sweeping the temperature of the same teacher's logits in a
+fixed base regime---50 epochs, raw features, no weight averaging, no AWP,
+$\epsilon = 8/255$---AutoAttack accuracy rises from $20.84$ at $\tau = 1$ to $24.48$ at $\tau = 4$,
+and then turns over. Sharpness was a genuine defect and softening genuinely repairs it.
+
+\begin{center}\small
+\begin{tabular}{lrrr}
+  \toprule
+  target & Clean & AA & NRR \\
+  \midrule
+  teacher logits, $\tau = 1$  & 58.26 & 20.84 & 30.70 \\
+  teacher logits, $\tau = 4$  & 59.39 & 24.48 & 34.67 \\
+  teacher logits, $\tau = 16$ & 57.78 & 24.00 & 33.91 \\
+  \midrule
+  \textbf{teacher feature}    & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+What it does not repair is the accuracy. Across the whole sweep clean accuracy moves between $57.78$
+and $59.39$---it is flat in $\tau$---while the teacher it is being distilled from has $77.66$. Reading
+the same teacher's \emph{feature} instead, with no temperature anywhere, gains a further $1.40$
+AutoAttack and $3.33$ clean, at the same read point and under the same regime.
+
+The two numbers separate cleanly. \textbf{Temperature moves robustness and leaves accuracy where it
+was; the feature moves both.} Sharpness is therefore a real problem with a real fix, and it is not the
+problem this paper is trying to solve: the accuracy a naturally trained network holds does not survive
+its own softmax, and no choice of $\tau$ puts it back. It survives one layer earlier.
 
 \paragraph{Where it is read: off the clean point the teacher has nothing to say.} Under
 $\epsilon = 8/255$ the teacher's own feature rotates by $63.8^\circ$ and its norm inflates by
