@@ -1,0 +1,54 @@
+# THE MISSING CONTROL: LABEL CE AT THE ANCHOR'S BASE REGIME (2026-09-02).
+#
+# The paper compares the anchor with plain PGD-AT and reports +4.92 clean / +2.31 AA, but those two
+# rows are NOT stack-matched in the direction that matters for the robustness half:
+#
+#   ladder_p0_100ep         anchor, p = 0, NO weight averaging, NO AWP   61.21 / 25.24
+#   at_teacherinit_matched  label CE, WITH weight averaging and AWP      57.73 / 26.46
+#
+# The anchor row has no stack and the cross-entropy row has one, so the +2.31 is measured across a
+# difference in stack as well as loss.  The clean question -- does the anchor buy robustness BY ITSELF,
+# with no sensitivity-matched eps and no stack -- has never been asked.
+#
+# This cell is `ladder_p0_100ep` with the loss swapped: label cross-entropy on x_adv, same teacher
+# initialization, same 100 epochs, same eps_train 8.8/255, no WA, no AWP.  Nothing else differs.
+#
+#   AA >= 25.24  -> the anchor buys no robustness on its own; the gain at full recipe comes from how
+#                   the stack interacts with it, and the paper should say exactly that
+#   AA <  25.24  -> the anchor buys robustness by itself, and the size of that is the number to report
+#
+# Either answer replaces a comparison the paper currently makes across two different regimes.
+
+method : madry_at
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+val : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

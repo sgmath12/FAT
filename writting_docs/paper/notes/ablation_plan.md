@@ -23,6 +23,8 @@ it, and **it has never been tested directly.**
 | Teacher's own instability: $63.8^\circ$ rotation, $\times2.45$ norm | have |
 | Published objectives that read the teacher off $x$ collapse (AdaAD, IGDM) | have (§5.3) |
 | ⚠ **Our own objective with the teacher read at $x_{\mathrm{adv}}$** | **MISSING** |
+| ⚠ **Label CE at the anchor's own base regime** | **MISSING** |
+| ⚠ **The anchor with a label-CE attack** | **MISSING** |
 
 The last row is the experiment. Everything currently supporting C1 is either a proof about our
 objective or a measurement of *someone else's* method, and a referee will say the two are confounded:
@@ -36,6 +38,20 @@ rather than sitting at $2.16$. If instead it ties, C1 is wrong as an *explanatio
 method still works, and §3.3 must be rewritten as a description rather than a mechanism.
 
 **Cost.** 2 cells (CIFAR-10 + CIFAR-100), ~5 h.
+
+### C1b — does the anchor buy robustness *by itself*
+
+Added 2026-09-02, after noticing the comparison the paper makes is not stack-matched in the direction
+that matters. `ladder_p0_100ep` (anchor, $p{=}0$, no WA, no AWP) is 61.21 / 25.24 and
+`at_teacherinit_matched` (label CE, **with** WA and AWP) is 57.73 / 26.46, so the reported $+2.31$ AA
+is measured across a difference in stack as well as loss. Whether the anchor buys robustness with no
+sensitivity-matched $\varepsilon$ and no stack has never been asked.
+
+`abl_ce_nostack` is `ladder_p0_100ep` with the loss swapped for label cross-entropy and nothing else
+changed. `abl_ce_attack` is the complementary half: the anchor as the loss, a true-label CE-PGD as the
+attack. Together they say whether the gain belongs to the objective, to the attack, or to the stack.
+
+**Cost.** 2 cells, ~4 h. Queued first, ahead of everything else in the ablation run.
 
 ---
 
