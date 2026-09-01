@@ -1,0 +1,52 @@
+# AdaAD+IGDM ON CIFAR-10, IGDM WEIGHT 20 -> 1 (2026-09-01).
+#
+# The published alpha = 20 collapsed to chance on BOTH datasets: 1.00 on CIFAR-100 (100 classes) and
+# 9.999 on CIFAR-10 (10 classes), so the ten-class geometry did not rescue it.  Diagnosed on
+# CIFAR-100 and not a porting bug: with a natural teacher the IGDM target softmax(t+ - t-) is
+# near one-hot and the term reaches 17x the AdaAD loss, and the teacher is 40x further from locally
+# linear than the ones IGDM was designed for (remainder proportion 0.4763 against their 0.012).
+#
+# alpha = 1 is the most favourable reading of the method available here -- it puts the two loss terms
+# on comparable scales -- so that the failure cannot be dismissed as a badly chosen weight.  On
+# CIFAR-100 it trained normally and still finished far below AdaAD alone (48.25 / AA 19.48 against
+# 59.79 / 23.19).  Read this against CIFAR-10 AdaAD: 85.39 / 49.04 / AA 46.22.
+
+method : adaad_igdm
+igdm_alpha : 1.0
+igdm_beta : 1.0
+igdm_gamma : 1.0
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
