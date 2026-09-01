@@ -1,11 +1,12 @@
 \documentclass{article} % For LaTeX2e
-% NOTE: target venue is ICLR 2027.  The style kit here is the 2025 one taken from
-% writting_docs/reference/IGDM_ICLR25; swap iclr2025_conference.{sty,bst} for the 2027 files and
-% change the two lines that name them.  Nothing else in the source depends on the year.
-\usepackage{iclr2025_conference,times}
+% Target venue: ICLR 2027.  The kit under style/ is the 2025 one from the IGDM release; drop the
+% 2027 .sty/.bst into style/ and change the two lines naming them.  Nothing else depends on the
+% year.  Layout: this file + N_Section.tex are the manuscript, style/ is the venue kit, *.bib the
+% bibliography, notes/ the prose companions that are NOT part of the build.
+\usepackage{style/iclr2025_conference,times}
 
 % Optional math commands from https://github.com/goodfeli/dlbook_notation.
-\input{math_commands.tex}
+\input{style/math_commands.tex}
 
 \usepackage{hyperref}
 \usepackage{url}
@@ -63,6 +64,6 @@ Paper under double-blind review
 \input{5_Appendix}
 
 \bibliography{AT,cfa}
-\bibliographystyle{iclr2025_conference}
+\bibliographystyle{style/iclr2025_conference}
 
 \end{document}
