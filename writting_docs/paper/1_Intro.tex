@@ -63,7 +63,14 @@ another teacher, and the balance is what has to be tuned.
 Our question is about the other axis. Adversarial training discards standard accuracy that a
 naturally trained copy of the same network still holds, and we ask whether self-distillation can put
 it back---leaving robustness where it already is, in the student's own inner maximization. The answer
-turns on \emph{what the teacher is asked to supply}.
+turns on \emph{what the teacher is asked to supply}, and the field already has a candidate. Adversarial
+distillation attributes its effect to the smoothness of the teacher's soft labels \citep{rslad,
+bmtard}, and a naturally trained network is the sharp case---its maximum softmax probability is $0.820$
+against an adversarially trained student's $0.016$. Softening it is the obvious repair and it works,
+lifting AutoAttack accuracy from $20.84$ to $24.48$ across a temperature sweep. It also leaves standard
+accuracy flat near $58$ while the teacher being distilled from has $77.66$. Temperature moves
+robustness; it does not move the quantity we came for, and that quantity does not survive the teacher's
+own softmax.
 None of this is a claim that a naturally trained teacher is preferable to a robust one. A robust
 teacher is better guidance for robustness, obtaining it is precisely the expensive part, and we do not
 compete with methods that have one.
