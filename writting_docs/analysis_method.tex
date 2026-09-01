@@ -20,11 +20,8 @@ Let $f=h\circ\Phi$ be a classifier with feature map $\Phi$ and linear head $h$. 
 \end{equation}
 The supervisory signal is the label, and it is asserted uniformly over $B(x,\varepsilon)$: every point
 of the ball must reach full confidence in one class. That is where the accuracy cost comes from.
-Adversarial distillation replaces the label with a teacher quantity, taken from the logits of an
-adversarially trained teacher---at $x$ \citep{goldblum2020adversarially,zi2021revisiting}, at
-$x_{\mathrm{adv}}$ \citep{huang2023boosting}, or from finite differences of both
-\citep{lee2025indirect}. We ask instead what a \emph{naturally} trained teacher, which costs nothing
-to obtain, can supply.
+We write $\Phi_t$ for the frozen feature map of a network of the same architecture trained naturally on
+the same data---the teacher throughout---and ask what it can supply.
 
 \subsection{The Teacher Is Fragile, and Its Logits Are Worse Than No Teacher at All}
 \label{sec:fragile}
@@ -56,14 +53,30 @@ training initialized from the same teacher.
   \end{tabular}
 \end{table}
 
-The same holds when the temperature is swept rather than inherited: in a fixed base regime the best
-logit target reaches $24.48$ AutoAttack at $\tau=4$, against $25.88$ for a feature target under
-identical conditions, and the logit curve is unimodal because $\tau$ is squeezed from both sides---at
-$\tau=1$ the teacher's maximum probability is $0.820$ against the student's $0.016$, and at $\tau=16$
-the target is within $1\%$ of uniform.
+None of it is a temperature that was left untuned: swept in a fixed base regime, the logit target
+peaks at $24.48$ AutoAttack ($\tau=4$) and the curve is unimodal because $\tau$ is squeezed from both
+sides---at $\tau=1$ the teacher's maximum probability is $0.820$ against the student's $0.016$, and at
+$\tau=16$ the target is within $1\%$ of uniform.
+
+\paragraph{Two defects, and they separate.} A method can go wrong in \emph{where} it reads the teacher
+and in \emph{what} it reads from it, and Table~\ref{tab:natteacher} confounds them. Holding the read
+point fixed at $x$ and changing only what is read---the teacher's logits against its features, same
+regime, same attack, same teacher---gives $24.48\to\mathbf{25.88}$ AutoAttack. That isolates the
+second defect.
+
+The first is larger, and is visible where a method reads the teacher \emph{off} the clean point. IGDM
+\citep{lee2025indirect} matches a finite difference $f_T(x+\delta)-f_T(x-\delta)$ as a stand-in for
+the teacher's input gradient, which is a gradient only while the teacher is locally linear; its own
+diagnostic reports a Taylor remainder proportion of $0.012$ for adversarially trained teachers.
+Applying that diagnostic to our checkpoints gives $0.0111$ for an adversarially trained
+ResNet-18---reproducing their value, so the measurement is calibrated---and $\mathbf{0.4763}$ for the
+natural teacher, forty times further from linear. The target it constructs is correspondingly
+degenerate: $\lVert f_T(x+\delta)-f_T(x-\delta)\rVert=14.14$ against $\lVert f_T(x)\rVert=18.36$, with
+the softmax of that difference placing $0.917$ on a single class.
 
 The teacher therefore holds accuracy that adversarial training gives up, and the logit route does not
-recover it. What follows asks what does.
+recover it. What follows keeps the read point at $x$, where the first defect cannot arise, and takes
+the features, which the isolation above shows to be the better read.
 
 \subsection{What a Clean-Feature Anchor Controls}
 \label{sec:decomp}

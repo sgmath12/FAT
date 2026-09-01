@@ -10,48 +10,43 @@ without a Robust Teacher
 
 ## Abstract (main version)
 
-Adversarial training is among the most reliable defenses against adversarial examples, but it
-degrades standard accuracy, and this trade-off remains the central obstacle to its practical use.
-Adversarial distillation mitigates the degradation by transferring knowledge from a teacher, though
-existing methods rely on an adversarially trained teacher, so the robustness they report originates
-outside the student and the teacher is typically costlier to obtain than the student itself. In this
-work we retain the standard adversarial training setting, in which robustness is produced entirely by
-the inner maximization, and use a teacher for the single purpose of restoring the standard accuracy
-that adversarial training sacrifices. The teacher is a network of the same architecture trained
-naturally on the same data, and is therefore available at no adversarial cost.
-
-Such a teacher attains the highest standard accuracy available, yet its predictions rely on features
-that an adversary can manipulate, and transferring them is expected to import that fragility. We show
-that this does not occur when the teacher is used as a **feature anchor** rather than a logit target.
-Our objective matches the teacher's *clean* feature at the *adversarial* input, so the teacher is
-never evaluated under attack; consequently it can transfer neither its instability nor any
-robustness. We prove that this single term is equivalent, within a constant factor, to the sum of
-fidelity to the teacher and local stability of the student, and we complement it by allocating the
-per-sample attack radius according to the input sensitivity of the loss at a fixed total budget.
-Robustness thus remains entirely attributable to the student, while standard accuracy is recovered:
-on CIFAR-100 with ResNet-18 our method improves standard accuracy by **4.8 percentage points at
-matched AutoAttack robustness**, and it establishes a new accuracy–robustness frontier on CIFAR-10,
-CIFAR-100 and Tiny-ImageNet. A naturally trained teacher additionally exposes a trade-off control
-that is unavailable to robust-teacher distillation, namely the teacher's training length, which moves
-the student along the frontier at no additional cost.
+Adversarial training is among the most reliable defenses against adversarial examples, but it degrades
+standard accuracy, and this trade-off remains the central obstacle to its practical use. Adversarial
+distillation mitigates the degradation with a teacher, but that teacher is adversarially trained and
+typically costlier to obtain than the student, so the robustness reported originates outside the
+student. We instead use a teacher of the same architecture trained naturally on the same data,
+available at no adversarial cost, for the single purpose of restoring the accuracy that adversarial
+training gives up. Such a teacher is fragile — under $\varepsilon=8/255$ its own feature rotates by
+$63.8^\circ$ — and consuming it as adversarial distillation does makes matters worse: every published
+objective given this teacher lands below simply not distilling. We show that the fragility is not
+transferred when the teacher is used as a **feature anchor** instead. Matching the teacher's *clean*
+feature at the *adversarial* input means the teacher is never evaluated under attack, so it transfers
+neither its instability nor any robustness, and we prove that this single term is equivalent within a
+constant factor to fidelity plus local stability, with no coefficient between them. Combined with a
+per-sample attack radius set by the input sensitivity of the loss at fixed total budget, the method
+has no loss weight, no temperature and no trained classifier, and transfers across datasets unchanged.
+On CIFAR-100 with ResNet-18 it improves standard accuracy by **5.3 points at no cost in AutoAttack**,
+and it sets a new accuracy–robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet. Because the
+teacher is naturally trained, its training length becomes a trade-off control that costs nothing to
+exercise.
 
 ---
 
 ## Abstract (short version, for a page-limited venue)
 
 Adversarial training improves robustness but degrades standard accuracy, and adversarial distillation
-mitigates this trade-off by transferring knowledge from an adversarially trained teacher, so the
-robustness it reports originates outside the student. We retain the standard adversarial training
-setting and use a teacher solely to restore the accuracy that adversarial training sacrifices: a
-network of the same architecture trained naturally on the same data, available at no adversarial
-cost. Although such a teacher relies on features an adversary can manipulate, we show that this
-fragility is not transferred when the teacher is used as a **feature anchor** rather than a logit
-target. Matching the teacher's *clean* feature at the *adversarial* input means the teacher is never
-evaluated under attack, so it transfers neither its instability nor any robustness; we prove this
-objective is equivalent within a constant factor to fidelity plus local stability. Combined with a
-per-sample attack radius set by the input sensitivity of the loss at fixed total budget, our method
-improves standard accuracy by 4.8 percentage points at matched AutoAttack on CIFAR-100 and
-establishes a new frontier on three datasets.
+mitigates the trade-off with an adversarially trained teacher, so the robustness it reports originates
+outside the student. We instead use a teacher of the same architecture trained naturally on the same
+data, available at no adversarial cost, solely to restore the accuracy adversarial training gives up.
+Such a teacher is fragile, and consuming it as adversarial distillation does makes matters worse:
+every published objective given this teacher lands below simply not distilling. The fragility is not
+transferred when the teacher is used as a **feature anchor** instead. Matching the teacher's *clean*
+feature at the *adversarial* input means the teacher is never evaluated under attack, so it transfers
+neither its instability nor any robustness; we prove this single term is equivalent within a constant
+factor to fidelity plus local stability. Combined with a per-sample attack radius set by the input
+sensitivity of the loss at fixed total budget, the method has no loss weight, no temperature and no
+trained classifier. On CIFAR-100 with ResNet-18 it improves standard accuracy by 5.3 points at no cost
+in AutoAttack, and sets a new frontier on three datasets.
 
 ---
 
@@ -83,7 +78,7 @@ Proposition 1 available — the decomposition characterizes the objective only w
 objective, not one term of a weighted sum.
 
 Numerically, on CIFAR-10 / ResNet-18 neither dominates: ARREST 86.63 / 46.14 (NRR 60.21) against ours
-84.66 / 51.87 (NRR 64.33). ARREST's CIFAR-100 results use WideResNet-34-10 (73.05 / 24.32) and are
+85.58 / 51.79 (NRR 64.53). ARREST's CIFAR-100 results use WideResNet-34-10 (73.05 / 24.32) and are
 not directly comparable to our ResNet-18 numbers.
 
 ### Robust-teacher distillation is a different problem, not a stronger result on ours
@@ -127,9 +122,9 @@ than a logit target.
 
 | | clean | AA | NRR |
 |---|---:|---:|---:|
-| CIFAR-100, ours | 62.17 | 28.59 | 39.17 |
+| CIFAR-100, ours | 62.65 | 28.77 | 39.43 |
 | CIFAR-100, ADR + WA + AWP | 57.36 | 28.50 | 38.08 |
-| CIFAR-10, ours | 84.66 | 51.87 | 64.33 |
+| CIFAR-10, ours | 85.58 | 51.79 | 64.53 |
 | CIFAR-10, ADR + WA + AWP | 83.26 | 51.18 | 63.39 |
 | CIFAR-10, ARREST | 86.63 | 46.14 | 60.21 |
 | Tiny-ImageNet, ours | 55.16 | 20.54 | 29.93 |

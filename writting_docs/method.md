@@ -18,11 +18,9 @@ $$\min_\theta\ \mathbb{E}_{(x,y)}\ \max_{x'\in B(x,\varepsilon)}\ \ell\big(f_\th
 \qquad B(x,\varepsilon)=\{x':\lVert x'-x\rVert_\infty\le\varepsilon\}. \tag{1}$$
 
 The supervisory signal is the label, and it is asserted uniformly over $B(x,\varepsilon)$: every point
-of the ball must reach full confidence in one class. That is where the accuracy cost comes from.
-Adversarial distillation replaces the label with a teacher quantity, taken from the logits of an
-adversarially trained teacher — at $x$ (ARD, RSLAD), at $x_{\mathrm{adv}}$ (AdaAD), or from finite
-differences of both (IGDM). We ask instead what a *naturally* trained teacher, which costs nothing to
-obtain, can supply.
+of the ball must reach full confidence in one class. That is where the accuracy cost comes from. We
+write $\Phi_t$ for the frozen feature map of a network of the same architecture trained naturally on
+the same data — the teacher throughout — and ask what it can supply.
 
 ### 3.2 The teacher is fragile, and its logits are worse than no teacher at all
 
@@ -44,13 +42,17 @@ same teacher.
 | AdaAD | 59.79 | 23.19 | 33.42 |
 | PGD-AT, initialized at the teacher | 57.73 | **26.46** | **36.29** |
 
-Every one of them lands below simply not distilling. The same holds when the temperature is swept
-rather than inherited: in a fixed base regime the best logit target reaches AA $24.48$ at $\tau=4$,
-against $25.88$ for a feature target under identical conditions, and the logit curve is $\cap$-shaped
-because $\tau$ is squeezed from both sides — at $\tau=1$ the teacher's maximum probability is $0.820$
-against the student's $0.016$, and at $\tau=16$ the target is within $1\%$ of uniform.
+Every one of them lands below simply not distilling, and none of it is a temperature that was left
+untuned: swept in a fixed base regime, the logit target peaks at AA $24.48$ ($\tau=4$) and the curve
+is $\cap$-shaped because $\tau$ is squeezed from both sides — at $\tau=1$ the teacher's maximum
+probability is $0.820$ against the student's $0.016$, and at $\tau=16$ the target is within $1\%$ of
+uniform.
 
-The failure is sharpest where a method reads the teacher *off* the clean point. IGDM matches a finite
+**Two defects, and they separate.** A method can go wrong in *where* it reads the teacher and in
+*what* it reads from it, and Table 1 confounds them. Holding the read point fixed at $x$ and changing
+only what is read — the teacher's logits against its features, same regime, same attack, same teacher
+— gives AA $24.48 \to \mathbf{25.88}$. That isolates the second defect. The first is larger and is
+visible where a method reads the teacher *off* the clean point. IGDM matches a finite
 difference $f_T(x+\delta)-f_T(x-\delta)$ as a stand-in for the teacher's input gradient, which is a
 gradient only while the teacher is locally linear; its own diagnostic reports a Taylor remainder
 proportion of $0.012$ for adversarially trained teachers. Applying that diagnostic to our checkpoints
@@ -61,8 +63,8 @@ against $\lVert f_T(x)\rVert=18.36$, with the softmax of that difference placing
 class.
 
 The teacher therefore holds accuracy that adversarial training gives up, and the logit route does not
-recover it — least of all the part of that route that evaluates the teacher inside the ball. What
-follows asks what does.
+recover it. What follows keeps the read point at $x$, where the first defect cannot arise, and takes
+the features, which the isolation above shows to be the better read.
 
 ### 3.3 What a clean-feature anchor controls
 
