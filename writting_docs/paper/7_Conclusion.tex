@@ -1,0 +1,26 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+Adversarial training discards standard accuracy that a naturally trained copy of the same network
+still holds. We asked whether self-distillation can put it back without touching where the robustness
+comes from, and found that it can, provided the teacher is asked only for accuracy and is read only at
+the clean point. Anchoring the student's adversarial feature to the teacher's clean feature makes that
+precise: the teacher never enters the perturbation ball, so its own instability---$63.8^\circ$ of
+rotation under $\epsilon = 8/255$---has no path into the objective, and the single term bounds fidelity
+and local stability together to within a factor of three. The result is a method with no loss weight,
+no temperature and no trained classifier, whose robustness remains entirely attributable to the
+student's own inner maximization, and which transfers across three datasets with only the teacher
+checkpoint changed.
+
+Two findings sit alongside it. Consuming the same natural teacher the way adversarial distillation
+does---as a logit target, or read inside the ball---is worse than not distilling at all, on both
+datasets and for all four published objectives. And what the teacher transfers is its class geometry
+rather than its accuracy, with the two anti-correlated at $r = -0.999$ across training lengths, which
+turns the teacher's own schedule into a trade-off control that costs nothing to exercise.
+
+What we do not have is an account of how much robustness the objective buys. \Cref{prop:decomp}
+explains why anchoring a non-robust teacher is \emph{free}; it is not a robustness bound, and the two
+partial results in \Cref{app:robustness} each fall short for a reason we state. Closing that is the
+obvious next step, and the measurements that would constrain it---the oscillation $O$ correlating with
+AutoAttack at the wrong sign, and the $\varepsilon$-independence above the threshold---are reported
+here rather than set aside.

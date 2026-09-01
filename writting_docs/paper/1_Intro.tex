@@ -19,11 +19,14 @@ trained models in practice.
   \includegraphics[width=\linewidth]{figure/frontier.pdf}
   \caption{The accuracy--robustness frontier on ResNet-18, $\ell_\infty$, $\epsilon = 8/255$. Grey
   points are published results (\Cref{tab:published}); the dashed line is a least-squares fit through
-  the Pareto-optimal ones and is drawn for reading rather than fitted for a claim. CFA (red) sits
-  above the frontier on both datasets: on CIFAR-100 it gains $5.29$ points of standard accuracy over
-  the strongest method at comparable robustness and $4.81$ points of AutoAttack over the strongest at
-  comparable standard accuracy, and no method exceeds it on both axes. Its teacher is a naturally
-  trained network of the same architecture, obtained at no adversarial cost.}
+  the Pareto-optimal ones and is drawn for reading rather than fitted for a claim. CFA is drawn as a
+  \emph{curve} rather than a point, because the training radius moves along the frontier at no cost;
+  the star is the shipped configuration and the other markers differ from it only in
+  $\epsilon_{\mathrm{train}}$. At $\epsilon_{\mathrm{train}} = 8/255$ the curve \textbf{strictly
+  dominates} Generalist++ on CIFAR-100 ($63.89 / 27.78$ against $62.97 / 23.96$) and both CURE and
+  ARREST on CIFAR-10 ($87.22 / 51.15$ against $86.76 / 49.69$ and $86.63 / 46.14$), so it is ahead on
+  \emph{both} axes rather than trading one for the other. Its teacher is a naturally trained network
+  of the same architecture, obtained at no adversarial cost.}
   \label{fig:frontier}
 \end{figure}
 
@@ -57,13 +60,13 @@ and B-MTARD \citep{bmtard} pairs a clean teacher with a robust one so that each 
 is good at. In all three the natural network supplies logits and is balanced against another term or
 another teacher, and the balance is what has to be tuned.
 
-We do not claim that a naturally trained teacher is preferable to a robust one, and we do not compete
-with methods that have one.
-A robust teacher is better guidance for robustness, and obtaining it is precisely the expensive part.
-Our question is narrower and is about the other axis: adversarial training discards standard accuracy
-that a naturally trained copy of the same network still holds, and we ask whether self-distillation
-can put it back.
-The answer turns on \emph{what the teacher is asked to supply}.
+Our question is about the other axis. Adversarial training discards standard accuracy that a
+naturally trained copy of the same network still holds, and we ask whether self-distillation can put
+it back---leaving robustness where it already is, in the student's own inner maximization. The answer
+turns on \emph{what the teacher is asked to supply}.
+None of this is a claim that a naturally trained teacher is preferable to a robust one. A robust
+teacher is better guidance for robustness, obtaining it is precisely the expensive part, and we do not
+compete with methods that have one.
 We ask it for standard accuracy alone and leave robustness entirely to the student's inner
 maximization, and under that division the expected fragility does not materialize---for a structural
 reason rather than an empirical one.
@@ -131,10 +134,10 @@ Our contributions are as follows:
   \item We propose Clean Feature Anchoring together with sensitivity-matched $\epsilon$, a method with
     no loss weight, no temperature and no per-dataset tuning, in which robustness remains entirely
     attributable to the student's own inner maximization.
+  \item We run the published distillation objectives on the same natural teacher and find all of
+    them below plain adversarial training from that teacher, which locates the difficulty in the logit
+    target rather than in the teacher.
   \item We demonstrate a new accuracy--robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet,
-    and show that the gain is not an artifact of weight averaging or adversarial weight perturbation:
-    with weight averaging alone and half the training schedule, CFA already exceeds the best published
-    result that uses both. Running the published distillation objectives on the same natural teacher
-    places all of them below plain adversarial training from that teacher, which locates the
-    difficulty in the logit target rather than in the teacher.
+    and show the gain is not weight averaging or AWP: with weight averaging alone and half the
+    schedule, CFA already exceeds the best published result that uses both.
 \end{itemize}

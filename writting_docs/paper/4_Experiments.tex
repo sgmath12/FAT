@@ -19,12 +19,13 @@ Weight averaging ($\kappa=0.999$, from $20\%$ of the run) and an AWP proxy \cite
 ($\gamma=0.005$, after epoch $10$) are used and ablated in \Cref{sec:components}. Every dataset
 uses this identical configuration; only the dataset name and the teacher checkpoint change.
 
-\paragraph{Comparison models.} Two groups: adversarial training methods requiring no external network
-(PGD-AT, TRADES, MART, Consistency-AT, RPAT, ADR, CURE, Generalist++, ARREST), and adversarial
-distillation methods, which assume an adversarially trained teacher (ARD, RSLAD, AdaAD, IGDM,
-B-MTARD). Published numbers are quoted with their source; RPAT and CURE we additionally re-ran, and
-the four distillation objectives we ported and ran on our own natural teacher
-(\Cref{sec:natteacher}).
+\paragraph{Comparison models.} Every baseline in \Cref{tab:main} is run here rather than quoted, so
+that the rows are comparable to each other: PGD-AT, TRADES and MART as standard adversarial training;
+ARD, RSLAD, AdaAD and IGDM as adversarial distillation, given our natural teacher in place of the
+robust one they assume; and RPAT++ reproduced from its own repository. Each row states in its
+\emph{Teacher} column what it assumes available. Methods we could not run are left empty with the
+reason, and the published figures for all of them---including ADR, CURE, ARREST, LBGAT, Generalist++
+and B-MTARD---are collected separately in \Cref{tab:published}.
 
 \paragraph{Evaluation.} Clean accuracy, FGSM, PGD-20/10/50, CW$_\infty$ and AutoAttack (standard
 version) on the full test set at $\epsilon=8/255$. NRR is the harmonic mean of clean and AutoAttack
