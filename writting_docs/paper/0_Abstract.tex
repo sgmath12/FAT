@@ -1,11 +1,12 @@
 \begin{abstract}
 Adversarial training is among the most reliable defenses against adversarial examples, but it degrades
 standard accuracy, and this trade-off remains the central obstacle to its practical use.
-Adversarial distillation mitigates the degradation with a teacher, but that teacher is adversarially
-trained and typically costlier to obtain than the student, so the robustness reported originates
-outside the student.
-We instead use a teacher of the same architecture trained naturally on the same data, available at no
-adversarial cost, for the single purpose of restoring the accuracy that adversarial training gives up.
+The accuracy that is lost is not lost in general: a network of the same architecture, trained
+naturally on the same data, still holds it.
+We therefore ask whether that accuracy can be put back by self-distillation, using the model's own
+naturally trained counterpart---available at no adversarial cost---for the single purpose of restoring
+what adversarial training gives up, while robustness continues to be produced entirely by the inner
+maximization.
 Such a teacher is fragile---under $\epsilon = 8/255$ its own feature rotates by $63.8^\circ$---and
 consuming it as adversarial distillation does makes matters worse: every published objective given
 this teacher lands below simply not distilling.

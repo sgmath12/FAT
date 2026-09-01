@@ -40,7 +40,14 @@
 \newcommand{\dg}{\textsuperscript{\dag}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\title{Clean Feature Anchoring: Recovering Standard Accuracy\\ in Adversarial Training without a Robust Teacher}
+% Title framing note: an earlier version ended "...without a Robust Teacher", which invites the
+% reading "so with a robust teacher you lose" -- and we would, since IGDM+AdaAD reaches
+% 64.44/30.32 on this architecture from a WRN-28-10 teacher.  That is a ranking claim against a
+% line this paper does not compete with.  The register here follows B-MTARD and ARREST, whose
+% titles both name the goal ("Mitigating the Accuracy-Robustness Trade-off") and the mechanism,
+% and claim nothing about what is unnecessary.
+\title{Clean Feature Anchoring: Mitigating the Accuracy--Robustness\\
+Trade-off by Self-Distilling a Naturally Trained Model}
 
 \author{
 Anonymous authors\\

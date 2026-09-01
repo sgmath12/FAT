@@ -57,9 +57,12 @@ That is the closest prior statement of the idea we pursue, and it still requires
 teacher---a WideResNet-70-16 on CIFAR-100, far larger than the student---because the clean teacher
 supplies logits and cannot supply robustness.
 
-We do not claim that a naturally trained teacher is preferable to a robust one.
-A robust teacher is better guidance, and obtaining it is precisely the expensive part; the question we
-take up is what can be achieved when only the free teacher is available.
+We do not claim that a naturally trained teacher is preferable to a robust one, and we do not compete
+with methods that have one.
+A robust teacher is better guidance for robustness, and obtaining it is precisely the expensive part.
+Our question is narrower and is about the other axis: adversarial training discards standard accuracy
+that a naturally trained copy of the same network still holds, and we ask whether self-distillation
+can put it back.
 The answer turns on \emph{what the teacher is asked to supply}.
 We ask it for standard accuracy alone and leave robustness entirely to the student's inner
 maximization, and under that division the expected fragility does not materialize---for a structural

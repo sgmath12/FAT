@@ -144,27 +144,44 @@ order moves the frontier itself.
 \caption{Clean Feature Anchoring (CFA)}
 \label{alg:cfa}
 \begin{algorithmic}[1]
-\Require dataset $\mathcal{D}$, radius $\epsilon$, steps $K$, step size $a$, exponent $p = 1$
-\State $\Phi_t, h_t \gets$ train $f_t$ naturally on $\mathcal{D}$
-  \Comment{same architecture, no adversarial cost}
-\State $\Phi_s \gets \Phi_t$, \ $h \gets h_t$ \Comment{student initialized at the teacher}
-\For{each epoch, each minibatch $\{x_i\}_{i=1}^{N}$}
-  \State $g_i \gets \big\lVert \nabla_x \lVert \Phi_s(x_i) - \Phi_t(x_i) \rVert^2 \big\rVert$
-    \Comment{one backward pass at the clean input}
-  \State $\epsilon_i \gets \epsilon \cdot \mathrm{clip}(t\,(\bar g/g_i)^p, w_{\mathrm{lo}},
-    w_{\mathrm{hi}})$ with $t$ from \Cref{eqn:angeps}
-    \Comment{total budget preserved}
-  \State $x_i^{\mathrm{adv}} \gets K$ steps of \Cref{eqn:pgd} inside $B(x_i, \epsilon_i)$
-  \State update $\Phi_s$ on $\frac{1}{N}\sum_i \lVert \Phi_s(x_i^{\mathrm{adv}}) - \Phi_t(x_i)
-    \rVert^2$
-    \Comment{$h$ is never updated}
-\EndFor
+\STATE {\bfseries Input:} dataset $\mathcal{D}$, radius $\epsilon$, attack steps $K$, step size $a$,
+  exponent $p$, box $[w_{\mathrm{lo}}, w_{\mathrm{hi}}]$
+\STATE {\bfseries Output:} robust student $h_t \circ \Phi_s$
+\STATE
+\STATE \COMMENT{\emph{Phase 1 --- natural self-teacher.} The only stage that uses labels.}
+\STATE Train $f_t = h_t \circ \Phi_t$ on $\mathcal{D}$ with standard cross-entropy; freeze it
+\STATE
+\STATE \COMMENT{\emph{Phase 2 --- anchored adversarial training.} No labels, no head update.}
+\STATE $\Phi_s \leftarrow \Phi_t$ \hfill \COMMENT{student initialized at the teacher}
+\FOR{$\mathrm{epoch} = 1$ {\bfseries to} $T$}
+  \FOR{minibatch $\{x_i\}_{i=1}^{N} \subset \mathcal{D}$}
+    \STATE $\phi_i \leftarrow \Phi_t(x_i)$ \hfill \COMMENT{teacher read once, at the clean input}
+    \STATE $g_i \leftarrow \lVert \nabla_x \lVert \Phi_s(x_i) - \phi_i \rVert^2 \rVert$
+      \hfill \COMMENT{one backward pass}
+    \STATE $r_i \leftarrow (\bar g / g_i)^{p}$; \ \ solve
+      $\textstyle\sum_i \mathrm{clip}(t r_i, w_{\mathrm{lo}}, w_{\mathrm{hi}}) = N$ for $t$
+      \hfill \COMMENT{\Cref{eqn:angeps}}
+    \STATE $\epsilon_i \leftarrow \epsilon \cdot \mathrm{clip}(t r_i, w_{\mathrm{lo}},
+      w_{\mathrm{hi}})$ \hfill \COMMENT{$\textstyle\sum_i \epsilon_i = N\epsilon$}
+    \STATE $x_i^{0} \leftarrow x_i + \eta_i$
+    \FOR{$k = 0$ {\bfseries to} $K-1$}
+      \STATE $x_i^{k+1} \leftarrow \Pi_{B(x_i, \epsilon_i)}
+        \big( x_i^{k} + a\,\mathrm{sign}\,\nabla_x \lVert \Phi_s(x_i^{k}) - \phi_i \rVert^2 \big)$
+    \ENDFOR
+    \STATE $\mathcal{L} \leftarrow \frac{1}{N} \sum_i
+      \lVert \Phi_s(x_i^{K}) - \phi_i \rVert^2$
+    \STATE $\Phi_s \leftarrow \Phi_s - \mu \nabla_{\Phi_s} \mathcal{L}$
+      \hfill \COMMENT{$h_t$ is never updated}
+  \ENDFOR
+\ENDFOR
 \end{algorithmic}
 \end{algorithm}
 
-Line~1 of \Cref{alg:cfa} is the only place labels appear, and it is ordinary supervised training;
-lines 3--8 use none. The method introduces no loss weight, no temperature and no auxiliary head, and
-the only quantity we vary between datasets is the teacher checkpoint.
+Phase 1 is the only place labels appear, and it is ordinary supervised training. Phase 2 uses none:
+the teacher vector $\phi_i$ is the entire supervisory signal, it is read once per example at the clean
+input, and the classifier $h_t$ is carried through untouched. The method introduces no loss weight, no
+temperature and no auxiliary head, and the only quantity we vary between datasets is the teacher
+checkpoint.
 
 \paragraph{Caveats.} \Cref{eqn:firstorder} asks for the $\ell_1$ norm and our runs use $\ell_2$; both
 were trained and agree within noise, so the derivation is printed as stated. And $g_i$ is a single
