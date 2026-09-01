@@ -23,8 +23,9 @@ x^{(k+1)} \;=\; \Pi_{B(x,\epsilon)}\!\left(
 \qquad x^{(0)} = x + \eta ,
 \label{eqn:pgd}
 \end{equation}
-with $\eta$ a small random initialization and $\Pi$ the projection onto the ball. Inner and outer
-problems therefore agree, as they do in standard adversarial training and unlike methods whose attack
+with $\eta$ a small random initialization and $\Pi$ the projection onto the ball. The target
+$\Phi_t(x)$ is a \emph{constant} of this ascent: it is computed once, at the clean input, and does not
+move as $x^{(k)}$ does. Inner and outer problems therefore agree, as they do in standard adversarial training and unlike methods whose attack
 is generated against a different objective from the one being trained.
 
 \Cref{eqn:anchor} is the \emph{entire} objective for the backbone. No label term, no logit term, and

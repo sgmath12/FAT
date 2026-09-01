@@ -12,8 +12,9 @@ Let $f=h\circ\Phi$ be a classifier with feature map $\Phi$ and linear head $h$. 
 \end{equation}
 The supervisory signal is the label, and it is asserted uniformly over $B(x,\epsilon)$: every point
 of the ball must reach full confidence in one class. That is where the accuracy cost comes from.
-We write $\Phi_t$ for the frozen feature map of a network of the same architecture trained naturally on
-the same data---the teacher throughout---and ask what it can supply.
+We write $f_t = h_t \circ \Phi_t$ for a network of the same architecture trained naturally on the same
+data---the teacher throughout, frozen---so that $\Phi_t(x)$ is its feature and $f_t(x)$ its logits, and
+ask what it can supply.
 
 \subsection{Where a Natural Teacher Fails, and Where It Does Not}
 \label{sec:fragile}
@@ -33,13 +34,13 @@ and a target within $1\%$ of uniform at $\tau = 16$.
 $\epsilon = 8/255$ the teacher's own feature rotates by $63.8^\circ$ and its norm inflates by
 $\times 2.45$, so its output inside the ball is not a softened version of its output at the centre. The
 consequence is sharpest for methods that read it there. IGDM \citep{igdm} matches a finite difference
-$f_T(x{+}\delta) - f_T(x{-}\delta)$ as a stand-in for the teacher's input gradient, which is a gradient
+$f_t(x{+}\delta) - f_t(x{-}\delta)$ as a stand-in for the teacher's input gradient, which is a gradient
 only while the teacher is locally linear; its own diagnostic reports a Taylor remainder proportion of
 $0.012$ for adversarially trained teachers. Applying that diagnostic to our checkpoints gives $0.0111$
 for an adversarially trained ResNet-18---reproducing their value, so the measurement is
 calibrated---and $\mathbf{0.4763}$ for the natural teacher, forty times further from linear. The target
-it constructs is correspondingly degenerate: $\lVert f_T(x{+}\delta) - f_T(x{-}\delta) \rVert = 14.14$
-against $\lVert f_T(x) \rVert = 18.36$, with the softmax of that difference placing $0.917$ of its mass
+it constructs is correspondingly degenerate: $\lVert f_t(x{+}\delta) - f_t(x{-}\delta) \rVert = 14.14$
+against $\lVert f_t(x) \rVert = 18.36$, with the softmax of that difference placing $0.917$ of its mass
 on one class.
 
 \paragraph{Together, they cost more than the teacher is worth.} \Cref{tab:natteacher} gives the

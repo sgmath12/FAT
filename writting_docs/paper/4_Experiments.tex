@@ -150,7 +150,7 @@ natural teacher holds is not recovered by treating it as a logit target.
 
 AdaAD\,+\,IGDM collapses to chance on both datasets at the published $\alpha = 20$ ($1.00$ on
 CIFAR-100, $10.00$ on CIFAR-10), so ten classes did not rescue it. This is not a porting artifact:
-with a natural teacher the IGDM target $\mathrm{softmax}(f_T(x{+}\delta) - f_T(x{-}\delta))$ places
+with a natural teacher the IGDM target $\mathrm{softmax}(f_t(x{+}\delta) - f_t(x{-}\delta))$ places
 $0.917$ of its mass on a single class and the term reaches $17.3\times$ the AdaAD loss. Reducing the
 weight to $\alpha = 1$, which puts the two terms on comparable scales and is the most favourable
 reading available, trains normally and still finishes far below AdaAD alone. \Cref{tab:linearity}
@@ -165,24 +165,26 @@ a gradient there.
 
 \begin{table}[t]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{CIFAR-100, ResNet-18, raw-$\ell_2$ anchor with $\epsilon_{\mathrm{train}}=8.8/255$ held
-  fixed and no learning-rate freeze. Each row adds one component to the row above.}
+  \caption{Component ablation. CIFAR-100, ResNet-18, raw-$\ell_2$ anchor with
+  $\epsilon_{\mathrm{train}} = 8.8/255$ held fixed and no learning-rate freeze. Each row adds one
+  component to the row above. Columns match \Cref{tab:main}; per-attack values are in
+  \Cref{tab:fullmetrics}.}
   \label{tab:ladder}
-  \begin{tabular}{lrrrrr}
+  \begin{tabular}{lrrrr}
     \toprule
-    & Clean & PGD-20 & CW & AA & NRR \\
+    & Clean & AA & Avg & NRR \\
     \midrule
-    \multicolumn{6}{l}{\emph{50 epochs}} \\
-    Anchor ($p=0$)                            & 61.33 & 32.94 & 27.80 & 26.19 & 36.71 \\
-    \quad + sensitivity-matched $\epsilon$ & 62.94 & 32.27 & 28.23 & 26.40 & 37.20 \\
-    \quad + weight averaging                  & 61.11 & 34.30 & 29.66 & \textbf{28.06} & \textbf{38.46} \\
-    \quad + AWP\dg                           & 59.90 & 35.70 & 29.74 & 28.05 & 38.21 \\
+    \multicolumn{5}{l}{\emph{50 epochs}} \\
+    Anchor ($p=0$)                         & 61.33 & 26.19 & 43.76 & 36.71 \\
+    \quad + sensitivity-matched $\epsilon$ & 62.94 & 26.40 & 44.67 & 37.20 \\
+    \quad + weight averaging               & 61.11 & \textbf{28.06} & 44.59 & \textbf{38.46} \\
+    \quad + AWP\dg                         & 59.90 & 28.05 & 43.98 & 38.21 \\
     \midrule
-    \multicolumn{6}{l}{\emph{100 epochs}} \\
-    Anchor ($p=0$)                            & 61.21 & 31.26 & 26.82 & 25.24 & 35.74 \\
-    \quad + sensitivity-matched $\epsilon$ & 62.98 & 31.30 & 27.05 & 25.43 & 36.23 \\
-    \quad + weight averaging                  & 62.43 & 33.49 & 28.96 & 27.39 & 38.08 \\
-    \quad + AWP\dg                           & 62.35 & 36.26 & 30.65 & \textbf{28.68} & \textbf{39.29} \\
+    \multicolumn{5}{l}{\emph{100 epochs}} \\
+    Anchor ($p=0$)                         & 61.21 & 25.24 & 43.23 & 35.74 \\
+    \quad + sensitivity-matched $\epsilon$ & 62.98 & 25.43 & 44.20 & 36.23 \\
+    \quad + weight averaging               & 62.43 & 27.39 & 44.91 & 38.08 \\
+    \quad + AWP\dg                         & 62.35 & \textbf{28.68} & 45.52 & \textbf{39.29} \\
     \bottomrule
   \end{tabular}
 \end{table}
