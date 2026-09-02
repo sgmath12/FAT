@@ -39,3 +39,6 @@ writting_docs/paper/*.blg
 writting_docs/paper/*.bbl
 writting_docs/paper/*.out
 writting_docs/paper/*.synctex.gz
+
+# Reference baseline repos: upstream checkouts, kept locally, never ours to version
+reference_baseline/
