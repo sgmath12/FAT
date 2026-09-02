@@ -8,9 +8,9 @@ the clean point. Anchoring the student's adversarial feature to the teacher's cl
 precise: the teacher never enters the perturbation ball, so its own instability---$63.8^\circ$ of
 rotation under $\epsilon = 8/255$---has no path into the objective, and the single term bounds fidelity
 and local stability together to within a factor of three. The result is a method with no loss weight,
-no temperature and no trained classifier, whose robustness remains entirely attributable to the
-student's own inner maximization, and which transfers across three datasets with only the teacher
-checkpoint changed.
+no temperature and no trained classifier, whose robustness is produced by the student's own inner
+maximization rather than borrowed from the teacher, and which transfers across three datasets with
+only the teacher checkpoint changed.
 
 Two findings sit alongside it. Consuming the same natural teacher the way adversarial distillation
 does---as a logit target, or read inside the ball---is worse than not distilling at all, on both
@@ -18,11 +18,16 @@ datasets and for all four published objectives. And what the teacher transfers i
 rather than its accuracy, with the two anti-correlated at $r = -0.999$ across training lengths, which
 turns the teacher's own schedule into a trade-off control that costs nothing to exercise.
 
-Weight averaging and AWP remain the machinery that buys robustness, and our baselines carry them too;
-at that fixed stack the anchor and ADR reach the same AutoAttack accuracy to within $0.27$ points and
-differ by $5.29$ points of standard accuracy. That is the contribution stated exactly: not a new
-source of robustness, but five points of accuracy kept while the usual source is applied.
-\Cref{prop:decomp} is what licenses it, since bounding one scalar bounds fidelity and local stability
-together instead of trading them. What the proposition does not give is the size of the effect, and a
+Robustness is still produced by the student's inner maximization and by nothing the teacher supplies,
+since the teacher is never evaluated under attack. What we did not expect is that \emph{which}
+objective that maximization ascends matters as much as it does. Stripped of weight averaging, of AWP
+and of the sensitivity-matched radius, the anchor alone leads label cross-entropy under an identical
+schedule and initialization by $5.79$ points of AutoAttack as well as $6.61$ of standard accuracy, and
+$1.80$ of that robustness margin is traceable to attacking in feature space rather than through the
+label. For scale, at the full stack the anchor leads cross-entropy \emph{with} weight averaging and
+AWP by $2.40$. The anchor is therefore not a neutral passenger on machinery that supplies robustness;
+at matched stack it is the larger contributor, and the stack is additive on top.
+\Cref{prop:decomp} licenses only the weaker half of this---that the anchor cannot cost robustness,
+since bounding one scalar bounds fidelity and local stability together instead of trading them. What the proposition does not give is the size of the effect, and a
 bound on that is the obvious next step; the measurements that would constrain it are reported here
 rather than set aside.
