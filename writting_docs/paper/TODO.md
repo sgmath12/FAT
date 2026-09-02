@@ -109,9 +109,23 @@ before the number lands: **AA $\geq 25.24$** means the anchor buys no robustness
 gain at full recipe is the stack interacting with it, which is what §2.3 should then say; **AA
 $< 25.24$** means the anchor buys robustness by itself and the margin is the number to report.
 
-⚠ `abl_teacher_at_adv` carries a **prediction recorded before the run**, in its config header: clean
-and AA both fall, and $O$ on the resulting student rises toward the teacher's 6.68. If it ties,
-§2.3 is a description rather than a mechanism and must be rewritten.
+**Two have landed, and both are decisive — `notes/ablation_results.md` has the full write-up.**
+
+| cell | result | read |
+|---|---|---|
+| `abl_teacher_at_adv` | **76.11 / AA 0.00** against 61.33 / 26.19 | robustness is not degraded, it is *gone*; reading $\Phi_t$ at $x_{\mathrm{adv}}$ makes $\Phi_s = \Phi_t$ optimal and that solution is a natural model |
+| `abl_ce_nostack` | **54.60 / AA 19.45** against the anchor's 61.21 / 25.24 | the anchor buys **+5.79 AA and +6.61 clean by itself**, no $\varepsilon$-matching, no WA, no AWP |
+
+⚠ `abl_teacher_at_adv`'s recorded prediction was **half wrong**: it said clean would fall along with
+AA, and clean *rose* 14.78 to just under the teacher. The mechanism is degeneracy, not instability —
+the target becomes trivially trackable rather than noisy. §3.3 must say degeneracy.
+
+**This changes the framing.** "The anchor keeps accuracy and does not cost robustness; WA and AWP
+supply the robustness" understates the measurement: at matched stack the anchor supplies +5.79 AA,
+against the +2.40 separating the shipped recipe from cross-entropy *with* the stack. Nor is it CE
+overfitting — CE's PGD peaks at 23.31 and decays to 21.13 while the anchor's rises monotonically to
+31.47, so the anchor also does not robustly overfit where cross-entropy does. §2.3 needs rewriting
+around these two cells.
 
 ### Queue 4 — standard baselines, 6 cells
 `scripts/run_std_baselines_20260902.sh`. Implemented here rather than quoted, so the main table is
