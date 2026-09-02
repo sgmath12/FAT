@@ -1,0 +1,45 @@
+# TinyImageNet COUNTERPART (2026-09-02).
+#
+# Generated from config/CIFAR100/ard_nat100ep.yaml by changing the dataset, the teacher checkpoint
+# and nothing else, so the row is comparable to its ResNet-18/CIFAR sibling.
+#
+# DEPENDENCY: train config/TinyImageNet/clean_200ep.yaml first, or copy that checkpoint from the other server
+
+method : ard
+ard_alpha : 1.0
+ard_temp : 1.0
+weight_decay : 0.0002
+dataset : TinyImageNet
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

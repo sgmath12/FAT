@@ -1,0 +1,45 @@
+# CIFAR100 / WideResNet COUNTERPART (2026-09-02).
+#
+# Generated from config/CIFAR100/at_teacherinit_matched.yaml by changing the dataset, the teacher checkpoint, the architecture
+# and nothing else, so the row is comparable to its ResNet-18/CIFAR sibling.
+#
+# DEPENDENCY: train config/CIFAR100/clean_wrn_200ep.yaml first (the WideResNet natural teacher)
+
+method : madry_at
+dataset : CIFAR100
+arch : WideResNet
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+val : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_wrn_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_wrn_200ep/clean_last.pkl
+data_root : ./data
+aa_batch_size : 256

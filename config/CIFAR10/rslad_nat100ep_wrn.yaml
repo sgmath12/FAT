@@ -1,0 +1,46 @@
+# CIFAR10 / WideResNet COUNTERPART (2026-09-02).
+#
+# Generated from config/CIFAR100/rslad_nat100ep.yaml by changing the dataset, the teacher checkpoint, the architecture
+# and nothing else, so the row is comparable to its ResNet-18/CIFAR sibling.
+#
+# DEPENDENCY: train config/CIFAR10/clean_wrn_200ep.yaml first (the WideResNet natural teacher)
+
+method : rslad
+rslad_scale : 10.0
+rslad_w_adv : 0.8333333333333334
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : WideResNet
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_wrn_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_wrn_200ep/clean_last.pkl
+data_root : ./data
+aa_batch_size : 256
