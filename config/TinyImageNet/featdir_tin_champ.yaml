@@ -1,0 +1,58 @@
+# THE SHIPPED RECIPE ON Tiny-ImageNet-200 (2026-09-02).
+#
+# This is the config that produces the paper's Tiny-ImageNet row, 55.16 clean / 20.54 AA / NRR 29.93.
+# It exists because `featdir_tin_100ep.yaml` does NOT: that file points at `clean_80ep`, the 80-epoch
+# teacher, and gives 57.08 / 18.96 instead.  Both runs are real and both are reported -- the 80-epoch
+# cell is the teacher-length dial appearing on a third dataset -- but the headline row is this one,
+# and a config named after the student's epoch count is the wrong place to hide the difference.
+#
+# Every knob below is byte-identical to CIFAR-100's `l2_bestrecipe_freezehead.yaml` and CIFAR-10's
+# `champ_eps88.yaml` apart from `dataset` and the two checkpoint paths.  That is the claim the paper
+# makes about the method -- one recipe, no per-dataset tuning -- so the files have to be able to
+# back it up.  Do not tune anything here.  `train_eps` in particular stays at 8.8/255 even though
+# Tiny-ImageNet is a harder dataset; `featdir_tin_eps10` measured 10/255 and it is an ablation.
+#
+# NEEDS `TinyImageNet/checkpoint/clean_200ep/clean_last.pkl` (clean 66.29).  Train it with
+# `config/TinyImageNet/clean_200ep.yaml` -- about 25 h -- or copy it from the machine that has it.
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : TinyImageNet
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

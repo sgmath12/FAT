@@ -24,6 +24,10 @@ carry the other three slots and are laid out with the same eleven rows.
 **33 empty cells, ≈329 GPU-hours** if every one is filled. Per-cell cost relative to CIFAR/ResNet-18:
 Tiny-ImageNet ×4.0 (64×64, 100k images), WideResNet-34-10 ×4.5.
 
+> **The operational brief for these three tables is `TODO.md` §4** — which commits must be in the
+> checkout, which teachers to train first, the exact champion config per table, and the audited
+> baseline config names. This file is the accounting; that section is the instructions.
+
 ## ⚠ The Tiny-ImageNet result is not on this machine
 
 `featdir_tin_100ep` (55.16 / 20.54, 200-epoch teacher) is documented but its log lives on the other
