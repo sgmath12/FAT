@@ -8,6 +8,31 @@ from pathlib import Path
 import numpy as np
 import os
 
+
+class MultiDataTransform:
+    """Return two independent draws of the same augmentation, for Consistency-AT (Tack et al. 2022).
+
+    Ported from RPAT's benchmark implementation so our port matches theirs: the consistency term is a
+    Jensen-Shannon divergence between the model's outputs on adversarial examples built from two
+    different augmentations of the SAME image, so the loader has to hand back both views.  Everything
+    else in the pipeline is untouched -- same crop, same flip, same normalization -- which keeps the
+    cell protocol-matched to our other baselines apart from the one thing being tested.
+    """
+
+    def __init__(self, transform):
+        self.transform = transform
+
+    def __call__(self, sample):
+        return self.transform(sample), self.transform(sample)
+
+
+def _maybe_two_views(train_transform, config):
+    """Wrap the train transform when the method asks for paired views; identity otherwise."""
+    if config is not None and bool(getattr(config, "two_views", False)):
+        return MultiDataTransform(train_transform)
+    return train_transform
+
+
 def CIFAR10(root = "./data", download = False, val = False, batch_size=128, config = None):
     transform_aug = []
 
@@ -17,6 +42,8 @@ def CIFAR10(root = "./data", download = False, val = False, batch_size=128, conf
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
+    train_transform = _maybe_two_views(train_transform, config)
+
     test_transform = transforms.Compose([
         transforms.ToTensor()
     ])
@@ -53,6 +80,8 @@ def CIFAR100(root = "./data", download = False, val = False, batch_size=128, con
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
+    train_transform = _maybe_two_views(train_transform, config)
+
     test_transform = transforms.Compose([
         transforms.ToTensor()
     ])
@@ -147,6 +176,8 @@ def TinyImageNet(root = "./data", download = False, val = False, batch_size=128,
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
+    train_transform = _maybe_two_views(train_transform, config)
+
     test_transform = transforms.Compose([
         transforms.ToTensor()
     ])

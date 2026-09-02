@@ -1,0 +1,51 @@
+# PGD-AT + WEIGHT AVERAGING + AWP, RANDOM INIT (2026-09-02).
+#
+# The second rung of the CE-side ladder; see `pgdat_wa_100ep` for why these two cells exist.  AWP
+# settings are the ones the shipped recipe uses (proxy style, gamma 0.005, warmup 10) so that the
+# component is the same object on both sides of the comparison.
+#
+# This is also the honest counterpart to `at_teacherinit_matched`, which carries WA and AWP but is
+# initialized at the natural teacher.  Random init here isolates the stack from the warm start.
+#
+# Published for reference (PreActResNet-18, AWP alone, RPAT Table 3): CIFAR-10 81.11 / 50.09,
+# CIFAR-100 54.10 / 25.16.
+method : madry_at
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : True
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+wa_start : 0.2
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10

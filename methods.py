@@ -2803,6 +2803,91 @@ def train_madry_at(model, train_loader, optimizer, origin_model, epoch, config, 
                 exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
 
 
+def _jensen_shannon_div(logit1, logit2, T=1.0):
+    """JS divergence between two softened logit distributions, as RPAT's benchmark computes it."""
+    prob1 = F.softmax(logit1 / T, dim=1)
+    prob2 = F.softmax(logit2 / T, dim=1)
+    mean_prob = 0.5 * (prob1 + prob2)
+    logsoftmax = torch.log(mean_prob.clamp(min=1e-8))
+    jsd = F.kl_div(logsoftmax, prob1, reduction='batchmean')
+    jsd += F.kl_div(logsoftmax, prob2, reduction='batchmean')
+    return jsd * 0.5
+
+
+def train_consistency(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Consistency-AT (Tack et al., 2022), ported from RPAT's benchmark implementation.
+
+    Why this one and not the rest of RPAT's leaderboard.  Consistency-AT is the strongest of the four
+    methods RPAT benchmarks against on the axis we care about -- 58.53 clean on CIFAR-100 against
+    PGD-AT's 56.56 -- and it earns that with a consistency term rather than a teacher, so it is the
+    natural "you can raise clean accuracy without distilling at all" control.  The reweighting family
+    (GAIRAT, MAIL, EWAT, SOVR, MMA) sits far enough below on RPAT's own numbers that running it would
+    only pad the table.  ReBAT is skipped for a different reason: RPAT++ dominates it on both axes in
+    RPAT's Table 3, and we already reproduce RPAT++.
+
+    The objective.  Two independent augmentations of each image are drawn by the loader, adversarial
+    examples are built for both against the true label, and to the cross-entropy on those we add a
+    Jensen-Shannon divergence between the two adversarial outputs:
+
+        L = CE(f(x'_1), y) + CE(f(x'_2), y) + lam * JSD_T(f(x'_1), f(x'_2))
+
+    Defaults are RPAT's: lam = 1.0 (config.lamda), T = 0.5 (config.tau_consistency).  Note T < 1
+    SHARPENS rather than softens, which is the opposite of the distillation temperatures elsewhere in
+    this file; it is theirs and we keep it.
+
+    Cost.  The batch is doubled before the attack, so a step costs about twice a PGD-AT step.  Both
+    views are attacked together in one call, exactly as the reference does, so the attack sees the
+    concatenated batch and not two separate ones.
+
+    Stack knobs (train_eps, wa_start, AWP) are honoured for the same reason train_madry_at honours
+    them: the cell has to be runnable at the same regime as everything it is compared with.
+    """
+    model.train()
+    eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+    wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
+    lam = float(getattr(config, "lamda", 0.0) or 0.0) or 1.0
+    T = float(getattr(config, "tau_consistency", 0.0) or 0.0) or 0.5
+    awp_gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
+    use_awp = awp_gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
+    if use_awp:
+        if not hasattr(train_consistency, "_awp"):
+            train_consistency._awp = AdvWeightPerturb(model, gamma=awp_gamma)
+        awp = train_consistency._awp
+        awp.gamma = awp_gamma
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        if not isinstance(x, (list, tuple)) or len(x) != 2:
+            raise RuntimeError(
+                "train_consistency needs paired views; set `two_views: True` in the config so "
+                "dataset.MultiDataTransform is applied (see dataset.py)")
+        x = torch.cat([x[0].cuda(), x[1].cuda()], dim=0)     # 2B
+        y = y.cuda()
+        y2 = y.repeat(2)
+        x_adv = _pgd_attack_true_label(model, x, y2, config.step_size, eps_train,
+                                       perturb_steps=config.steps)
+
+        def _loss_from(pm, _xa=None, _y2=None):
+            out = pm(x_adv if _xa is None else _xa)
+            tgt = y2 if _y2 is None else _y2
+            o1, o2 = out.chunk(2)
+            return F.cross_entropy(out, tgt) + lam * _jensen_shannon_div(o1, o2, T)
+
+        if use_awp:
+            awp_diff = awp.calc_awp(_loss_from)
+            awp.perturb(awp_diff)
+        optimizer.zero_grad()
+        loss = _loss_from(model)
+        loss.backward()
+        optimizer.step()
+        if use_awp:
+            awp.restore(awp_diff)
+        scheduler.step()
+        if config.weight_avg == True and epoch >= wa_start:
+            annealing = (epoch / config.epochs) ** 2
+            decay = annealing * (1 - config.kappa) + config.kappa
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
 def train_temperature_tpnorm(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
     """TEACHER-side Lq-norm POWER sweep on top of the norm student (user's idea, 2026-07-06 night).
 

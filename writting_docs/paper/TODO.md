@@ -142,6 +142,28 @@ the paper** — it would mean the schedule carries the contribution and the targ
 
 ⚠ Start only when the master queue has drained; one training per GPU.
 
+### Queue 3c — RPAT's leaderboard, run ourselves, 6 cells *(queued, not started)*
+`scripts/run_rpat_baselines_20260903.sh`. Both datasets, `pgdat_100ep` protocol (SGD 0.1, piecewise
+70/90, 100 ep, random init).
+
+| config | `methods.py` | why it earns the GPU time | published (PARN-18) |
+|---|---|---|---|
+| `pgdat_wa_100ep` | `train_madry_at`, `weight_avg` | **WA is a component of our stack**; the claim that the stack is additive currently rests on someone else's architecture | C10 83.50/49.89, C100 57.26/25.83 |
+| `pgdat_wa_awp_100ep` | + `awp_gamma 0.005` | same, and the random-init counterpart to `at_teacherinit_matched` | C10 81.11/50.09, C100 54.10/25.16 |
+| `consistency_100ep` | **`train_consistency`** (new) | strongest of RPAT's four benchmarks on clean, **with no teacher** — the "you can raise clean without distilling" control | C10 83.42/47.72, C100 58.53/25.39 |
+
+`train_consistency` is ported from RPAT's own `adv_consistency.py`: two augmentations per image,
+adversarial examples for both, CE on both plus $\lambda\,\mathrm{JSD}_T$ between the two adversarial
+outputs, $\lambda = 1$, $T = 0.5$. Needs `two_views: True`, which makes `dataset.MultiDataTransform`
+hand back both views; configs without it are byte-identical to before (checked). The batch doubles
+before the attack, so budget $\approx 2\times$ a PGD-AT cell. Smoke-tested including the AWP path.
+
+**Skipped, and why** — so this is not silently re-litigated. *ReBAT*: RPAT++ dominates it on both axes
+in RPAT's own Table 3 ($56.84/27.68$ against $56.13/27.60$) and we already reproduce RPAT++. *TE*: no
+reference implementation available, and implementing from the paper risks reporting our bug as their
+method. *MMA, GAIRAT, MAIL, EWAT, SOVR*: dominated on RPAT's own numbers — CIFAR-100 AA of $18.40$,
+$19.80$, $16.70$, $23.52$, $24.30$ against our $28.86$.
+
 ### Queue 4 — standard baselines, 6 cells
 `scripts/run_std_baselines_20260902.sh`. Implemented here rather than quoted, so the main table is
 entirely our own measurements.

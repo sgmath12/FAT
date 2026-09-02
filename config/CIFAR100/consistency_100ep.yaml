@@ -1,0 +1,57 @@
+# CONSISTENCY-AT (Tack et al., 2022), our own run (2026-09-02).
+#
+# The strongest of the four methods RPAT benchmarks against on the axis we care about: 58.53 clean on
+# CIFAR-100 against PGD-AT's 56.56, and it gets there with a consistency term rather than a teacher.
+# That makes it the "you can raise clean accuracy without distilling at all" control, which is exactly
+# the objection our table has to answer.
+#
+# Ported from RPAT's own implementation (RPAT_Benchmarks/training/adv_train/adv_consistency.py) so the
+# port matches theirs: two augmentations per image, adversarial examples for both, CE on both plus a
+# Jensen-Shannon divergence between the two adversarial outputs, lam = 1.0 and T = 0.5.  T < 1 sharpens
+# rather than softens -- that is theirs and we keep it.
+#
+# `two_views: True` makes the loader hand back both augmentations (dataset.MultiDataTransform).  The
+# batch doubles before the attack, so a step costs about twice a PGD-AT step.
+#
+# Protocol is `pgdat_100ep` -- SGD 0.1, piecewise decay at 70/90, 100 epochs, random init, eps 8/255 --
+# so it is comparable with our other standard baselines rather than with the published number.
+#
+# Published for reference (RPAT Table 1, ResNet-18): CIFAR-10 83.42 / 47.72, CIFAR-100 58.53 / 25.39.
+method : consistency
+weight_decay : 0.0002
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 1.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+two_views : True
+tau_consistency : 0.5

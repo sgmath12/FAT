@@ -1,0 +1,48 @@
+# PGD-AT + WEIGHT AVERAGING, RANDOM INIT (2026-09-02).
+#
+# RPAT's leaderboard reports WA and AWP standalone, and both are components of OUR stack, so their
+# numbers are the ones we most need from our own runs rather than quoted: our argument that the stack
+# is additive on top of the anchor currently leans on a PreActResNet-18 row from another paper.
+#
+# Protocol is `pgdat_100ep` exactly -- SGD 0.1, piecewise decay at 70/90, 100 epochs, random init,
+# eps 8/255 -- with weight averaging switched on and nothing else touched.  That makes the CE side of
+# the ladder read against the anchor side one component at a time.
+#
+# Published for reference (PreActResNet-18, RPAT Table 3): CIFAR-10 83.50 / 49.89, CIFAR-100 57.26 / 25.83.
+method : madry_at
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : True
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+wa_start : 0.2
