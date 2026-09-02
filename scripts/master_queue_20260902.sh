@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# SINGLE SEQUENTIAL QUEUE (2026-09-02).
+# SINGLE SEQUENTIAL QUEUE -- ABLATIONS FIRST (2026-09-02, revised).
 #
-# The five run queues were chained with independent `while pgrep ...; do sleep` waiters, and they
-# raced: at 00:02 one driver exited and two waiters both saw an idle GPU within the same polling
-# window, so two trainings shared the card.  A lock file did not fix it either, because the driver
-# already running had been launched before the lock existed and never held it.
+# This machine does ablations; Tiny-ImageNet and WideResNet are filled elsewhere.  The AWP-fix
+# re-runs were ahead of the ablations and have been demoted to last: measured on the champion, the fix
+# moves NRR by 0.01 (39.43 -> 39.42), so the remaining seven cells are decimal updates.  The ablations
+# answer questions the paper currently cannot -- whether the anchor buys robustness by itself, whether
+# the attack or the loss earns it, whether the read point matters, and whether p = 1 is a plateau.
 #
-# One process, one `for` loop, no polling and nothing to race against.  Everything after the
-# currently-running AWP-fix queue goes here, in the order the paper needs it.
+# One process, one loop, no polling: the earlier design used independent waiters and put two trainings
+# on one GPU.
 set -u
 cd "$(dirname "$0")/.."
-while pgrep -f "run_awpfix_rerun_20260901" > /dev/null; do sleep 120; done
-echo "=== $(date '+%m-%d %H:%M') awpfix queue clear ==="
-for q in run_ablations_20260901 run_std_baselines_20260902 run_lowerps_20260902; do
+while pgrep -f "main.py --config_name champ_eps88" > /dev/null; do sleep 120; done
+echo "=== $(date '+%m-%d %H:%M') champ_eps88 done ==="
+for q in run_ablations_20260901 run_std_baselines_20260902 run_lowerps_20260902 run_awpfix_rest_20260902; do
   echo "=== $(date '+%m-%d %H:%M') >>> $q ==="
   bash "scripts/$q.sh"
   echo "=== $(date '+%m-%d %H:%M') <<< $q done ==="
