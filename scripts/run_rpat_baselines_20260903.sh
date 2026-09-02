@@ -32,6 +32,16 @@ cd "$(dirname "$0")/.."
 PY=/home/seungju/miniforge3/envs/advTrain/bin/python
 mkdir -p logs
 
+# ADR runs first and at ADR's own 200-epoch protocol, not ours.  It is the row the paper's headline
+# comparison is read against -- 57.36 / 28.50 on CIFAR-100 against our 62.17 / 28.86 -- and it is
+# currently quoted rather than measured, which is the single largest hole in tab:main.  Budget ~7 h
+# per dataset for the longer schedule.
+for ds in CIFAR100 CIFAR10; do
+  echo "=== $(date '+%m-%d %H:%M') start $ds/adr_200ep ==="
+  $PY -u main.py --config_name adr_200ep.yaml --dataset "$ds" --seed 0 > "logs/${ds}_adr_200ep.log" 2>&1
+  echo "=== $(date '+%m-%d %H:%M') done $ds/adr_200ep (exit $?) ==="
+done
+
 for c in pgdat_wa_100ep pgdat_wa_awp_100ep consistency_100ep; do
   for ds in CIFAR100 CIFAR10; do
     [ -f "config/$ds/${c}.yaml" ] || { echo "skip $ds/$c (config 없음)"; continue; }

@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 import torchattacks
 import logging
+import copy
 import math
 import os
 import dataset as _dataset_mod
@@ -2796,6 +2797,161 @@ def train_madry_at(model, train_loader, optimizer, origin_model, epoch, config, 
             awp.restore(awp_diff)
         if freeze_lr_epoch is None or epoch < freeze_lr_epoch:
             scheduler.step()
+        if config.weight_avg == True and epoch >= wa_start:
+            annealing = (epoch / config.epochs) ** 2
+            decay = annealing * (1 - config.kappa) + config.kappa
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def _soft_ce(logits, target_prob):
+    """Cross-entropy against a soft target distribution."""
+    return -(target_prob * F.log_softmax(logits, dim=1)).sum(dim=1).mean()
+
+
+def _pgd_attack_soft_label(model, x_natural, target_prob, step_size, epsilon, perturb_steps):
+    """PGD maximizing soft-target cross-entropy. ADR attacks the rectified label, not the hard one."""
+    was_training = model.training
+    model.eval()
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            loss = _soft_ce(model(x_adv), target_prob)
+        grad = torch.autograd.grad(loss, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    if was_training:
+        model.train()
+    return x_adv.detach()
+
+
+def _cosine_sched(base, final, total_steps):
+    """ADR's cosine_scheduler, as a closure over the step index rather than a materialized array."""
+    def at(step):
+        t = min(max(step, 0), max(total_steps - 1, 1)) / max(total_steps - 1, 1)
+        return final + 0.5 * (base - final) * (1.0 + math.cos(math.pi * t))
+    return at
+
+
+def train_adr(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """ADR (Annealing Self-Distillation Rectification, ICLR'24), ported from the official repo.
+
+    Why this is ported rather than quoted.  ADR at AT+WA+AWP is the row our headline comparison is
+    read against -- 57.36 clean / 28.50 AA on CIFAR-100 against our 62.17 / 28.86, the pair the paper
+    describes as "the same robustness, five points of accuracy kept."  Quoting the number from ADR's
+    paper makes that comparison cross-codebase; running it here makes it a measurement.
+
+    The method, from `src/adr.py` (49 lines) and `src/advTrainer.py`.  An EMA of the model itself is
+    the teacher -- there is no external network.  Its softened prediction is interpolated with the
+    one-hot label, per sample, by an amount that shrinks when the teacher is confidently wrong:
+
+        p_t     = softmax(teacher(x) / T(step))
+        lambda  = clamp(interp(step) - (max_c p_t[c] - p_t[y]), 0, 1)
+        target  = lambda * p_t + (1 - lambda) * onehot(y)
+
+    so a sample the teacher already ranks correctly keeps most of the teacher's distribution, and one
+    where some other class dominates falls back toward the hard label.  T anneals 2.0 -> 1.0 and the
+    interpolation ceiling 0.7 -> 0.85 on cosine schedules across the whole run.  The rectified target
+    replaces the hard label in BOTH the attack and the loss, which is what `advTrainer` does.
+
+    Defaults are ADR's gin config for `resnet18_pgd_awp_adr`: ema decay 0.995, T 2.0 -> 1.0, interp
+    0.7 -> 0.85.  ADR trains 200 epochs with SGD 0.1 and steps at [100, 150]; the config carries that
+    rather than our 100-epoch protocol, because the point of this cell is to reproduce their number
+    and a shortened schedule would confound the comparison.
+
+    ADR's AWP is SAM-style (first/second step at rho 0.005), so `awp_style: sam` matches their code;
+    our proxy style is a different mechanism and would be a silent substitution.
+    """
+    model.train()
+    eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+    wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
+    n_cls = int(getattr(config, "num_classes", 0) or (100 if "100" in str(config.dataset) else
+                                                      200 if "Tiny" in str(config.dataset) else 10))
+    ema_decay = float(getattr(config, "adr_ema_decay", 0.0) or 0.0) or 0.995
+    t_hi = float(getattr(config, "adr_temp_high", 0.0) or 0.0) or 2.0
+    t_lo = float(getattr(config, "adr_temp_low", 0.0) or 0.0) or 1.0
+    i_lo = float(getattr(config, "adr_interp_low", 0.0) or 0.0) or 0.7
+    i_hi = float(getattr(config, "adr_interp_high", 0.0) or 0.0) or 0.85
+
+    total_steps = config.epochs * len(train_loader)
+    if not hasattr(train_adr, "_sched") or train_adr._total != total_steps:
+        train_adr._temp = _cosine_sched(t_hi, t_lo, total_steps)
+        train_adr._interp = _cosine_sched(i_lo, i_hi, total_steps)
+        train_adr._sched, train_adr._total = True, total_steps
+    # ADR's teacher is an EMA of the student kept for the whole run, separate from the weight-averaged
+    # shadow `exp_avg` that main.py evaluates: different decay, and it is READ every step rather than
+    # only written.  Keeping them separate is deliberate -- sharing one would silently change both.
+    if not hasattr(train_adr, "_ema") or train_adr._ema_epochs != config.epochs:
+        train_adr._ema = copy.deepcopy(model).eval()
+        for _p in train_adr._ema.parameters():
+            _p.requires_grad_(False)
+        train_adr._ema_epochs = config.epochs
+    ema = train_adr._ema
+
+    awp_style = str(getattr(config, "awp_style", "proxy") or "proxy")
+    awp_gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
+    use_awp = awp_gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
+    if use_awp:
+        if awp_style == "sam":                    # ADR's own AWP: first_step / second_step at rho
+            if not hasattr(train_adr, "_awp_sam"):
+                train_adr._awp_sam = AdvWeightPerturbSAM(model, rho=awp_gamma)
+            awp = train_adr._awp_sam
+            awp.rho = awp_gamma
+        else:
+            if not hasattr(train_adr, "_awp"):
+                train_adr._awp = AdvWeightPerturb(model, gamma=awp_gamma)
+            awp = train_adr._awp
+            awp.gamma = awp_gamma
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        x, y = x.cuda(), y.cuda()
+        step = epoch * len(train_loader) + batch_idx
+        with torch.no_grad():
+            p_t = F.softmax(ema(x) / train_adr._temp(step), dim=1)
+            onehot = F.one_hot(y, num_classes=n_cls).float()
+            gap = p_t.max(dim=1).values - p_t.gather(1, y.unsqueeze(1)).squeeze(1)
+            lam = torch.clamp(train_adr._interp(step) - gap, 0.0, 1.0).unsqueeze(1)
+            target = lam * p_t + (1.0 - lam) * onehot
+
+        x_adv = _pgd_attack_soft_label(model, x, target, config.step_size, eps_train,
+                                       perturb_steps=config.steps)
+        if use_awp and awp_style == "sam":
+            # ADR's own order: ascend from the gradient at clean weights, measure the gradient the
+            # optimizer applies at the perturbed weights, restore BEFORE optimizer.step().  The two
+            # AWP classes have different call patterns, so this branch is not cosmetic.
+            optimizer.zero_grad()
+            _soft_ce(model(x_adv), target).backward()
+            awp.first_step()
+            _awp_bn_disable(model)
+            optimizer.zero_grad()
+            loss = _soft_ce(model(x_adv), target)
+            loss.backward()
+            awp.restore()
+            _awp_bn_enable(model)
+            optimizer.step()
+        elif use_awp:
+            def _awp_loss_fn(pm, _xa=x_adv, _t=target):
+                return _soft_ce(pm(_xa), _t)
+            awp_diff = awp.calc_awp(_awp_loss_fn)
+            awp.perturb(awp_diff)
+            optimizer.zero_grad()
+            loss = _soft_ce(model(x_adv), target)
+            loss.backward()
+            optimizer.step()
+            awp.restore(awp_diff)
+        else:
+            optimizer.zero_grad()
+            loss = _soft_ce(model(x_adv), target)
+            loss.backward()
+            optimizer.step()
+        scheduler.step()
+        with torch.no_grad():                                  # ADR's own EMA teacher update
+            msd = model.state_dict()
+            for k, v in ema.state_dict().items():
+                v.copy_(v * ema_decay + msd[k].detach() * (1.0 - ema_decay)
+                        if v.dtype.is_floating_point else msd[k])
         if config.weight_avg == True and epoch >= wa_start:
             annealing = (epoch / config.epochs) ** 2
             decay = annealing * (1 - config.kappa) + config.kappa

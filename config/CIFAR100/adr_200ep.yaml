@@ -1,0 +1,60 @@
+# ADR (Annealing Self-Distillation Rectification, ICLR'24), our own run (2026-09-02).
+#
+# ADR at AT + WA + AWP is the row our headline comparison is read against: 57.36 clean / 28.50 AA on
+# CIFAR-100 against our 62.17 / 28.86, the pair the paper describes as the same robustness with five
+# points of accuracy kept.  That comparison is currently cross-codebase.  This makes it a measurement.
+#
+# Settings are ADR's own gin config `config/cifar100/resnet18_pgd_awp_adr.gin` and not our protocol,
+# deliberately: 200 epochs, SGD 0.1 with steps at [100, 150], weight decay 5e-4, AWP rho 0.005.  A
+# 100-epoch version would confound "does ADR reproduce" with "does ADR survive a shorter schedule".
+#
+# awp_style: sam because ADR's AWP is SAM-style (first_step / second_step); our proxy style is a
+# different mechanism and using it here would be a silent substitution.
+#
+# There is no teacher checkpoint.  ADR distils from an EMA of the model itself (decay 0.995), which
+# train_adr maintains separately from the weight-averaged shadow main.py evaluates.  `finetune: False`
+# accordingly -- this is a from-scratch run, not a warm start.
+method : adr
+adr_ema_decay : 0.995
+adr_temp_high : 2.0
+adr_temp_low : 1.0
+adr_interp_low : 0.7
+adr_interp_high : 0.85
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.1
+weight_decay : 0.0005
+lr_schedule : piecewise
+stage1 : 100
+stage2 : 150
+lr_factor : 10
+cyclic : False
+epochs : 200
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+awp_style : sam
+awp_gamma : 0.005
+awp_warmup : 0
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
