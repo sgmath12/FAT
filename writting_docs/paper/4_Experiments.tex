@@ -49,7 +49,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 `--' means the paper does not report that cell for this dataset and architecture.
 
 \begin{table}[t]
-  \centering \small \setlength{\tabcolsep}{3.4pt}
+  \centering \small \setlength{\tabcolsep}{2.6pt}
   \caption{Main results. ResNet-18, $\ell_\infty$, $\epsilon = 8/255$. \textbf{Every number is measured
   in this framework}---one data pipeline, one attack implementation, one evaluation, the final-epoch
   weight-averaged model---so the rows are comparable to each other rather than across papers, and no
@@ -81,7 +81,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{does not reproduce} \\
     RPAT++                           & --    & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule
-    \textbf{CFA (ours)}\dg           & nat.  & \textbf{85.58} & \textbf{51.79} & \textbf{68.69} & \textbf{64.53} & \textbf{62.65} & \textbf{28.77} & \textbf{45.71} & \textbf{39.43} &  \\
+    \textbf{CFA (ours)}\dg           & nat.  & \textbf{84.96} & \textbf{51.74} & \textbf{68.35} & \textbf{64.31} & \textbf{62.17} & \textbf{28.86} & \textbf{45.52} & \textbf{39.42} &  \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -233,7 +233,58 @@ the gain is not the stack.
 Leaving the teacher's classifier alone beats every alternative, including the best temperature. At the
 full recipe the same holds---freezing the head scores $62.65/28.77/$NRR $39.43$ against
 $62.35/28.68/39.29$ with the head-KD term retained---and this is what removes $\tau$ and $\beta$ from
-the method.
+the method. Both arms of that comparison predate the AWP correction described in \Cref{app:awp} and
+are quoted as measured, so the pair is internally consistent; the corrected number for the frozen-head
+arm is the $62.17/28.86/39.42$ reported everywhere else.
+
+\begin{table}[t]
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{Two controls on the anchor itself. CIFAR-100, ResNet-18, base regime---teacher warm start,
+  no weight averaging, no AWP, $p = 0$, $\epsilon_{\mathrm{train}} = 8.8/255$---so that no stack
+  component can absorb the difference. Each row differs from its reference in exactly one line of
+  configuration.}
+  \label{tab:controls}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    & Clean & PGD-20 & CW & AA & NRR \\
+    \midrule
+    \multicolumn{6}{l}{\emph{(a) where the teacher is read} (50 epochs)} \\
+    Anchor, $\Phi_t$ read at $x$              & 61.33 & 32.94 & 27.80 & \textbf{26.19} & \textbf{36.71} \\
+    \quad read at $x_{\mathrm{adv}}$ instead  & \textbf{76.11} & 0.00 & 0.00 & \textbf{0.00} & 0.00 \\
+    \midrule
+    \multicolumn{6}{l}{\emph{(b) the anchor against label CE, same regime} (100 epochs)} \\
+    Anchor                                    & \textbf{61.21} & \textbf{31.26} & \textbf{26.82} & \textbf{25.24} & \textbf{35.74} \\
+    \quad label cross-entropy instead         & 54.60 & 20.60 & 21.21 & 19.45 & 28.68 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Where the anchor's robustness comes from.} \Cref{tab:controls}(a) moves $\Phi_t$ from $x$
+to $x_{\mathrm{adv}}$ in both the loss and the attack, and changes nothing else. Robustness is not
+degraded but eliminated: $0.00$ under PGD-20, CW and AutoAttack alike, while clean accuracy
+\emph{rises} $14.78$ points to within $1.55$ of the natural teacher. The reason is visible in the
+objective's value, which falls to $6.26$ against roughly $50.7$ for the anchor. Once $\Phi_t$ is
+evaluated inside the ball, $\Phi_s = \Phi_t$ minimizes \Cref{eqn:anchor} exactly---and that solution
+is a natural model. Reading the teacher at the clean point is not a modelling preference; it is the
+only thing standing between this objective and a degenerate one.
+
+\paragraph{What the anchor is worth on its own.} The comparison against cross-entropy in
+\Cref{tab:main} is not matched in stack: our row carries weight averaging and AWP and the
+cross-entropy row carries them too, but the \emph{anchor} has never been asked what it does with
+neither. \Cref{tab:controls}(b) asks. At the anchor's own base regime---same teacher initialization,
+same schedule, same training radius, no sensitivity-matched $\epsilon$, no weight averaging, no
+AWP---replacing the anchor with label cross-entropy costs $6.61$ clean \emph{and} $5.79$ AutoAttack.
+The anchor is therefore not merely compatible with robustness, as \Cref{prop:decomp} alone would
+license; it is a source of it, and at matched stack the larger source. For scale, the shipped recipe
+leads cross-entropy \emph{with} weight averaging and AWP by $2.40$ AutoAttack.
+
+One objection deserves its own measurement. Cross-entropy without weight averaging robustly overfits
+at this schedule, so part of the $5.79$ could be decay rather than deficit. It does overfit---its
+PGD-20 peaks at $23.31$ near epoch $70$ and decays to $21.13$---but the anchor does not: its PGD-20
+rises monotonically to the final evaluation, $25.23 \to 28.86 \to 30.72 \to 31.47$. Measured against
+cross-entropy's \emph{best} epoch rather than its last, the anchor's \emph{final} still leads by
+$8.16$. Not robustly overfitting is itself a property of the objective here, and it is the property
+weight averaging is normally bought to supply.
 
 \subsection{Training Radius, Teacher Length, and Larger Architectures}
 \label{sec:radius}

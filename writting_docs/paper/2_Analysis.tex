@@ -171,7 +171,16 @@ does inside $B$ is therefore absent from the objective, and the instability meas
 \Cref{sec:fragile}---$63.8^\circ$ of rotation, $\times 2.45$ of norm---has no path into the
 optimization. The same fact settles the symmetric question: since the teacher is never asked to resist
 a perturbation, it cannot supply robustness either, and all of it is produced by the student's inner
-maximization. \Cref{sec:components} tests this by moving the read point and changing nothing else.
+maximization.
+
+This is testable by moving the read point and changing nothing else, and the test is decisive.
+Replacing $\Phi_t(x)$ with $\Phi_t(x')$ in both the loss and the attack drives AutoAttack accuracy
+from $26.19$ to $0.00$ while clean accuracy \emph{rises} to $76.11$, within $1.55$ of the natural
+teacher (\Cref{tab:controls}). The failure is not that a moving target is harder to track. It is that
+$\lVert \Phi_s(x') - \Phi_t(x') \rVert$ is minimized exactly by $\Phi_s = \Phi_t$, so the student
+that copies a natural teacher everywhere is optimal---and it has no robustness at all. The clean read
+point is what makes \Cref{eqn:anchor_percell} a non-degenerate objective, and the same asymmetry that
+keeps the teacher's fragility out is what keeps the trivial solution out.
 
 \paragraph{Verification.} \Cref{prop:decomp} predicts that a student trained on $L$ ends up with a
 small $O$, and the prediction is checkable on the trained network. Measured over $\epsilon = 8/255$
@@ -181,9 +190,17 @@ balls. Two things follow. The teacher's instability was not inherited, which is 
 predicts. And $F \gg O_{\mathrm{lb}}$, so what remains in the loss at convergence is fidelity rather
 than instability---the anchor is not being satisfied by making the student flat.
 
-\paragraph{What the proposition is for.} \Cref{prop:decomp} says the anchor does not \emph{cost}
-robustness: local stability is bounded by the same scalar as fidelity, so the two cannot be traded
-against each other. That is what the anchor is asked to do, since robustness is produced by the inner
-maximization exactly as in standard adversarial training. It is not a lower bound on how much
-robustness the objective buys, and we do not read it as one; \Cref{app:robustness} gives two partial
-results in that direction, each with the reason it falls short.
+\paragraph{What the proposition is for, and what it is not.} \Cref{prop:decomp} says the anchor does
+not \emph{cost} robustness: local stability is bounded by the same scalar as fidelity, so the two
+cannot be traded against each other. It is not a lower bound on how much robustness the objective
+buys, and we do not read it as one; \Cref{app:robustness} gives two partial results in that direction,
+each with the reason it falls short.
+
+The measurement is stronger than the proposition. Asked to work with neither weight averaging nor AWP
+nor a sensitivity-matched radius---the anchor alone, against label cross-entropy under an identical
+schedule, initialization and training radius---the anchor leads by $6.61$ clean \emph{and} $5.79$
+AutoAttack (\Cref{tab:controls}). For scale, the full recipe leads cross-entropy \emph{with} weight
+averaging and AWP by $2.40$. So the anchor is a source of robustness rather than a neutral passenger
+on one, and at matched stack it is the larger source; the components in \Cref{tab:ladder} are
+additive on top of it rather than the origin of the effect. We keep \Cref{prop:decomp} stated as the
+weaker claim because that is what the inequality supports---the $5.79$ is measured, not derived.

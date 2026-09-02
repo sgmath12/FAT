@@ -141,13 +141,13 @@ body.
     \midrule
     \multicolumn{6}{l}{\emph{CIFAR-100}} \\
     $8/255$      & \textbf{63.89} & 31.41 & 29.83 & 27.78 & 38.72 \\
-    $8.8/255$\dg & 62.65 & 32.63 & \textbf{30.66} & \textbf{28.77} & \textbf{39.43} \\
-    $10/255$\dg  & 59.99 & \textbf{32.82} & 30.53 & \textbf{28.77} & 38.89 \\
+    $8.8/255$\dg & 62.17 & 32.37 & \textbf{30.93} & \textbf{28.86} & \textbf{39.42} \\
+    $10/255$\dg  & 59.99 & \textbf{32.82} & 30.53 & 28.77 & 38.89 \\
     \midrule
     \multicolumn{6}{l}{\emph{CIFAR-10}} \\
     $8/255$\dg   & \textbf{87.22} & 52.43 & 53.55 & 51.15 & 64.48 \\
-    $8.8/255$\dg & 85.58 & 52.94 & \textbf{53.88} & \textbf{51.79} & \textbf{64.53} \\
-    $10/255$\dg  & 83.29 & \textbf{53.25} & \textbf{53.88} & \textbf{51.79} & 63.87 \\
+    $8.8/255$\dg & 84.96 & 52.98 & \textbf{53.94} & 51.74 & \textbf{64.31} \\
+    $10/255$\dg  & 83.29 & \textbf{53.25} & 53.88 & \textbf{51.79} & 63.87 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -201,14 +201,14 @@ PGD-20 is not a faithful reading of this method.
     \toprule
     Dataset & Cell & Clean & FGSM & PGD-20 & CW & AA & NRR \\
     \midrule
-    CIFAR-100 & CFA, head frozen (shipped)   & 62.65 & 37.08 & 32.63 & 30.66 & 28.77 & 39.43 \\
+    CIFAR-100 & CFA, head frozen (shipped)   & 62.17 & 36.91 & 32.37 & 30.93 & 28.86 & 39.42 \\
               & CFA, head-KD term retained   & 62.35 & 38.80 & 36.26 & 30.65 & 28.68 & 39.29 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 8/255$ & 63.89 & 36.67 & 31.41 & 29.83 & 27.78 & 38.72 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 10/255$& 59.99 & 36.50 & 32.82 & 30.53 & 28.77 & 38.89 \\
               & CFA, no WA / AWP             & 61.21 & 35.54 & 31.26 & 26.82 & 25.24 & 35.74 \\
               & RPAT++ (our reproduction)    & 55.93 & 34.46 & 32.44 & 29.37 & 27.36 & 36.74 \\
     \midrule
-    CIFAR-10  & CFA, $\epsilon_{\mathrm{tr}} = 8.8/255$ (shipped) & 85.58 & 59.77 & 52.94 & 53.88 & 51.79 & 64.53 \\
+    CIFAR-10  & CFA, $\epsilon_{\mathrm{tr}} = 8.8/255$ (shipped) & 84.96 & 59.58 & 52.98 & 53.94 & 51.74 & 64.31 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 8/255$  & 87.22 & 59.92 & 52.43 & 53.55 & 51.15 & 64.48 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 10/255$ & 83.29 & 58.98 & 53.25 & 53.88 & 51.79 & 63.87 \\
               & RPAT++ (our reproduction)    & 82.41 & 59.73 & 55.72 & 52.88 & 50.75 & 62.82 \\
@@ -286,8 +286,8 @@ be compared within a source rather than across.
   \end{tabular}
 \end{table}
 
-Read against \Cref{tab:main}, our CFA row ($62.65 / 28.77$, Avg $45.71$) exceeds every published Avg
-and NRR on CIFAR-100, and on CIFAR-10 ($85.58 / 51.79$, Avg $68.69$) it exceeds every published Avg
+Read against \Cref{tab:main}, our CFA row ($62.17 / 28.86$, Avg $45.52$) exceeds every published Avg
+and NRR on CIFAR-100, and on CIFAR-10 ($84.96 / 51.74$, Avg $68.35$) it exceeds every published Avg
 and NRR there as well. We state this as a comparison across codebases and not as a controlled result,
 which is what \Cref{tab:main} are for.
 
@@ -306,3 +306,27 @@ repository's own evaluation to within $0.05$ AutoAttack on every one, so the gap
 than in measurement. For contrast, RPAT++ reproduces to within $0.31$ AutoAttack of its published
 numbers on both datasets under the same conditions. The CURE row of \Cref{tab:published} is therefore
 the paper's own number, and CURE is left empty in \Cref{tab:main}.
+
+\section{A Correction to the AWP Proxy, and What It Moved}
+\label{app:awp}
+
+AWP ascends an auxiliary objective in weight space before each descent step. In our implementation the
+closure used for that ascent had drifted from the closure used for descent, in two ways. It retained a
+head-distillation term that \texttt{freeze\_head} removes from training, so AWP was maximizing a
+quantity partly composed of a term the model never optimizes; and a detach intended for the normalized
+feature was applied on a path that feeds the unnormalized one. Measured on CIFAR-100 before the fix,
+the spurious term was $7.15$ against the anchor's $4.15$ and contributed $40.8\%$ of the AWP backbone
+gradient, at cosine $0.918$ to the correct direction. Separately, the head was frozen \emph{after} the
+proxy was copied, which is harmless only because the proxy's first step is delayed by the AWP warmup.
+
+We report this because it is the kind of defect that changes a paper's numbers, and because here it
+did not. Re-running the shipped recipe with both closures agreeing gives $62.17/28.86$ against
+$62.65/28.77$ on CIFAR-100 and $84.96/51.74$ against $85.58/51.79$ on CIFAR-10: NRR moves by $0.01$
+and $0.22$, no ordering in any table changes, and clean accuracy moves more than robustness does. AWP
+is evidently insensitive to a large, well-aligned perturbation of its ascent direction, which is
+consistent with its role here as a regularizer of sharpness rather than a precisely targeted objective.
+All numbers reported for the shipped recipe are post-correction. Two exceptions are stated where they
+appear: the head-freeze comparison (in \Cref{sec:components} and again in \Cref{app:fullmetrics}), the
+component ladder in \Cref{tab:ladder}, and the $\epsilon_{\mathrm{train}}$ sweep in
+\Cref{tab:radius} were measured before it. In each, every arm shares the defect, so the comparison is
+internally consistent even though its absolute values sit a few hundredths from the corrected ones.

@@ -40,6 +40,12 @@ $63.8^\circ$ of rotation under attack is exactly such a difference, and it is th
 training. The converse holds by the same argument: a quantity the objective cannot see cannot be a
 source of robustness either.
 
+The restriction is load-bearing rather than convenient. Evaluating $\Phi_t$ at $x'$ instead makes
+$\Phi_s = \Phi_t$ a global minimizer of \Cref{eqn:anchor}, and that minimizer is a natural model;
+measured, the student collapses onto the teacher at $76.11$ clean and $0.00$ AutoAttack
+(\Cref{tab:controls}). Restricting the teacher to $x$ is therefore not only what keeps its fragility
+out of the objective, it is what keeps the objective from having a degenerate solution.
+
 \paragraph{(ii) The anchor is exactly zero at the clean point at initialization.} Since
 $\Phi_s \leftarrow \Phi_t$, we have $\lVert \Phi_s(x) - \Phi_t(x) \rVert = 0$ for every $x$, so the loss
 is nonzero only because of the perturbation: every gradient the backbone receives at the start of
