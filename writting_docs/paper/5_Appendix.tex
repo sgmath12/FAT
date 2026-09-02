@@ -254,13 +254,19 @@ be compared within a source rather than across.
 
 \begin{table}[h]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Published results, ResNet-18, $\ell_\infty$, $\epsilon = 8/255$. Quoted as reported.}
+  \caption{Published results, $\ell_\infty$, $\epsilon = 8/255$, quoted as reported. \textbf{The
+  architecture changes between blocks} and is named in each block heading: the first two are
+  ResNet-18 and are the ones comparable with \Cref{tab:main}, the next two are PreActResNet-18 and the
+  last is WideResNet-34-10. RPAT's leaderboard is reported on the latter two, so its rows are not
+  directly comparable with our ResNet-18 numbers---RPAT++ appears at $82.63/51.00$ on
+  PreActResNet-18 CIFAR-10 and at $86.76/54.97$ on WideResNet-34-10, and the WideResNet figure is the
+  comparison line for \Cref{tab:wrn}, not for \Cref{tab:main}.}
   \label{tab:published}
   \begin{tabular}{llrrrrl}
     \toprule
     Method & Teacher & Clean & AA & Avg & NRR & Source \\
     \midrule
-    \multicolumn{7}{l}{\emph{CIFAR-100}} \\
+    \multicolumn{7}{l}{\emph{CIFAR-100, ResNet-18}} \\
     PGD-AT                    & --      & 56.56 & 25.02 & 40.79 & 34.69 & RPAT \\
     TRADES                    & --      & 55.39 & 24.51 & 39.95 & 33.98 & RPAT \\
     MART                      & --      & 49.83 & 25.00 & 37.41 & 33.30 & RPAT \\
@@ -271,7 +277,7 @@ be compared within a source rather than across.
     ADR (AT + ADR)            & self    & 56.10 & 26.87 & 41.48 & 36.34 & ADR \\
     ADR (AT + WA + AWP + ADR) & self    & 57.36 & 28.50 & 42.93 & 38.08 & ADR \\
     \midrule
-    \multicolumn{7}{l}{\emph{CIFAR-10}} \\
+    \multicolumn{7}{l}{\emph{CIFAR-10, ResNet-18}} \\
     PGD-AT                    & --      & 82.78 & 44.63 & 63.71 & 57.99 & CURE \\
     TRADES                    & --      & 82.41 & 48.37 & 65.39 & 60.96 & CURE \\
     MART                      & --      & 80.70 & 47.49 & 64.10 & 59.79 & CURE \\
@@ -313,10 +319,16 @@ be compared within a source rather than across.
   \end{tabular}
 \end{table}
 
-Read against \Cref{tab:main}, our CFA row ($62.17 / 28.86$, Avg $45.52$) exceeds every published Avg
-and NRR on CIFAR-100, and on CIFAR-10 ($84.96 / 51.74$, Avg $68.35$) it exceeds every published Avg
-and NRR there as well. We state this as a comparison across codebases and not as a controlled result,
-which is what \Cref{tab:main} are for.
+Read against \Cref{tab:main} and restricted to the ResNet-18 blocks, which are the ones our numbers
+are comparable with, our CFA row exceeds every published Avg and NRR on both datasets: $62.17/28.86$
+at Avg $45.52$ on CIFAR-100 and $84.96/51.74$ at Avg $68.35$ on CIFAR-10.
+
+The restriction is not a convenience. The WideResNet-34-10 block sits above us on both criteria---
+RPAT++ reaches Avg $70.87$ and NRR $67.30$ there---because a $48.3$M network is a different model, not
+a better method, and \Cref{tab:wrn} is where that comparison belongs. The same caution applies to the
+PreActResNet-18 blocks in the other direction: RPAT++ falls to $82.63/51.00$ there, and reading that
+as a defeat for RPAT would be the identical error. We state all of this as a comparison across
+codebases and architectures rather than as a controlled result, which is what \Cref{tab:main} is for.
 
 \section{The CURE Reproduction}
 \label{app:cure}
