@@ -48,7 +48,18 @@ def main(config,npt):
             optimizer = optim.AdamW(model.parameters(), lr = config.lr)
     elif config.optim == "SGD":
         wd = config.weight_decay if config.weight_decay is not None else 5e-4
-        optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=0.9, weight_decay=wd)
+        # LBGAT trains its natural branch JOINTLY -- its optimizer holds both parameter sets and its
+        # objective carries a CE term on the teacher.  Freezing the teacher would be a different
+        # method, and a weaker one, so `joint_teacher` puts the teacher in the optimizer here rather
+        # than letting train_lbgat build a second one, which would not share momentum or the schedule.
+        if bool(getattr(config, "joint_teacher", False)):
+            optimizer = optim.SGD([{'params': model.parameters()},
+                                   {'params': teacher_model.parameters()}],
+                                  lr=config.lr, momentum=0.9, weight_decay=wd)
+            for _p in teacher_model.parameters():
+                _p.requires_grad_(True)
+        else:
+            optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=0.9, weight_decay=wd)
     else :
         print ("Not Implemented !")
         return 

@@ -1,0 +1,55 @@
+# LBGAT (Cui et al., ICCV'21), our own run.
+#
+# The closest published method to ours by mechanism: it reads a naturally trained network at the CLEAN
+# point and matches it with a squared error, no softmax and no temperature.
+#
+#   L = MSE(f_s(x_adv), f_t(x)) + CE(f_t(x), y) + beta KL(f_s(x_adv) || f_s(x))
+#
+# Two differences remain, and they are what this row is for.  The target is the LOGIT, read after the
+# classifier, where ours is the feature one layer earlier.  And the second term trains the natural
+# branch JOINTLY -- `joint_teacher: True` puts it in main.py's optimizer -- so the network supplying
+# the target is a second model paid for during training.
+#
+# `load: False` is deliberate and matters.  Their code initializes the natural branch RANDOMLY and
+# trains it from scratch alongside the student; handing it our pretrained clean_200ep checkpoint would
+# give LBGAT a head start their method does not have, and would stop being LBGAT.
+#
+# Their CIFAR-100 script: 100 epochs, SGD 0.1, wd 2e-4, decay at 76/91, beta 6, eps 0.031, 10 steps.
+# We use our protocol's 70/90 decay; everything else matches.
+method : lbgat
+weight_decay : 0.0002
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : False
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+joint_teacher : True

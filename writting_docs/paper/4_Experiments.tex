@@ -56,7 +56,10 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   source column is needed. \textbf{Teacher} is what the method assumes available: \emph{--} none,
   \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
   left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
-  calls W-Robust; NRR is the harmonic mean. \ddg~IGDM is reported at $\alpha = 1$; its published
+  calls W-Robust; NRR is the harmonic mean. \textsuperscript{j}~LBGAT trains its
+  natural branch jointly, so its teacher is not free. \textsuperscript{l}~HAT uses a natural network
+  only to \emph{label} helper points beyond the ball, never as a target, so it is grouped with the
+  trade-off methods. \ddg~IGDM is reported at $\alpha = 1$; its published
   $\alpha = 20$ diverges to chance accuracy on both datasets when the teacher is natural, for the
   reason given in \Cref{sec:natteacher}. Published figures for these methods are in
   \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:wrn}, and
@@ -77,8 +80,10 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     RSLAD                            & nat.  & 85.15 & 42.91 & 64.03 & 57.06 & 59.68 & 21.30 & 40.49 & 31.40 &  \\
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
     AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
+    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
     \midrule
-    ADR                              & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{not run} \\
+    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
+    ADR                              & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{does not reproduce} \\
     RPAT++                           & --    & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule
@@ -108,6 +113,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & -- & -- & -- & -- \\
     AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
     \midrule
+    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- \\
+    \midrule
+    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- \\
     ADR                              & self  & -- & -- & -- & -- \\
     CURE                             & self  & -- & -- & -- & -- \\
     RPAT++                           & --    & -- & -- & -- & -- \\
@@ -139,6 +147,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & -- & -- & -- & -- & -- & -- \\
     AdaAD + IGDM                     & nat.  & -- & -- & -- & -- & -- & -- \\
     \midrule
+    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & -- & -- \\
+    \midrule
+    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- \\
     ADR                              & self  & -- & -- & -- & -- & -- & -- \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- \\
     RPAT++                           & --    & -- & -- & -- & -- & -- & -- \\

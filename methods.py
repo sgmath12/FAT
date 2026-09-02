@@ -2973,6 +2973,113 @@ def train_adr(model, train_loader, optimizer, origin_model, epoch, config, sched
                 exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
 
 
+def train_hat(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """HAT, Helper-based Adversarial Training (Rade & Moosavi-Dezfooli, ICLR'22), ported from the
+    authors' `core/utils/hat.py`.
+
+    HAT belongs with the trade-off methods, not with the distillation ones, even though it consumes a
+    naturally trained network like we do.  The natural model supplies a LABEL for a point beyond the
+    ball and never a target the student matches, so none of its representation transfers:
+
+        x_hr = x + h (x_adv - x)                       helper point, h = 2.0
+        y_hr = argmax std_model(x_adv)                 label read at x_adv, NOT at x or at x_hr
+        L    = CE(f(x), y) + beta KL(f(x_adv) || f(x)) + gamma CE(f(x_hr), y_hr)
+
+    That is TRADES plus a helper term.  The reading is that adversarial training pushes the boundary
+    further than it needs to; the helper term pulls it back by asserting that at 2 delta the model
+    should already be wrong, and in the particular way a standard model is wrong.
+
+    The read point of `y_hr` is worth stating because it is easy to get wrong and it changes the
+    objective: the label comes from the standard model evaluated at x_adv, then supervises the
+    student at x_hr.  `at_hat_loss` in their repo is the PGD-AT variant; the published CIFAR results
+    use the TRADES form ported here.
+
+    Defaults are their CIFAR-10 ResNet-18 command: beta 2.5, gamma 0.5, h 2.0 (their parser's default;
+    the 3.5 in the function signature is not what the README passes).  `origin_model` is our natural
+    teacher, which is exactly what their `--helper-model std-cifar10` is -- 50 epochs of plain CE.
+    """
+    model.train()
+    origin_model.eval()
+    eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+    wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
+    beta = float(getattr(config, "beta", 0.0) or 0.0) or 2.5
+    gamma = float(getattr(config, "hat_gamma", 0.0) or 0.0) or 0.5
+    h = float(getattr(config, "hat_h", 0.0) or 0.0) or 2.0
+    criterion_kl = nn.KLDivLoss(reduction='sum')
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        x, y = x.cuda(), y.cuda()
+        x_adv = _trades_inner_attack(model, x, config.step_size, eps_train,
+                                     perturb_steps=config.steps)
+        x_hr = x + h * (x_adv - x)                      # NOT clamped: their code does not clamp it
+        with torch.no_grad():
+            y_hr = origin_model(x_adv).argmax(dim=1)
+
+        optimizer.zero_grad()
+        out_clean, out_adv, out_help = model(x), model(x_adv), model(x_hr)
+        loss = (F.cross_entropy(out_clean, y)
+                + beta * (1.0 / x.size(0)) * criterion_kl(F.log_softmax(out_adv, dim=1),
+                                                          F.softmax(out_clean, dim=1))
+                + gamma * F.cross_entropy(out_help, y_hr))
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+        if config.weight_avg == True and epoch >= wa_start:
+            annealing = (epoch / config.epochs) ** 2
+            decay = annealing * (1 - config.kappa) + config.kappa
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
+def train_lbgat(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """LBGAT, Learnable Boundary Guided Adversarial Training (Cui et al., ICCV'21), ported from the
+    authors' `lbgat.py`.
+
+    The closest published method to ours by mechanism, which is why it is worth having as a measured
+    row rather than a citation.  It reads a naturally trained network at the CLEAN point and matches
+    it with a squared error -- no softmax, no temperature:
+
+        L = MSE(f_s(x_adv), f_t(x)) + CE(f_t(x), y) + beta KL(f_s(x_adv) || f_s(x))
+
+    Two differences from an anchor remain, and they are the comparison this row exists to make.  The
+    target is the LOGIT, read after the classifier, where ours is the feature one layer earlier.  And
+    the second term trains the natural branch JOINTLY -- `main.py` puts the teacher in the optimizer
+    when `joint_teacher: True` -- so the network supplying the target is a second model paid for
+    during training rather than one obtained beforehand.  Freezing it would be a different and weaker
+    method, so the port keeps the joint training even though it makes the cost claim asymmetric.
+
+    The attack is TRADES-style: KL between the student at x_adv and the student at x, teacher not
+    involved.  beta = 6 is what their CIFAR-100 script uses ("lbgat6" in their checkpoint names).
+    """
+    model.train()
+    origin_model.train()                    # the natural branch is being trained, not evaluated
+    eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
+    wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
+    beta = float(getattr(config, "beta", 0.0) or 0.0) or 6.0
+    criterion_kl = nn.KLDivLoss(reduction='sum')
+    mse = nn.MSELoss()
+
+    for batch_idx, (x, y) in enumerate(tqdm(train_loader)):
+        x, y = x.cuda(), y.cuda()
+        x_adv = _trades_inner_attack(model, x, config.step_size, eps_train,
+                                     perturb_steps=config.steps)
+        model.train(); origin_model.train()
+        optimizer.zero_grad()
+        out_adv, out_nat = model(x_adv), model(x)
+        out_t = origin_model(x)
+        loss = (mse(out_adv, out_t) + F.cross_entropy(out_t, y)
+                + beta * (1.0 / out_t.size(0)) * criterion_kl(F.log_softmax(out_adv, dim=1),
+                                                              F.softmax(out_nat, dim=1)))
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+        if config.weight_avg == True and epoch >= wa_start:
+            annealing = (epoch / config.epochs) ** 2
+            decay = annealing * (1 - config.kappa) + config.kappa
+            for key, value in model.state_dict().items():
+                exp_avg[key] = (1 - decay) * value + decay * exp_avg[key]
+
+
 def _jensen_shannon_div(logit1, logit2, T=1.0):
     """JS divergence between two softened logit distributions, as RPAT's benchmark computes it."""
     prob1 = F.softmax(logit1 / T, dim=1)
