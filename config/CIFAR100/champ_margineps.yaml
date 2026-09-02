@@ -1,0 +1,58 @@
+# MMA'S ALLOCATION SIGNAL, IN OUR RULE'S PLACE (2026-09-03).
+#
+# Section 3.2 says our per-sample radius differs from the existing family (IAAT, MMA, CAT) by WHAT it
+# allocates from -- the input-sensitivity of the training loss, rather than the sample's difficulty or
+# its margin.  The difficulty half of that claim is testable with `champ_diffeps`; this is the margin
+# half, and it was missing entirely.
+#
+# MMA grows a sample's radius until it is misclassified, so a large margin earns a large radius.  Our
+# shared machinery consumes a signal in the form mean(g)/g, so the reciprocal margin is what gets fed
+# in; the negation is in methods.py and is the whole difference between this cell and the champion.
+# Same exponent p, same [0.5, 1.5] clamp, same mean restoration, therefore the SAME TOTAL BUDGET.
+# Nothing else changes, which is the point: this compares allocation rules, not whole recipes.
+#
+# Read against the champion (62.17 / 28.86) and `champ_diffrank` (61.52 / 27.95, our own weights
+# merely reordered by difficulty).  If margin lands near diffrank, the two published signals fail the
+# same way and section 3.2's claim is about the signal rather than about MMA specifically.
+
+method : feat_direction
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03450980392156863
+steps : 10
+step_size : 2/255/1
+epochs : 100
+freeze_lr_epoch : 0.65
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : True
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+featdir_angeps_p : 1.0
+featdir_eps_signal : margin

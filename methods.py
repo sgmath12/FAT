@@ -2444,11 +2444,25 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 #   "difficulty"           g_i = per-sample CE on clean x, so easy samples (low
                 #                          loss) receive the larger radius, which is the direction
                 #                          IAAT/CAT assign it.
+                #   "margin"               g_i = logit margin z_y - max_{c != y} z_c, MMA's actual
+                #                          criterion.  MMA grows the radius until the sample is
+                #                          misclassified, so a large margin earns a large radius;
+                #                          under the shared `mean/g` form that means feeding the
+                #                          RECIPROCAL, hence the negation below.  Clamped positive
+                #                          because a misclassified sample has a negative margin and
+                #                          the shared machinery needs a positive scale.
                 _sig = str(getattr(config, "featdir_eps_signal", "grad") or "grad")
-                if _sig in ("difficulty", "difficulty_rank"):
+                if _sig in ("difficulty", "difficulty_rank", "margin"):
                     with torch.no_grad():
-                        _ce = F.cross_entropy(model(x), y, reduction="none")
-                    if _sig == "difficulty":
+                        _z = model(x)
+                        if _sig == "margin":
+                            _zy = _z.gather(1, y.unsqueeze(1)).squeeze(1)
+                            _zo = _z.scatter(1, y.unsqueeze(1), float("-inf")).max(dim=1).values
+                            # mean/g is the shared form, so invert here: large margin -> large radius
+                            _ce = 1.0 / (_zy - _zo).clamp(min=1e-3)
+                        else:
+                            _ce = F.cross_entropy(_z, y, reduction="none")
+                    if _sig in ("difficulty", "margin"):
                         _g = None        # marks the grad path as unused below
                 # SENSITIVITY NORM.  The first-order angle moved inside an L-INF ball of radius e is
                 #   max_{||d||_inf <= e} <grad, d> = e * ||grad||_1   (the dual norm of L-inf is L1),
@@ -2457,7 +2471,7 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                 # run must stay reproducible); set it to 1 for the allocation the derivation
                 # actually describes.
                 _gp = int(getattr(config, "featdir_angeps_gnorm", 2) or 2)
-                _gn = (_ce.clamp(min=1e-12) if _sig == "difficulty"
+                _gn = (_ce.clamp(min=1e-12) if _sig in ("difficulty", "margin")
                        else _g.flatten(1).norm(dim=1, p=_gp).clamp(min=1e-12))
                 _r = (_gn.mean() / _gn).pow(_ap)
                 if bool(getattr(config, "featdir_angeps_exact_budget", False)):
