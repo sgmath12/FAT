@@ -1,0 +1,60 @@
+# THE LOGIT ANCHOR AT THE FULL RECIPE -- our KD+SWA analogue (2026-09-02).
+#
+# Prompted by RPAT's Table 3/4 leaderboard, where the closest prior method to ours structurally is
+# KD+SWA (Chen et al., ICLR'21): "inject smoothening during AT by leveraging knowledge distillation to
+# smooth the logits and performing stochastic weight averaging to smooth the weights."  That is our
+# recipe's shape -- distil, then average weights -- with a logit target where we use a feature one.
+# A referee will ask what separates the two, and the honest answer has to be measured, not argued.
+#
+# Section 2.2 already shows the feature anchor beating the best temperature in the BASE regime
+# (62.72 / 25.88 against tau=4's 59.39 / 24.48).  The open question is whether that survives the
+# stack: weight averaging is exactly the component KD+SWA pairs with distillation, so if it closes
+# the gap then our contribution is the schedule and not the target, and the paper should say so.
+#
+# This is `l2_bestrecipe_freezehead` with the loss swapped from the feature anchor to logit KL at
+# tau = 4 -- the best temperature measured on this dataset -- keeping WA, AWP proxy, eps_train 8.8/255,
+# teacher warm start, AdamW 0.021, OneCycle, 100 epochs.  `method: temperature` attacks and trains on
+# the same KL, so both halves are the logit objective, matching how KD+SWA is defined.
+#
+#   AA well below 28.86  -> the target is what matters; the stack does not rescue logit distillation
+#   AA near 28.86        -> the stack carries the result and section 2.2's base-regime gap does not
+#                           survive it.  That would be the most important negative result in the paper.
+#
+# This is the tau = 16 partner; see abl_kdswa_t4 for the full rationale.
+# AA is the metric this table reports.  A tau = 16 partner is worth running if this cell is close.
+method : temperature
+tau : 16
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

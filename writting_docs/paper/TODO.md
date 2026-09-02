@@ -127,6 +127,21 @@ overfitting — CE's PGD peaks at 23.31 and decays to 21.13 while the anchor's r
 31.47, so the anchor also does not robustly overfit where cross-entropy does. §2.3 needs rewriting
 around these two cells.
 
+### Queue 3b — the KD+SWA analogue, 2 cells *(queued, not started)*
+`scripts/run_kdswa_20260903.sh`, `abl_kdswa_t4` and `abl_kdswa_t16`, `train_temperature`.
+
+Prompted by RPAT's SOTA leaderboard, where KD+SWA \citep{kdswa} is the closest published method to
+ours structurally: distil to smooth the logits, then average weights to smooth the parameters. Ours
+has that shape with a feature target. Both cells are `l2_bestrecipe_freezehead` with the loss swapped
+to logit KL and everything else — WA, AWP, $\varepsilon_{tr}$ 8.8/255, warm start, 100 epochs — held.
+
+§2.2 already shows the feature anchor beating the best temperature in the *base* regime
+($62.72/25.88$ against $\tau{=}4$'s $59.39/24.48$). These ask whether that survives the stack, which
+is the regime KD+SWA operates in. **AA near $28.86$ would be the most important negative result in
+the paper** — it would mean the schedule carries the contribution and the target does not.
+
+⚠ Start only when the master queue has drained; one training per GPU.
+
 ### Queue 4 — standard baselines, 6 cells
 `scripts/run_std_baselines_20260902.sh`. Implemented here rather than quoted, so the main table is
 entirely our own measurements.

@@ -56,7 +56,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   source column is needed. \textbf{Teacher} is what the method assumes available: \emph{--} none,
   \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
   left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
-  calls W-Robust; NRR is the harmonic mean. Published figures for these methods are in
+  calls W-Robust; NRR is the harmonic mean. \ddg~IGDM is reported at $\alpha = 1$; its published
+  $\alpha = 20$ diverges to chance accuracy on both datasets when the teacher is natural, for the
+  reason given in \Cref{sec:natteacher}. Published figures for these methods are in
   \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:wrn}, and
   per-attack metrics in \Cref{tab:fullmetrics}.}
   \label{tab:main}
@@ -74,8 +76,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     ARD                              & nat.  & 84.58 & 43.75 & 64.16 & 57.67 & 57.61 & 20.24 & 38.92 & 29.96 &  \\
     RSLAD                            & nat.  & 85.15 & 42.91 & 64.03 & 57.06 & 59.68 & 21.30 & 40.49 & 31.40 &  \\
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
-    AdaAD + IGDM                     & nat.  & 10.00 & 10.00 & 10.00 & 10.00 & 1.00 & 1.00 & 1.00 & 1.00 & \emph{collapses} \\
-    \quad at $\alpha=1$              & nat.  & -- & -- & -- & -- & 48.25 & 19.48 & 33.87 & 27.75 &  \\
+    AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
     \midrule
     ADR                              & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{not run} \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{does not reproduce} \\
@@ -173,8 +174,7 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
     ARD                                  & 57.61 & 20.24 & 29.96 & & 84.58 & 43.75 & 57.67 &  \\
     RSLAD                                & 59.68 & 21.30 & 31.40 & & 85.15 & 42.91 & 57.06 &  \\
     AdaAD                                & 59.79 & 23.19 & 33.42 & & 85.39 & 46.22 & 59.98 &  \\
-    AdaAD + IGDM                         & 1.00 & 1.00 & 1.00 & & 10.00 & 10.00 & 10.00 & \emph{collapses} \\
-    \quad at $\alpha=1$                  & 48.25 & 19.48 & 27.75 & & -- & -- & -- &  \\
+    AdaAD + IGDM\ddg                     & 48.25 & 19.48 & 27.75 & & 85.01 & 45.50 & 59.27 &  \\
     \midrule
     PGD-AT, initialized at the teacher   & 57.73 & \textbf{26.46} & 36.29 & & 82.23 & \textbf{50.72} & 62.74 &  \\
     CFA (ours), no WA/AWP                & 61.21 & 25.24 & 35.74 & & -- & -- & -- &  \\
@@ -186,12 +186,14 @@ Every one of them lands below the row that does not distil at all: on both datas
 training initialized from the same teacher beats all four. The accuracy a natural teacher holds is not
 recovered by treating it as a logit target.
 
-AdaAD\,+\,IGDM collapses to chance at the published $\alpha = 20$ ($1.00$ on CIFAR-100, $10.00$ on
-CIFAR-10), so ten classes did not rescue it. This is not a porting artifact: with a natural teacher the
-IGDM target $\mathrm{softmax}(f_t(x{+}\delta) - f_t(x{-}\delta))$ places $0.917$ of its mass on a single
-class and the term reaches $17.3\times$ the AdaAD loss. Reducing the weight to $\alpha = 1$, which puts
-the two terms on comparable scales and is the most favourable reading available, trains normally and
-still finishes far below AdaAD alone. \Cref{tab:linearity} gives the structural reason: IGDM's finite
+The IGDM row is reported at $\alpha = 1$ because its published $\alpha = 20$ does not train at all
+here: it collapses to chance on both datasets ($1.00$ on CIFAR-100, $10.00$ on CIFAR-10), so ten
+classes did not rescue it. This is not a porting artifact. With a natural teacher the IGDM target
+$\mathrm{softmax}(f_t(x{+}\delta) - f_t(x{-}\delta))$ places $0.917$ of its mass on a single class and
+the term reaches $17.3\times$ the AdaAD loss. At $\alpha = 1$, which puts the two terms on comparable
+scales and is the most favourable reading available, it trains normally---and still finishes below
+AdaAD alone on both datasets, by $11.54$ clean and $3.71$ AA on CIFAR-100 and by $0.38$ and $0.72$ on
+CIFAR-10. \Cref{tab:linearity} gives the structural reason: IGDM's finite
 difference is a gradient only while the teacher is locally linear, and a naturally trained teacher is
 forty times further from linear than the ones it was designed for.
 
