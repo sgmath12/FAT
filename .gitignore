@@ -31,3 +31,11 @@ memory/
 scratchpad/
 experiment_plan.md
 nohup.out
+
+# LaTeX build artifacts (main.pdf is tracked on purpose; the rest is noise)
+writting_docs/paper/*.aux
+writting_docs/paper/*.log
+writting_docs/paper/*.blg
+writting_docs/paper/*.bbl
+writting_docs/paper/*.out
+writting_docs/paper/*.synctex.gz

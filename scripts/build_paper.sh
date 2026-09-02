@@ -5,12 +5,24 @@
 # only the packages this document actually needs, caches them, and after the first run compiles in
 # about twenty seconds.  The point is that page count can be checked here after every edit instead of
 # by uploading to Overleaf to find out.
+#
+# The compile happens in a scratch directory and only main.pdf is copied back beside the sources, so
+# writting_docs/paper holds the current PDF and none of the .aux/.log/.blg noise.  Pass a directory as
+# $1 to send the scratch output somewhere else; the copy back happens either way.
 set -u
 cd "$(dirname "$0")/../writting_docs/paper"
+PAPER="$PWD"
 OUT="${1:-/tmp/fat_paper_build}"
 mkdir -p "$OUT"
 ~/.local/bin/tectonic -X compile main.tex --outdir "$OUT" --keep-logs 2>&1 \
   | grep -viE "invalid utf-8|^note: downloading|special command|annotation|^warning: >>" | tail -6
+if [ -f "$OUT/main.pdf" ]; then
+  cp "$OUT/main.pdf" "$PAPER/main.pdf"
+  echo "PDF: $PAPER/main.pdf"
+else
+  echo "compile produced no PDF -- see $OUT/main.log"
+  exit 1
+fi
 /home/seungju/miniforge3/envs/advTrain/bin/python - "$OUT/main.pdf" <<'PY'
 import sys, re
 from pypdf import PdfReader
