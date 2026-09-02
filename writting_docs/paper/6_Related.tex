@@ -18,3 +18,31 @@
 % Proposition 1 available.
 
 \emph{To be written.}
+
+% ----------------------------------------------------------------------------------------------
+% NOTES FOR THE NATURAL-TEACHER PARAGRAPH (2026-09-03), from reading the released code.
+%
+% LBGAT (Cui et al., ICCV'21) is the closest published method to ours by mechanism, and the
+% comparison has to be made carefully because its age cuts both ways.  Its loss is
+%     MSE(f_s(x_adv), f_t(x)) + CE(f_t(x), y) + beta * KL(f_s(x_adv) || f_s(x)),
+% both models in one optimizer.  So: natural network, read at the clean point, matched with a squared
+% error and no temperature -- three of the four choices we make.  The fourth is the layer: its target
+% is the logit, ours is the feature one layer earlier.  And its natural branch is trained jointly,
+% which means the "free teacher" framing does not apply to it -- the second model is paid for during
+% training rather than obtained beforehand.
+%
+% Do NOT bill it as "the closest prior work" in the body until we have run it.  Two reasons.  A 2021
+% paper billed as our nearest neighbour invites the reading that the contribution is a five-year-old
+% idea with one layer moved, and we would be handing a reviewer that sentence.  And the claim we
+% actually want -- feature beats logit at the same read point with no temperature on either side --
+% is a measurement we do not yet have.  Run it first; the prominence should follow the number.
+%
+% HAT (Rade & Moosavi-Dezfooli, ICLR'22) also uses a naturally trained network, but for something
+% else entirely, and grouping it with the distillation methods would be wrong:
+%     x_hr = x + h (x_adv - x),  h = 2.0
+%     y_hr = std_model(x_adv).argmax()          <- label read at x_adv, not at x and not at x_hr
+%     loss = CE(f(x), y) + beta KL(f(x_adv) || f(x)) + gamma CE(f(x_hr), y_hr)
+% i.e. TRADES plus a helper term.  The natural model supplies LABELS for points beyond the ball, never
+% a target for the student to match, so nothing of its representation transfers.  It belongs in the
+% trade-off paragraph with ReBAT and RPAT, not in the natural-teacher one.
+% Official CIFAR-10 ResNet-18 recipe: beta 2.5, gamma 0.5, helper model = 50 epochs of plain CE.

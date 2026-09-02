@@ -34,14 +34,9 @@ scale as $\log C - H(P_T)$, so that a sharper teacher carries a larger one---and
 temperature online to equalize it. In each of these the operative object is
 $\mathrm{softmax}(z_t / \tau)$ and the design question is $\tau$.
 
-One published method already escapes that question, and it is worth separating out because it is the
-closest prior work to what we do. LBGAT \citep{lbgat} matches the student's adversarial logits to a
-naturally trained network's clean logits under a squared error, with no softmax and no temperature
-anywhere. Its read point is ours and its target carries no $\tau$ to tune. Two things still separate
-it from an anchor. The target is the \emph{logit}, so it is read after the classifier rather than
-before it, which is the layer the next subsection is about. And its natural branch is trained
-\emph{jointly}, by a cross-entropy term in the same objective and a shared optimizer, so the network
-supplying the target is not a free asset but a second model paid for during training.
+Not every method that consumes a natural network poses it, and \Cref{sec:related} places the
+exceptions; LBGAT \citep{lbgat} in particular matches logits under a squared error with no softmax at
+all, at the cost of training its natural branch jointly.
 
 By that account a naturally trained teacher is the extreme case, and the measurement agrees: on clean
 test data its maximum softmax probability is $0.820$, against $0.016$ for the adversarially trained
