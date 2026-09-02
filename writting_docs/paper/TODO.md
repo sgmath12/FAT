@@ -353,6 +353,42 @@ from this repository.
 
 ---
 
+## 4b. HAT / ARREST / LBGAT — waiting on papers
+
+Where each is currently named, checked 2026-09-02:
+
+| | §2.2 hook | Intro | Fig. 1 caption | `tab:published` | run |
+|---|---|---|---|---|---|
+| ARREST | — | **yes**, one of "three lines of work come close" | yes, we dominate it | yes | **no** |
+| LBGAT | — | — | — | — | no |
+| HAT | — | — | — | — | no |
+| *(the hook names LTD, RSLAD, ADR, B-MTARD on soft logits, and IGDM on the read point)* | | | | | |
+
+So the hook does **not** mention any of the three — it is about *what is read* (logits vs feature),
+and these three are about *what the natural network is for*. That is the Related Work / Intro axis,
+not the hook's.
+
+**What changes when they land.** `1_Intro.tex:55` says "Three lines of work come close" and then names
+ARREST, DP-FAT, B-MTARD. Adding LBGAT and HAT makes that count wrong; the sentence has to be rewritten
+and the grouping re-stated, because HAT is not in the same family — ARREST/DP-FAT/B-MTARD all *distil*
+from the natural network, while HAT uses it only to **label helper examples**, which is a different
+use of the same asset and worth saying so.
+
+**What I need from each paper**, in order of what would block a faithful port:
+
+| | the thing to check | why it decides the port |
+|---|---|---|
+| **HAT** | how the helper example is built ($x + 2\delta$?) and where the helper *label* comes from — the standard model's prediction on $x$, or on the helper point | these give different objectives, and the wrong one is our bug reported as their method |
+| | the weight $\gamma$ on the helper term, and its schedule | it is the method's only knob |
+| **ARREST** | the representation-distance term: which layer, which distance, and whether it is normalized | it is the closest published method to our anchor and the comparison must be exact |
+| | the "noisy replay" component and whether it is required | if optional, we say so; if not, it has to be in the port |
+| **LBGAT** | whether the natural branch is trained jointly or frozen | joint training is a different cost claim |
+
+⚠ Same rule as TE: no port without the paper. A baseline implemented from memory that underperforms
+is our bug published as their result.
+
+---
+
 ## 5. Open decisions
 
 | | |
