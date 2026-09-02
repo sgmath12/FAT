@@ -200,10 +200,14 @@ cannot be traded against each other. It is not a lower bound on how much robustn
 buys, and we do not read it as one; \Cref{app:robustness} gives two partial results in that direction,
 each with the reason it falls short.
 
-The measurement is stronger than the proposition. Asked to work with neither weight averaging nor AWP
-nor a sensitivity-matched radius---the anchor alone, against label cross-entropy under an identical
+The measurement is stronger than the proposition, and it is stronger for a different reason than the
+proposition would suggest. Asked to work with neither weight averaging nor AWP nor a
+sensitivity-matched radius---the anchor alone, against label cross-entropy under an identical
 schedule, initialization and training radius---the anchor leads by $6.61$ clean \emph{and} $5.79$
-AutoAttack (\Cref{tab:controls}). For scale, the full recipe leads cross-entropy \emph{with} weight
+AutoAttack (\Cref{tab:controls}). The obvious reading is that \Cref{prop:decomp}'s bound on $O$ is
+doing the work, and \Cref{sec:components} shows it is not: the two students oscillate by the same
+relative amount under a matched attack. What differs is class separation, by a factor of $5.5$, and
+that is where we locate the effect. For scale, the full recipe leads cross-entropy \emph{with} weight
 averaging and AWP by $2.40$. So the anchor is a source of robustness rather than a neutral passenger
 on one, and at matched stack it is the larger source; the components in \Cref{tab:ladder} are
 additive on top of it rather than the origin of the effect. We keep \Cref{prop:decomp} stated as the
