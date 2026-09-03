@@ -345,6 +345,25 @@ kernel-launch bound rather than VRAM bound and the default batch made a WideResN
 Do not run two trainings on one GPU. Three collisions have already been caused by independent
 `while pgrep; sleep` waiters; use one sequential driver per GPU.
 
+### 4.6b What line the WideResNet tables are aiming at
+
+`notes/wrn_published.md` collects every published WRN-34-10 number we could find, from ADR, CURE,
+RPAT, LBGAT and ARREST, with the source on every row. Two things the other server should know before
+it starts.
+
+**CIFAR-10 is crowded and CIFAR-100 is empty in the middle.** On CIFAR-10, eleven methods sit between
+$52$ and $55$ AA at $85$–$88$ clean and every NRR lands in $64.5$–$67.5$; winning there moves a
+decimal. On CIFAR-100 the published results are bimodal — ARREST $73.05/24.32$ and LBGAT
+$70.03/27.05$ at the clean end, ADR+WA+AWP $62.21/31.60$ at the robust end, **nothing in between**.
+A cell at $68/30$ would score NRR $41.63$ and dominate both ends.
+
+**On CIFAR-100 WideResNet, ADR is the only comparison line.** CURE reports no WideResNet CIFAR-100
+number at all (its CIFAR-100 table is ResNet-18, PGD and C&W, no AutoAttack), and RPAT's WideResNet
+table is CIFAR-10 only.
+
+⚠ Do not quote a plain-AT WideResNet row without its source: "AT" on CIFAR-10 appears at $52.12$ AA
+in ADR and $44.04$ in both CURE and ARREST — same architecture, same attack, eight points apart.
+
 ### 4.7 Still owed by this machine
 
 The Tiny-ImageNet log for 55.16 / 20.54 lives on the other server, so `results/TinyImageNet/` here
