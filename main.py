@@ -73,37 +73,13 @@ def acquire_gpu_lock(poll_seconds=60):
                       f"({_gpu_lock_fh.read().strip()}), 끝날 때까지 대기", flush=True)
             time.sleep(poll_seconds)
             waited += poll_seconds
-    # Runs that started BEFORE this guard existed hold no lock, so the flock alone would let us in
-    # beside them.  Wait those out too; this check costs nothing once every run holds the lock.
-    # Transitional sweep for runs started before this guard existed, which hold no lock.  Restricted to
-    # OUR device by reading each candidate's own CUDA_VISIBLE_DEVICES from /proc, so a job on GPU 1
-    # does not wait for one on GPU 0.
-    import subprocess
-    mine = os.environ.get("CUDA_VISIBLE_DEVICES", "0").strip() or "0"
-
-    def _dev_of(pid):
-        try:
-            with open("/proc/%s/environ" % pid, "rb") as fh:
-                for kv in fh.read().split(b"\0"):
-                    if kv.startswith(b"CUDA_VISIBLE_DEVICES="):
-                        return kv.split(b"=", 1)[1].decode().strip() or "0"
-        except Exception:
-            return None
-        return "0"
-
-    while True:
-        try:
-            out = subprocess.run(["pgrep", "-f", "main.py --config_name"],
-                                 capture_output=True, text=True).stdout.split()
-        except Exception:
-            break
-        others = [q for q in out if q.strip() and int(q) != os.getpid() and _dev_of(q) == mine]
-        if not others:
-            break
-        if waited == 0:
-            print(f"[gpu-lock] GPU {mine} 에서 락 없이 도는 학습 {others} 대기", flush=True)
-        time.sleep(poll_seconds)
-        waited += poll_seconds
+    # NOTE (2026-09-03): a "transitional sweep" used to run here, pgrep-ing for other main.py
+    # processes on this device after the flock was taken, to catch runs started before the lock
+    # existed.  It deadlocked within hours: the sweep cannot tell a process that is TRAINING without a
+    # lock from one that is BLOCKED WAITING for the same lock, so the holder waited for the waiter
+    # while the waiter waited for the holder, and both sat at 3 seconds of CPU time.  It is deleted
+    # rather than repaired -- every run goes through this function now, so the case it existed for no
+    # longer occurs, and a guard that can deadlock is worse than the race it prevents.
     _gpu_lock_fh.seek(0)
     _gpu_lock_fh.truncate()
     _gpu_lock_fh.write(f"pid={os.getpid()} started={datetime.now():%m-%d %H:%M}\n")
