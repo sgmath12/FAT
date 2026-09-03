@@ -25,7 +25,7 @@ mkdir -p logs
 # trained normally under an identical config.  Their adjust_learning_rate carries an epoch-1 dip to
 # 0.02 that we had dropped, and reporting the 10.00 would have published our optimizer failure as
 # their method.  CIFAR-100's flat-protocol result (57.10 / 25.99) is kept in the notes for comparison.
-for c in lbgat_100ep hat_100ep; do
+for c in lbgat_100ep hat_50ep; do
   for ds in CIFAR100 CIFAR10; do
     if [ "$c" != lbgat_100ep ] && ls results/$ds/*/$c/*.log >/dev/null 2>&1 &&        grep -ql "last_aa_acc" results/$ds/*/$c/*.log 2>/dev/null; then
       echo "=== $(date '+%m-%d %H:%M') skip $ds/$c (이미 AA 있음) ==="; continue

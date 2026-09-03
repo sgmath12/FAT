@@ -455,6 +455,32 @@ is our bug published as their result.
 
 ---
 
+## 4c. Baseline protocol: their schedule, our evaluation
+
+Two ported baselines collapsed to chance under our common protocol (SGD 0.1, piecewise, no warmup),
+from step 0 and for every epoch:
+
+| | under our protocol | their own schedule |
+|---|---|---|
+| **LBGAT** | CIFAR-10 $9.99/9.99$; CIFAR-100 fine at $57.10/25.99$ | `lr_schedule: lbgat` — 0.1 with an epoch-1 dip to 0.02, decay 76/91 |
+| **HAT** | CIFAR-100 $1.00$, CIFAR-10 $9.99$ | lr $0.21$, OneCycle `pct_start` $0.25$, nesterov, wd $5\times10^{-4}$, **50 epochs** |
+
+Both authors' recipes start the learning rate near zero and ramp. Ours does not. **That settled the
+policy: a baseline runs on its authors' training recipe, and only the evaluation is held common** —
+same AutoAttack, same CW, same protocol as every row we report. Forcing our schedule on a method
+whose published recipe differs is not a fairer comparison when the method dies; it publishes our
+optimizer failure as their result, which is the rule TE was skipped under.
+
+`main.py` gained `pct_start` and `nesterov` for this, and `config/*/hat_50ep.yaml` replaces
+`hat_100ep`. The collapsed runs are kept as `results/*/ResNet18/hat_100ep_collapsed_flatlr` — they
+are the evidence for the decision, not garbage.
+
+⚠ This does **not** apply to the distillation baselines already reported (ARD, RSLAD, AdaAD, IGDM).
+Those trained normally under the common protocol and stay there; the policy is a response to failure,
+not a blanket switch.
+
+---
+
 ## 5. Open decisions
 
 | | |

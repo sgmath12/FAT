@@ -1,0 +1,58 @@
+# HAT (Rade & Moosavi-Dezfooli, ICLR'22) AT ITS OWN RECIPE (2026-09-03).
+#
+# Every training hyperparameter below is HAT's, taken from core/utils/parser.py and the README command
+# for CIFAR-10 ResNet-18.  Only the EVALUATION is ours -- same AutoAttack, same CW, same protocol as
+# every other row we report -- which is the whole point: the comparison should be between methods, not
+# between our schedule and theirs.
+#
+#   lr 0.21, SGD momentum 0.9, nesterov, weight decay 5e-4
+#   OneCycleLR, pct_start 0.25          <- starts near zero and ramps
+#   50 adversarial epochs               <- their --num-adv-epochs, not our 100
+#   batch 128, PGD linf eps 8/255, step 2/255, 10 iterations
+#   beta 2.5, gamma 0.5, h 2.0          <- their README command
+#
+# Replaces hat_100ep, which forced our flat SGD 0.1 piecewise schedule on it and collapsed to chance
+# from step 0 on both datasets -- 1.00 on CIFAR-100, 9.99 on CIFAR-10.  Those runs are kept as
+# results/*/ResNet18/hat_100ep_collapsed_flatlr.  Two baselines dying the same way (LBGAT was the
+# other) is what settled the policy: a baseline runs on its authors' schedule, and only the evaluation
+# is held common.
+#
+# The teacher argument is our natural teacher, which is what their --helper-model std-cifar10 is: a network
+# trained with plain cross-entropy on clean data.  HAT reads it only to LABEL helper points, never as
+# a distillation target.
+method : hat
+hat_gamma : 0.5
+hat_h : 2.0
+beta : 2.5
+dataset : TinyImageNet
+arch : ResNet18
+optim : SGD
+lr : 0.21
+weight_decay : 0.0005
+nesterov : True
+cyclic : True
+pct_start : 0.25
+epochs : 50
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

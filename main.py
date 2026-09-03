@@ -151,11 +151,13 @@ def main(config,npt):
         if bool(getattr(config, "joint_teacher", False)):
             optimizer = optim.SGD([{'params': model.parameters()},
                                    {'params': teacher_model.parameters()}],
-                                  lr=config.lr, momentum=0.9, weight_decay=wd)
+                                  lr=config.lr, momentum=0.9, weight_decay=wd,
+                                  nesterov=bool(getattr(config, "nesterov", False)))
             for _p in teacher_model.parameters():
                 _p.requires_grad_(True)
         else:
-            optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=0.9, weight_decay=wd)
+            optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=0.9, weight_decay=wd,
+                                  nesterov=bool(getattr(config, "nesterov", False)))
     else :
         print ("Not Implemented !")
         return 

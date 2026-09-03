@@ -17,8 +17,8 @@ cd "$(dirname "$0")/.."
 PY=/home/seungju/miniforge3/envs/advTrain/bin/python
 mkdir -p logs
 for ds in CIFAR100 CIFAR10; do
-  echo "=== $(date '+%m-%d %H:%M') start $ds/hat_100ep (HAT schedule) ==="
-  $PY -u main.py --config_name hat_100ep.yaml --dataset "$ds" --seed 0 > "logs/${ds}_hat_100ep.log" 2>&1
-  echo "=== $(date '+%m-%d %H:%M') done $ds/hat_100ep (exit $?) ==="
+  echo "=== $(date '+%m-%d %H:%M') start $ds/hat_50ep (HAT schedule) ==="
+  $PY -u main.py --config_name hat_50ep.yaml --dataset "$ds" --seed 0 > "logs/${ds}_hat_50ep.log" 2>&1
+  echo "=== $(date '+%m-%d %H:%M') done $ds/hat_50ep (exit $?) ==="
 done
 echo "=== $(date '+%m-%d %H:%M') ALL DONE ==="
