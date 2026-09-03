@@ -17,20 +17,21 @@ methods within any one of them.
 | AT + WA + AWP | 48.61 | 19.58 | 34.09 | 27.92 | ADR Tab. 2c |
 | AT + ADR | 48.19 | 19.46 | 33.83 | 27.72 | ADR Tab. 2c |
 | AT + WA | 49.10 | 19.30 | 34.20 | 27.71 | ADR Tab. 2c |
-| Consistency-AT + RPAT | 49.74 | 18.84 | 34.29 | 27.33 | RPAT Tab. 1 |
 | **HAT** | **52.60** | 18.14 | 35.37 | 26.98 | ADR Tab. 5 |
 | TE | 47.46 | 18.29 | 32.88 | 26.40 | ADR Tab. 5 |
 | TRADES + WA | 49.51 | 17.69 | 33.60 | 26.07 | ADR Tab. 4 |
 | TRADES + WA + AWP | 49.21 | 17.66 | 33.44 | 25.99 | ADR Tab. 4 |
 | AT | 45.87 | 18.06 | 31.96 | 25.92 | ADR Tab. 2c/5 |
-| PGD-AT + RPAT | 47.68 | 17.77 | 32.73 | 25.89 | RPAT Tab. 1 |
 | TRADES | 48.49 | 17.35 | 32.92 | 25.56 | ADR Tab. 4 |
-| Consistency-AT | 46.54 | 17.60 | 32.07 | 25.54 | RPAT Tab. 1 |
-| TRADES + RPAT | 48.77 | 16.92 | 32.84 | 25.12 | RPAT Tab. 1 |
-| MART + RPAT | 41.76 | 17.79 | 29.77 | 24.95 | RPAT Tab. 1 |
-| PGD-AT | 46.32 | 17.07 | 31.70 | 24.95 | RPAT Tab. 1 |
-| TRADES | 46.75 | 16.60 | 31.68 | 24.50 | RPAT Tab. 1 |
-| MART | 39.70 | 17.18 | 28.44 | 23.98 | RPAT Tab. 1 |
+| *(below: not our ResNet-18 --- see the architecture section)* | | | | | |
+| *Consistency-AT + RPAT* | *49.74* | *18.84* | *34.29* | *27.33* | RPAT, 14.35M |
+| *PGD-AT + RPAT* | *47.68* | *17.77* | *32.73* | *25.89* | RPAT, 14.35M |
+| *Consistency-AT* | *46.54* | *17.60* | *32.07* | *25.54* | RPAT, 14.35M |
+| *TRADES + RPAT* | *48.77* | *16.92* | *32.84* | *25.12* | RPAT, 14.35M |
+| *MART + RPAT* | *41.76* | *17.79* | *29.77* | *24.95* | RPAT, 14.35M |
+| *PGD-AT* | *46.32* | *17.07* | *31.70* | *24.95* | RPAT, 14.35M |
+| *TRADES* | *46.75* | *16.60* | *31.68* | *24.50* | RPAT, 14.35M |
+| *MART* | *39.70* | *17.18* | *28.44* | *23.98* | RPAT, 14.35M |
 | *F$^2$AT* | *40.54* | *13.13* | *26.84* | *19.84* | F$^2$AT Tab. V |
 | *SEAT* | *35.51* | *11.37* | *23.44* | *17.22* | F$^2$AT Tab. V |
 | *MART* | *33.57* | *10.39* | *21.98* | *15.87* | F$^2$AT Tab. V |
@@ -50,6 +51,38 @@ $30$ of $31$ rows with ARREST outside; on CIFAR-100 we have not run the WideResN
 The 80-epoch-teacher variant is reported as the teacher-length ablation, not the headline: it trades
 $1.58$ AutoAttack for $1.92$ clean and then loses the AutoAttack axis to eight ADR rows, so it
 dominates only $19$ of $27$.
+
+## Which rows are ours
+
+**Exactly one: the CFA row.** Everything else is transcribed from the paper in the source column. We
+have run no Tiny-ImageNet baseline ourselves — the porting work (ADR, HAT, LBGAT, Consistency-AT) is
+done and the configs exist, but Tiny-ImageNet needs the 200-epoch teacher and is queued for the other
+machine.
+
+## The architecture is NOT the same in all of them
+
+Checked in each repository rather than taken from the word "ResNet-18" in a caption, and it does not
+survive the check.
+
+| Source | what its "ResNet-18" is | params (200 classes) |
+|---|---|---|
+| **ours** | `BasicBlock`, standard ResNet-18 | **11.27 M** |
+| **ADR** | `resnet18` in `create_model.py`, standard | 11.27 M |
+| **RPAT** | `resnet18 = ResNet(Bottleneck, [2,2,2,2])` | **14.35 M** |
+| *(RPAT also ships)* | `pre_resnet18 = ResNet(PreActBlock, ...)` | 11.27 M |
+
+**RPAT's Table 1 is a $14.35$M Bottleneck network, $28\%$ larger than ours.** Its paper says
+"ResNet-18 [15]", citing He et al., and its code's `resnet18` uses `Bottleneck` where a standard
+ResNet-18 uses `BasicBlock`. They ship a `pre_resnet18` at $11.27$M too and use PreActResNet-18
+explicitly for their Tables 3 and 4, so the distinction is theirs and deliberate; Table 1 is the
+Bottleneck one. Its rows are therefore separated below rather than mixed in.
+
+ADR checks out: its Tiny-ImageNet gin configs all set `create_model.model_name = "resnet18"`, and
+`create_model.py` routes that to the standard `ResNet` while routing `"preact-resnet18"` elsewhere,
+so those rows are the same network as ours at the same parameter count.
+
+For the WideResNet table the equivalent check passed — ARREST states "We used WideResNet-34-10 as the
+main DNN architecture", and the other four say WRN-34-10 explicitly.
 
 ## Caveats, and one big one
 

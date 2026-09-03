@@ -333,10 +333,14 @@ codebases and architectures rather than as a controlled result, which is what \C
 \begin{table}[t]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Published Tiny-ImageNet-200 results, ResNet-18, $\ell_\infty$, $\epsilon = 8/255$, quoted as
-  reported. Our row is strictly above all of them on both axes. ADR trains this dataset for $80$
+  reported. Our row is strictly above all of them on both axes, and above all fourteen rows that are the same network as ours. ADR trains this dataset for $80$
   epochs against our $100$, which favours us and is stated here rather than left implicit. Rows from
-  F\textsuperscript{2}AT are separated because they are not comparable: its plain SAT baseline reaches
-  $31.52/9.37$ where ADR's plain AT reaches $45.87/18.06$, a gap no difference of method explains.
+  F\textsuperscript{2}AT and RPAT are separated because neither is comparable. RPAT's ``ResNet-18'' is
+  \texttt{ResNet(Bottleneck, [2,2,2,2])} in its released code, $14.35$M parameters against the
+  $11.27$M of the standard \texttt{BasicBlock} network used by us and by ADR---they also ship a
+  \texttt{pre\_resnet18} at $11.27$M and use PreActResNet-18 explicitly elsewhere, so the distinction
+  is theirs. F\textsuperscript{2}AT's plain SAT baseline reaches $31.52/9.37$ where ADR's plain AT
+  reaches $45.87/18.06$, a gap no difference of method explains.
   LBGAT reports this dataset without AutoAttack and B-MTARD reports it on MobileNet-v2, so neither
   appears; CURE, ARREST and Generalist++ report it not at all.}
   \label{tab:published_tin}
@@ -352,16 +356,16 @@ codebases and architectures rather than as a controlled result, which is what \C
     TRADES + WA + ADR          & 51.99 & 19.17 & 35.58 & 28.01 & ADR \\
     AT + WA + AWP              & 48.61 & 19.58 & 34.09 & 27.92 & ADR \\
     AT + WA                    & 49.10 & 19.30 & 34.20 & 27.71 & ADR \\
-    Consistency-AT + RPAT      & 49.74 & 18.84 & 34.29 & 27.33 & RPAT \\
     HAT                        & 52.60 & 18.14 & 35.37 & 26.98 & ADR \\
     TE                         & 47.46 & 18.29 & 32.88 & 26.40 & ADR \\
     AT                         & 45.87 & 18.06 & 31.96 & 25.92 & ADR \\
-    PGD-AT + RPAT              & 47.68 & 17.77 & 32.73 & 25.89 & RPAT \\
     TRADES                     & 48.49 & 17.35 & 32.92 & 25.56 & ADR \\
-    Consistency-AT             & 46.54 & 17.60 & 32.07 & 25.54 & RPAT \\
-    MART                       & 39.70 & 17.18 & 28.44 & 23.98 & RPAT \\
     \midrule
     \multicolumn{6}{l}{\emph{not comparable with the block above --- see caption}} \\
+    Consistency-AT + RPAT      & 49.74 & 18.84 & 34.29 & 27.33 & RPAT \\
+    PGD-AT + RPAT              & 47.68 & 17.77 & 32.73 & 25.89 & RPAT \\
+    Consistency-AT             & 46.54 & 17.60 & 32.07 & 25.54 & RPAT \\
+    MART                       & 39.70 & 17.18 & 28.44 & 23.98 & RPAT \\
     F\textsuperscript{2}AT     & 40.54 & 13.13 & 26.84 & 19.84 & F\textsuperscript{2}AT \\
     SEAT                       & 35.51 & 11.37 & 23.44 & 17.22 & F\textsuperscript{2}AT \\
     SAT                        & 31.52 &  9.37 & 20.45 & 14.45 & F\textsuperscript{2}AT \\
