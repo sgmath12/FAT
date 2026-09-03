@@ -89,6 +89,21 @@ A method at, say, 68 / 30 would score NRR 41.63 and dominate ARREST and LBGAT ou
 That is the cell to aim at, and it is also the cell where our own claim is easiest to state, since
 ARREST and LBGAT are both natural-teacher methods and both are on the clean end.
 
+## The architecture is the same in all five papers, and in ours
+
+Checked 2026-09-03 rather than assumed. ADR, CURE, RPAT and ARREST all state **WRN-34-10**
+explicitly. LBGAT's main models are WRN-34-10 too ("the WRN-34-10 architecture [54] are adopted",
+its Sec. 4); the starred rows in its Table 5 are WRN-34-20 and are excluded from the tables above.
+
+Ours is the same network despite reporting a different parameter count. `scripts/check_arch.py`
+prints $48.3$M where the literature says $46.2$M, and the whole difference is a `sub_block1` in our
+`WideResNet.py`: a duplicate of `block1` that is constructed but never referenced in `forward`, and
+measured to receive exactly zero gradient. It is $2.10$M parameters, and $48.26 - 2.10 = 46.16$M,
+which matches RPAT's and HAT's implementations to the second decimal. The dead block comes from the
+TRADES codebase and LBGAT's released WideResNet has it as well, at the same $48.26$M. **The network
+we train is WRN-34-10 and our numbers are comparable with every row above.** Do not delete
+`sub_block1` to tidy the count -- existing WideResNet checkpoints carry those keys.
+
 ## Caveats before quoting any row
 
 - **"AT" is reported three times on CIFAR-10 and the AA spread is eight points** — 52.12 (ADR),
