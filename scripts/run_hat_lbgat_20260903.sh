@@ -20,8 +20,16 @@ set -u
 cd "$(dirname "$0")/.."
 PY=/home/seungju/miniforge3/envs/advTrain/bin/python
 mkdir -p logs
+# LBGAT is re-run on both datasets with `lr_schedule: lbgat`, its own schedule, after the first pass
+# under our flat-0.1 protocol died on CIFAR-10 -- pinned at 9.9999 clean from step 0 while CIFAR-100
+# trained normally under an identical config.  Their adjust_learning_rate carries an epoch-1 dip to
+# 0.02 that we had dropped, and reporting the 10.00 would have published our optimizer failure as
+# their method.  CIFAR-100's flat-protocol result (57.10 / 25.99) is kept in the notes for comparison.
 for c in lbgat_100ep hat_100ep; do
   for ds in CIFAR100 CIFAR10; do
+    if [ "$c" != lbgat_100ep ] && ls results/$ds/*/$c/*.log >/dev/null 2>&1 &&        grep -ql "last_aa_acc" results/$ds/*/$c/*.log 2>/dev/null; then
+      echo "=== $(date '+%m-%d %H:%M') skip $ds/$c (이미 AA 있음) ==="; continue
+    fi
     echo "=== $(date '+%m-%d %H:%M') start $ds/$c ==="
     $PY -u main.py --config_name "${c}.yaml" --dataset "$ds" --seed 0 > "logs/${ds}_${c}.log" 2>&1
     echo "=== $(date '+%m-%d %H:%M') done $ds/$c (exit $?) ==="

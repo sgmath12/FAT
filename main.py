@@ -120,7 +120,28 @@ def main(config,npt):
     # usual 10). Added so a 200-epoch scratch run can be schedule-matched to that baseline instead
     # of FAT's OneCycle default. methods.* call scheduler.step() once per BATCH, so this is a
     # per-iteration LambdaLR (t = fractional epoch), which is exactly how ReBAT computes it too.
-    if str(getattr(config, "lr_schedule", None) or "") == "piecewise":
+    # lr_schedule: lbgat (2026-09-03) = LBGAT's own adjust_learning_rate, transcribed exactly from
+    # train_lbgat_cifar100.py: 0.1, then 0.02 during epoch 1 only, then 0.01 from 76 and 0.001 from 91.
+    # The epoch-1 dip looks like a typo and is theirs; it is kept because it is not ours to fix, and
+    # because it is evidently load-bearing.  Under our flat-0.1 protocol LBGAT trains fine on CIFAR-100
+    # (8.52 -> 22.66 -> 32.06 clean over the first three evaluations) and dies instantly on CIFAR-10,
+    # pinned at 9.9999 from step 0 with an identical config.  Reporting that 10.00 as LBGAT's number
+    # would be publishing our optimizer failure as their result.
+    if str(getattr(config, "lr_schedule", None) or "") == "lbgat":
+        steps_per_epoch = len(train_loader)
+
+        def _lbgat_lr(step):
+            t = step / steps_per_epoch
+            if 1 <= t < 2:
+                return 0.2                      # 0.02 / 0.1
+            if t >= 91:
+                return 0.01
+            if t >= 76:
+                return 0.1
+            return 1.0
+
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, _lbgat_lr)
+    elif str(getattr(config, "lr_schedule", None) or "") == "piecewise":
         steps_per_epoch = len(train_loader)
         stage1 = int(getattr(config, "stage1", None) or config.epochs // 2)
         stage2 = int(getattr(config, "stage2", None) or config.epochs * 3 // 4)

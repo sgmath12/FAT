@@ -22,9 +22,9 @@ dataset : CIFAR100
 arch : ResNet18
 optim : SGD
 lr : 0.1
-lr_schedule : piecewise
-stage1 : 70
-stage2 : 90
+lr_schedule : lbgat
+stage1 : 76
+stage2 : 91
 lr_factor : 10
 cyclic : False
 epochs : 100
