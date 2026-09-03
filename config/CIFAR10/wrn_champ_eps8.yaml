@@ -1,0 +1,60 @@
+# THE SHIPPED RECIPE AT eps_train = 8/255, WideResNet-34-10, CIFAR-10 (2026-09-03).
+#
+# Not a tuning sweep -- the operating point.  The training radius moves along the frontier at no cost
+# and the paper draws our result as a curve for that reason, so the question "is there a point of ours
+# that dominates ARREST" has an answer we should measure rather than argue about.
+#
+# ARREST is the one published WRN-34-10 CIFAR-10 row our shipped 88.67 / 55.29 does not dominate: it
+# has 90.24 clean against our 88.67, and 50.20 AutoAttack against our 55.29.  On ResNet-18 the same
+# recipe moves 84.96 / 51.74 at 8.8/255 to 87.22 / 51.15 at 8/255 and 89.64 / 47.88 at 6/255, so
+# applying that offset to the WideResNet cell projects roughly 90.93 / 54.70 at 8/255 -- above ARREST
+# on BOTH axes -- and 93.35 / 51.43 at 6/255, further above on clean and still above on AutoAttack.
+#
+# A projection is not a result, which is why these run.  8/255 is also the standard radius the rest of
+# the field trains at, so if it lands where projected it is the least arguable version of the claim.
+#
+# Everything else is byte-identical to wrn_champ_freezehead; only train_eps changes.  Evaluation stays
+# at 8/255 throughout, as everywhere else in the paper.
+method : feat_direction
+featdir_freeze_head : True
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch: WideResNet
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+train_eps : 0.03137254901960784
+steps : 10
+step_size : 2/255/1
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+aa_batch_size : 256
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR10/checkpoint/clean_wrn_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_wrn_200ep/clean_last.pkl
+data_root : ./data
+featdir_angeps_p : 1.0

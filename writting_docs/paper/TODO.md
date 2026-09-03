@@ -380,6 +380,37 @@ table is CIFAR-10 only.
 ⚠ Do not quote a plain-AT WideResNet row without its source: "AT" on CIFAR-10 appears at $52.12$ AA
 in ADR and $44.04$ in both CURE and ARREST — same architecture, same attack, eight points apart.
 
+### 4.6c The one row we do not dominate, and the cell that would
+
+On CIFAR-10 WideResNet our $88.67 / 55.29$ is above $30$ of $31$ published rows on both axes. The
+exception is **ARREST at $90.24 / 50.20$** — $1.57$ more clean, $5.09$ less AutoAttack. It is a
+different point on the frontier, not a better one, but it is the row a referee will point at, and the
+answer is a measurement rather than an argument.
+
+The training radius moves along the frontier at no cost, which is why Figure 1 draws our result as a
+curve. On ResNet-18 CIFAR-10 the same recipe measures:
+
+| $\varepsilon_{\mathrm{train}}$ | clean | AA |
+|---|---|---|
+| 6/255 | 89.64 | 47.88 |
+| 8/255 | 87.22 | 51.15 |
+| 8.8/255 (shipped) | 84.96 | 51.74 |
+
+Applying that offset to the WideResNet cell projects **$90.93 / 54.70$ at $8/255$**, above ARREST on
+**both** axes, and $93.35 / 51.43$ at $6/255$, further above on clean and still above on AutoAttack.
+
+`config/CIFAR10/wrn_champ_eps{6,7,8}.yaml` are written and differ from `wrn_champ_freezehead` in
+`train_eps` alone. **$8/255$ is the one to run first** — it is the standard radius the rest of the
+field trains at, so if it lands where projected it is the least arguable form of the claim, and it
+needs no explanation about why our radius is unusual.
+
+⚠ A projection is not a result. The offset comes from ResNet-18 and the WideResNet cell may not scale
+the same way.
+
+*(CIFAR-100: ARREST is $73.05 / 24.32$ there and our projected WideResNet cell is around $67 / 32$, so
+the same dial would have to move much further. The CIFAR-100 $\varepsilon$ sweep is queued on this
+machine and will say how far.)*
+
 ### 4.7 Still owed by this machine
 
 The Tiny-ImageNet log for 55.16 / 20.54 lives on the other server, so `results/TinyImageNet/` here
