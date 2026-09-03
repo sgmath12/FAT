@@ -255,7 +255,12 @@ def main(config,npt):
                      "stage2": stage2, "lr_factor": lr_factor})
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, _piecewise)
     elif config.cyclic :
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.lr, steps_per_epoch=len(train_loader), epochs=config.epochs, pct_start = 0.5)
+        # pct_start defaults to 0.5, our recipe's value.  HAT's own trainer uses OneCycleLR at
+        # pct_start=0.25 with lr 0.21, so `pct_start` is exposed rather than hard-wired: forcing our
+        # 0.5 onto a baseline whose published recipe says 0.25 is not a fairer comparison, it is a
+        # different method.
+        _pct = float(getattr(config, "pct_start", 0.0) or 0.0) or 0.5
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.lr, steps_per_epoch=len(train_loader), epochs=config.epochs, pct_start = _pct)
     else :
         scheduler = None
 

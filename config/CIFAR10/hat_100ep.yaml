@@ -12,19 +12,27 @@
 # in the function signature is not what the README passes).  Their helper model is 50 epochs of plain
 # CE, which is what our `clean_200ep` teacher is a longer version of, so `load: True` uses it.
 #
-# Schedule is our baseline protocol (SGD 0.1, decay 70/90, 100 epochs) rather than their 50 adversarial
+#
+# ⚠ SCHEDULE (2026-09-03).  Under our flat protocol -- SGD 0.1, piecewise, no warmup -- HAT collapses
+# to chance from step 0 on BOTH datasets: 1.00 on CIFAR-100 and 9.99 on CIFAR-10, pinned there for
+# every evaluation.  Its own trainer uses OneCycleLR at lr 0.21 and pct_start 0.25, which starts near
+# zero and ramps, and that warmup is evidently what the TRADES-KL plus helper-CE objective needs.
+# We therefore run HAT on ITS schedule, exactly as LBGAT is run on its own for the same reason.
+# Reporting the collapsed number would be publishing our optimizer failure as their method.
+#
+# Schedule was our baseline protocol (SGD 0.1, decay 70/90, 100 epochs) rather than their 50 adversarial
 # epochs, so this row is comparable with TRADES and MART in the same table.  More epochs, not fewer.
 method : hat
 weight_decay : 0.0002
 dataset : CIFAR10
 arch : ResNet18
 optim : SGD
-lr : 0.1
-lr_schedule : piecewise
+lr : 0.21
+lr_schedule : none
 stage1 : 70
 stage2 : 90
 lr_factor : 10
-cyclic : False
+cyclic : True
 epochs : 100
 batch_size : 128
 eps : 8/255
@@ -52,3 +60,4 @@ finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
 data_root : ./data
 hat_gamma : 0.5
 hat_h : 2.0
+pct_start : 0.25
