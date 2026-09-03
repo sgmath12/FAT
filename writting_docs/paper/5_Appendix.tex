@@ -154,6 +154,27 @@ body.
 
 \begin{table}[h]
   \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{What the per-sample radius is allocated \emph{from}. CIFAR-100, ResNet-18, $100$ epochs,
+  $\epsilon_{\mathrm{train}} = 8.8/255$, the shipped recipe throughout; the three cells differ in one
+  configuration line and nothing else. All three spend the same total budget
+  $N\epsilon_{\mathrm{train}}$: the last row is the middle row's weight multiset---same values, same
+  clip $[0.5, 1.5]$, same restored mean---permuted so that the larger radii go to the easier examples,
+  which is the direction IAAT and CAT assign them. Reordering costs $0.80$ AutoAttack against the rule
+  it reorders, and lands below even the uniform row on AutoAttack, CW and NRR alike.}
+  \label{tab:allocation}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    Allocated from & Clean & PGD-20 & CW & AA & NRR \\
+    \midrule
+    Nothing (uniform, $p=0$)               & 60.42 & \textbf{33.11} & 30.07 & 28.42 & 38.66 \\
+    \textbf{Loss sensitivity (ours, $p=1$)} & \textbf{62.17} & 32.37 & \textbf{30.93} & \textbf{28.86} & \textbf{39.42} \\
+    Difficulty, same weights permuted      & 60.90 & 32.32 & 29.94 & 28.06 & 38.42 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[h]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Only the teacher checkpoint changes; the student configuration is untouched. CIFAR-100,
   ResNet-18. $S_w/S_b$ is the ratio of within-class to between-class scatter on the unit sphere.}
   \label{tab:teacherladder}

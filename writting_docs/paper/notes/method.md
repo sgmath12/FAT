@@ -142,7 +142,7 @@ is allocation and not strength.
 Per-sample radii are not new; IAAT, MMA and CAT assign one from the difficulty of the sample or its
 margin in **input** space. This rule assigns one from the input-sensitivity of the **training loss**,
 the geometry the objective is written in. Holding the exact multiset of weights (5) produces and only
-reassigning which sample receives which, by difficulty, pays $0.74$ AutoAttack and falls below the
+reassigning which sample receives which, by difficulty, pays $0.80$ AutoAttack and falls below the
 uniform baseline on CW and NRR: the same weights in a different order move *along* the frontier, and
 only this order moves the frontier itself.
 

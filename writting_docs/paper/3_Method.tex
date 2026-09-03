@@ -113,21 +113,32 @@ where no such move remains.
 where $g_i \to 0$, which happens at the start of training by property (ii). We therefore constrain
 $\epsilon_i / \epsilon \in [0.5, 1.5]$ and solve the budget constraint inside that box, which
 \Cref{app:box} states exactly and which reduces to restoring the mean when no clip is active. We use
-$p = 1$ throughout and never tune it; \Cref{tab:ablation} reports the surrounding values.
+$p = 1$ throughout and never tune it; \Cref{tab:allocation} reports the $p = 0$ endpoint under the
+same recipe.
 
 \paragraph{Why this is not the existing per-sample radius.} Assigning a different $\epsilon$ per
 example is not new: IAAT \citep{iaat}, MMA \citep{mma} and CAT \citep{cat} all do it. They assign it
 from the \emph{difficulty} of the example or from its margin in \textbf{input} space.
 \Cref{eqn:angeps_ideal} assigns it from the input-sensitivity of the \textbf{training loss}---the geometry
-the objective is actually written in---and the two are not the same signal. Measured on the same
-batches, the difficulty score has a coefficient of variation of $0.03$ where the sensitivity has
-$0.64$: allocating by difficulty is close to allocating uniformly.
+the objective is actually written in---and the two are not the same signal. Both are genuinely
+dispersed on the shipped recipe, and difficulty is if anything the \emph{more} dispersed of the two:
+across training the sensitivity's coefficient of variation runs $0.42$--$0.86$ with median $0.56$,
+the difficulty score's $0.40$--$1.37$ with median $0.75$. What separates the rules is therefore not
+how much they spread the budget but which geometry they spread it along, and what follows compares
+two competing allocations rather than an allocation against its absence.%
+% CV figures measured 2026-09-04 from the batch-0 log line of champ_diffrank_l2 (sensitivity, 99
+% epochs) and champ_diffeps_l2 (difficulty, 99 epochs).  The earlier claim here -- difficulty CV 0.03 against
+% sensitivity 0.64, i.e. "allocating by difficulty is close to allocating uniformly" -- was measured
+% on the pre-2026-08-31 DIRECTIONAL student, whose unit-norm feature makes every logit small and
+% pins per-sample CE at ln(100) (methods.py:2500).  A raw student hands the head a feature on the
+% teacher's scale, so that argument does not transfer and the sentence was retired rather than
+% requoted.  The permutation result below does not depend on it, and is stronger without it.
 
 The distinction is testable without confounding it with the budget. Holding the exact multiset of
 weights \Cref{eqn:angeps_ideal} produces---same values, same clip, same mean, therefore the same total
 attack budget---and only reassigning which example receives which, ordered by difficulty as
-IAAT and CAT would, costs $0.74$ AutoAttack and lands below the uniform baseline on both CW and NRR
-(\Cref{tab:ablation}). The same weights in a different order move \emph{along} the frontier; only this
+IAAT and CAT would, costs $0.80$ AutoAttack and falls below even the uniform baseline on AutoAttack,
+CW and NRR alike (\Cref{tab:allocation}). The same weights in a different order move \emph{along} the frontier; only this
 order moves the frontier itself.
 
 \Cref{alg:cfa} states the procedure in full. Training the natural teacher is the only place labels

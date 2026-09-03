@@ -1,0 +1,65 @@
+# UNIFORM (p=0) BASELINE ON THE SHIPPED RECIPE (2026-09-04).
+#
+# The 2026-08-22 permutation control (`champ_diffrank`) was matched to the THEN-champion
+# `featdir_champ200_angeps`, which is `student_norm: True` -- the directional / partial-raw design,
+# and it also carried `freeze_lr_epoch: 0.65`.  The shipped recipe is `l2_bestrecipe_freezehead`
+# (raw L2 anchor, head frozen, no freeze_lr).  The paper cites the control from Section 3, which
+# describes the SHIPPED rule, so the control has to be run there.  This config is byte-identical to
+# `l2_bestrecipe_freezehead` except for the one line named below.
+#
+# There is a second, sharper reason to re-run.  methods.py:2500 records that the difficulty score's
+# coefficient of variation is 0.027-0.041 BECAUSE a directional student reads a unit-norm feature,
+# so its logits are small and per-sample CE sits at ln(100) for everyone.  A raw student hands the
+# head a feature on the teacher's scale (~11.2), so that argument does NOT transfer: CE will be
+# dispersed and the difficulty allocation will be a real allocation rather than a near-uniform one.
+# The `gradnorm_cv` logged at batch 0 of each epoch is the measurement, and the 0.03-vs-0.64 figure
+# quoted in Section 3 has to be re-read off these runs rather than the directional ones.
+#
+# Read against l2_bestrecipe_freezehead (62.17 / PGD20 32.37 / CW 30.93 / AA 28.86 / NRR 39.42).
+#
+# ONLY LINE CHANGED: featdir_angeps_p = 0.0, which gates out the whole per-sample block
+# (methods.py:2422 `if _ap > 0`) and restores the scalar eps_train.  This is the uniform row the
+# permutation control is read against, and it did not exist in the shipped regime.
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 0.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

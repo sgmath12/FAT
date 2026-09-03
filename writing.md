@@ -339,10 +339,11 @@ is not the explanation. Same verdict at the full recipe: deleting costs $-0.06$ 
 costs $-0.91$.
 
 **Sensitivity-matched $\varepsilon$, and the signal is what matters.** At the full recipe $p{=}1$ is
-worth +1.43 clean at $-0.10$ AA on CIFAR-100 and +2.14 at $-0.02$ on CIFAR-10, at identical total
-attack budget. Keeping the *exact* weight multiset the sensitivity rule produces and only reassigning
-which sample gets which — ordering by difficulty, as IAAT/CAT do — buys clean and **pays 0.74 AA**,
-ending below the uniform baseline on both CW and NRR. Only the sensitivity ordering moves the
+worth +1.75 clean AND +0.44 AA on CIFAR-100 at identical total attack budget (the +2.14 clean at
+$-0.02$ AA figure for CIFAR-10 is the pre-2026-08-31 directional regime and has not been
+re-measured). Keeping the *exact* weight multiset the sensitivity rule produces and only reassigning
+which sample gets which — ordering by difficulty, as IAAT/CAT do — buys clean and **pays 0.80 AA**,
+ending below the uniform baseline on AA, CW and NRR alike. Only the sensitivity ordering moves the
 frontier rather than sliding along it. ⚠ A control, not a comparison against those methods as
 published; they have not been run.
 

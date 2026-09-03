@@ -287,19 +287,22 @@ which is what §5 predicts. Warm-starting from the teacher rather than from scra
 
 | at the full recipe | clean | CW | AA |
 |---|---:|---:|---:|
-| full method | 62.17 | 30.92 | 28.59 |
-| uniform ε ($p=0$) | 60.74 | 30.53 | 28.69 |
-| ε allocated by **difficulty** instead of sensitivity | 61.52 | 30.13 | **27.95** |
+| full method | 62.17 | 30.93 | 28.86 |
+| uniform ε ($p=0$) | 60.42 | 30.07 | 28.42 |
+| ε allocated by **difficulty** instead of sensitivity (permuted) | 60.90 | 29.94 | **28.06** |
+| ε allocated by **difficulty magnitude** (IAAT/CAT direction) | 61.27 | 30.14 | 28.12 |
 | no feature loss (logit distillation only) | 58.92 | 30.03 | 28.71 |
 | head frozen, no head-KD term | 60.45 | 30.54 | 28.63 |
 
-**Sensitivity-matched ε is worth +1.43 clean at an AA tie** (−0.10), at identical total attack
-budget; on CIFAR-10 the same switch is +2.14 clean at −0.02 AA.
+**Sensitivity-matched ε is worth +1.75 clean AND +0.44 AA**, at identical total attack budget.
+(The older "+1.43 clean at an AA tie" reading was the pre-2026-08-31 directional regime; on the
+shipped raw-$\ell_2$ recipe the rule wins both axes. The CIFAR-10 figure, +2.14 clean at −0.02 AA,
+has not been re-measured on the shipped recipe and is still the directional one.)
 
 **The signal matters, not merely the per-sample-ness.** Row 3 keeps the exact weight multiset the
 sensitivity rule produces — same values, same clamp, same mean, same total budget — and only
 reassigns which sample gets which, ordering by difficulty (easy → large radius, as IAAT/CAT do). It
-buys clean and **pays 0.74 AA** for it, ending below the uniform baseline on both CW and NRR. Only
+buys clean and **pays 0.80 AA** for it, ending below the uniform baseline on AA, CW and NRR alike. Only
 the sensitivity ordering moves the frontier rather than sliding along it.
 ⚠ This is a *control*, not a comparison against IAAT/MMA/CAT as published methods; those carry
 different recipes end to end and have not been run.

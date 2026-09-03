@@ -96,8 +96,11 @@ theory notes was withdrawn.
 | ladder $p{=}0$ vs $p{=}1$, 50 ep | 61.33→62.94 | 26.19→26.40 | +0.49 NRR, no stack |
 | ladder $p{=}0$ vs $p{=}1$, 100 ep | 61.21→62.98 | 25.24→25.43 | +0.49 NRR, no stack |
 | `champ_angeps_gnorm1` | 62.51 | 28.44 | $\ell_1$ as derived vs $\ell_2$ as shipped — ties |
-| `champ_diffrank` | — | −0.74 AA | same weight multiset, reassigned by difficulty |
-| ⚠ **$p \in \{0.5, 2\}$** | | | configs `angeps_p05`, `angeps_p10` exist, **never run** |
+| ~~`champ_diffrank`~~ | 61.52 | 27.95 | ⚠ **STALE REGIME, do not cite.** `student_norm: True` + `freeze_lr_epoch: 0.65` = the pre-2026-08-31 directional design. Superseded by `champ_diffrank_l2` |
+| `champ_p0_l2` (uniform) | 60.42 | 28.42 | shipped recipe, `featdir_angeps_p: 0.0`. PGD 33.11, CW 30.07, NRR 38.66 |
+| `champ_diffrank_l2` | 60.90 | 28.06 | shipped recipe, difficulty-permuted. PGD 32.32, CW 29.94, NRR 38.42 — **below uniform on AA, CW and NRR**; −0.80 AA vs ours. `tab:allocation` |
+| $p=0.5$ (`abl_angeps_p05`) | 62.72 | 26.37 | ran 2026-09-03, 50 ep no-stack ladder |
+| $p=2.0$ (`abl_angeps_p20`) | 63.33 | 26.22 | ran 2026-09-03; NRR near-flat in $p$ -> plateau, not a tuned point |
 
 Nearly complete. Budget preservation plus the difficulty-rank control is the strong part. The $p$
 sweep is the one gap and it is cheap: if NRR is flat in $p$ the rule is a plateau rather than a tuned
