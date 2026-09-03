@@ -128,8 +128,10 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 \begin{table}[t]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{WideResNet-34-10, $\ell_\infty$, $\epsilon = 8/255$. Same eleven rows and the same protocol
-  as \Cref{tab:main}; \textbf{--} marks a cell we have not run. The comparison line on CIFAR-100 is
-  ADR's WideResNet-34-10 result, $62.21$ clean / $31.60$ AA (\Cref{tab:published}).}
+  as \Cref{tab:main}; \textbf{--} marks a cell we have not run. Comparison lines are in
+  \Cref{tab:published}: on CIFAR-10 the strongest published pair on either criterion is
+  AT\,+\,WA\,+\,AWP at $87.42/55.01$ (Avg $71.22$, NRR $67.53$), and on CIFAR-100 it is ADR's
+  $62.21/31.60$ (NRR $41.91$) against ARREST's $73.05/24.32$ (Avg $48.69$).}
   \label{tab:wrn}
   \begin{tabular}{llrrrrrr}
     \toprule
@@ -154,10 +156,21 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     CURE                             & self  & -- & -- & -- & -- & -- & -- \\
     RPAT++                           & --    & -- & -- & -- & -- & -- & -- \\
     \midrule
-    \textbf{CFA (ours)}              & nat.  & \multicolumn{3}{c}{\emph{in progress}} & \multicolumn{3}{c}{\emph{in progress}} \\
+    \textbf{CFA (ours)}              & nat.  & \textbf{88.67} & \textbf{55.29} & \textbf{68.11} & \multicolumn{3}{c}{\emph{in progress}} \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+\paragraph{WideResNet, CIFAR-10.} At $88.67 / 55.29$ the shipped recipe is strictly better on
+\emph{both} axes than $30$ of the $31$ published WideResNet-34-10 results we collected
+(\Cref{tab:published}), and it takes both criteria: Avg $71.98$ against the previous best $71.22$ and
+NRR $68.11$ against $67.53$, both held by AT\,+\,WA\,+\,AWP, while its AutoAttack accuracy of $55.29$
+exceeds the highest published figure of $55.26$. The single row it does not dominate is ARREST, which
+has $1.57$ more standard accuracy and $5.09$ less AutoAttack---a different point on the frontier
+rather than a better one. The comparison that matters most is with the two methods that also take a
+naturally trained network: against LBGAT we are $+0.45$ clean and $+2.43$ AutoAttack, and against
+ARREST $-1.57$ clean and $+5.09$ AutoAttack. Both of them pay for standard accuracy with robustness,
+and the anchor does not.
 
 \paragraph{Reproductions, and one failure.} RPAT++ we reproduce to within $0.31$ AutoAttack of its
 published numbers on both datasets and report our own measurement. CURE we could \emph{not}: seven runs

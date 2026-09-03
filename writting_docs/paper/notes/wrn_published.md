@@ -119,6 +119,49 @@ compute on CIFAR-100 before CIFAR-10.
 It is also where our claim is easiest to state, since ARREST and LBGAT are both natural-teacher
 methods and both sit on the clean end of exactly this hole.
 
+## Our CIFAR-10 result, measured 2026-09-03
+
+`wrn_champ_freezehead`, CIFAR-10, run on the other server at the shipped recipe. Reported order is
+clean, FGSM, PGD-10/20/50, CW, AutoAttack.
+
+| | clean | FGSM | PGD-10 | PGD-20 | PGD-50 | CW | **AA** | Avg | **NRR** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **CFA, WRN-34-10** | **88.67** | 63.01 | 57.05 | 56.08 | 55.83 | 56.79 | **55.29** | **71.98** | **68.11** |
+
+PGD is monotone in attack strength as it should be, $57.05 \ge 56.08 \ge 55.83$.
+
+### Against the WideResNet baselines
+
+Ranked by NRR against every published WRN-34-10 row collected above:
+
+| | Method | clean | AA | Avg | NRR | Source |
+|---:|---|---:|---:|---:|---:|---|
+| **1** | **CFA (ours)** | **88.67** | **55.29** | **71.98** | **68.11** | — |
+| 2 | AT + WA + AWP | 87.42 | 55.01 | 71.22 | 67.53 | ADR |
+| 3 | ADR + WA + AWP | 86.11 | 55.26 | 70.69 | 67.32 | ADR |
+| 4 | RPAT++ | 86.76 | 54.97 | 70.87 | 67.30 | RPAT |
+| 5 | ReBAT | 85.25 | 54.78 | 70.02 | 66.70 | RPAT |
+| 6 | KD + SWA | 87.45 | 53.59 | 70.52 | 66.46 | RPAT |
+| 7 | S2O | 85.67 | 54.10 | 69.89 | 66.32 | ARREST |
+| 8 | AWP | 85.57 | 54.04 | 69.80 | 66.24 | ARREST |
+| 9 | LBGAT ($\alpha{=}0$) | 88.22 | 52.86 | 70.54 | 66.11 | LBGAT |
+| 10 | LAS-AT | 86.23 | 53.58 | 69.91 | 66.09 | ARREST |
+
+Against the 31 published rows:
+
+- **Highest AutoAttack**, $55.29$ against the previous best $55.26$ (ADR + WA + AWP). Nothing published
+  is higher.
+- **Highest Avg** ($71.98$ against $71.22$) and **highest NRR** ($68.11$ against $67.53$), both
+  previously held by AT + WA + AWP.
+- **Strictly better on both axes than 30 of the 31 rows.** The one exception is ARREST, at $1.57$ more
+  clean and $5.09$ less AutoAttack — a different point on the trade-off, not a domination either way.
+- Second-highest clean accuracy in the table, behind only ARREST.
+
+The two natural-teacher baselines are the informative comparison, since they are the methods closest
+to ours in what they assume available. We are $+0.45$ clean and $+2.43$ AutoAttack over LBGAT
+($88.22/52.86$), and $-1.57$ clean and $+5.09$ AutoAttack over ARREST ($90.24/50.20$). Both of them
+buy their clean accuracy with robustness; this does not.
+
 ## The architecture is the same in all five papers, and in ours
 
 Checked 2026-09-03 rather than assumed. ADR, CURE, RPAT and ARREST all state **WRN-34-10**
