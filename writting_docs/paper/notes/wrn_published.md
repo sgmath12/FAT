@@ -77,17 +77,47 @@ comparison line is ADR, and nothing else in the trade-off literature contests it
 
 ## What the two datasets say about where the gap is
 
-On CIFAR-10 the frontier is crowded: eleven methods sit between 52 and 55 AA at 85–88 clean, and NRR
-across all of them spans 64.4 to 67.5. Winning there means moving a decimal.
+**On CIFAR-10 one method already leads both metrics.** AT + WA + AWP tops Avg at $71.22$ and NRR at
+$67.53$, with RPAT++ and ADR + WA + AWP within $0.6$ and $0.3$ behind. The whole field sits between
+$52$ and $55$ AutoAttack at $85$–$88$ clean; the top three Avg values span $0.53$. Winning there means
+moving a decimal against a settled ranking.
 
-On CIFAR-100 it is not crowded, it is **bimodal**. One end raises clean and gives up robustness —
-ARREST 73.05 / 24.32, LBGAT 70.03 / 27.05. The other raises robustness and gives up clean —
-ADR + WA + AWP 62.21 / 31.60. **Nothing occupies the middle**, and the NRR column shows why it
-matters: every row on this dataset lands between 36.5 and 41.9 regardless of which end it came from.
-A method at, say, 68 / 30 would score NRR 41.63 and dominate ARREST and LBGAT outright on both axes.
+**On CIFAR-100 the two metrics disagree, and nobody leads both:**
 
-That is the cell to aim at, and it is also the cell where our own claim is easiest to state, since
-ARREST and LBGAT are both natural-teacher methods and both are on the clean end.
+| | Avg | NRR |
+|---|---|---|
+| 1st | ARREST $48.69$ | ADR + WA + AWP $41.91$ |
+| 2nd | LBGAT $48.54$ | AT + WA + AWP $41.33$ |
+| ARREST's rank on the other | — | **11th of 13** ($36.49$) |
+| ADR's rank on the other | 4th ($46.91$) | — |
+
+The field is bimodal. One end raises clean and gives up robustness (ARREST $73.05/24.32$, LBGAT
+$70.03/27.05$); the other raises robustness and gives up clean (ADR + WA + AWP $62.21/31.60$). Between
+clean $63.40$ and clean $70.03$ there is **nothing at all**, and the two leaders are at opposite ends
+of that hole.
+
+**The opening is a cell that leads both metrics at once, which no published result does.** It requires
+clearing Avg $48.69$ and NRR $41.91$ together, which the two constraints put at roughly:
+
+| clean | AA needed |
+|---|---|
+| 66 | $\geq 31.4$ |
+| 67 | $\geq 30.5$ |
+| 68 | $\geq 30.3$ |
+| 70 | $\geq 30.0$ |
+
+⚠ Note what this corrects: a cell at $68/30$ does **not** dominate ARREST or LBGAT on both axes --
+$68 < 70.03 < 73.05$ -- and at NRR $41.63$ it does not even lead ADR. Domination of the clean end is
+not available at these numbers; leading both *metrics* is.
+
+**Is it reachable?** ADR's own ResNet-18 $\to$ WideResNet gain on this dataset is $+4.85$ clean and
+$+3.10$ AA ($57.36/28.50 \to 62.21/31.60$). Applying the same delta to our ResNet-18 result of
+$62.17/28.86$ projects $67.02/31.96$, which is Avg $49.49$ and NRR $43.28$ -- clearing both. That is a
+projection from one method's scaling and not a result, but it is the reason to spend WideResNet
+compute on CIFAR-100 before CIFAR-10.
+
+It is also where our claim is easiest to state, since ARREST and LBGAT are both natural-teacher
+methods and both sit on the clean end of exactly this hole.
 
 ## The architecture is the same in all five papers, and in ours
 

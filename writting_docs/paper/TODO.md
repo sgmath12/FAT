@@ -351,11 +351,16 @@ Do not run two trainings on one GPU. Three collisions have already been caused b
 RPAT, LBGAT and ARREST, with the source on every row. Two things the other server should know before
 it starts.
 
-**CIFAR-10 is crowded and CIFAR-100 is empty in the middle.** On CIFAR-10, eleven methods sit between
-$52$ and $55$ AA at $85$–$88$ clean and every NRR lands in $64.5$–$67.5$; winning there moves a
-decimal. On CIFAR-100 the published results are bimodal — ARREST $73.05/24.32$ and LBGAT
-$70.03/27.05$ at the clean end, ADR+WA+AWP $62.21/31.60$ at the robust end, **nothing in between**.
-A cell at $68/30$ would score NRR $41.63$ and dominate both ends.
+**On CIFAR-10 one method already leads both metrics; on CIFAR-100 nobody does.** CIFAR-10's
+AT+WA+AWP tops Avg ($71.22$) and NRR ($67.53$) together, with the top three Avg values spanning
+$0.53$ — winning there moves a decimal against a settled ranking. CIFAR-100 is bimodal and the two
+metrics disagree: **Avg is led by ARREST ($48.69$), NRR by ADR+WA+AWP ($41.91$)**, and ARREST places
+11th of 13 on NRR. Between clean $63.40$ and $70.03$ there is nothing.
+
+The opening is a cell clearing **both** $48.69$ Avg and $41.91$ NRR, which needs about $67/30.5$ or
+$68/30.3$. Applying ADR's own ResNet-18 → WideResNet gain ($+4.85$ clean, $+3.10$ AA) to our
+$62.17/28.86$ projects $67.02/31.96$ = Avg $49.49$, NRR $43.28$, clearing both. A projection, not a
+result — but it is why CIFAR-100 gets the WideResNet compute first.
 
 **On CIFAR-100 WideResNet, ADR is the only comparison line.** CURE reports no WideResNet CIFAR-100
 number at all (its CIFAR-100 table is ResNet-18, PGD and C&W, no AutoAttack), and RPAT's WideResNet
