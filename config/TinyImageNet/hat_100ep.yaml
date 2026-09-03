@@ -1,0 +1,54 @@
+# HAT (Rade & Moosavi-Dezfooli, ICLR'22), our own run.
+#
+# HAT consumes a naturally trained network like we do, but for a different purpose, and the table
+# should not group it with the distillation methods: the natural model supplies a LABEL for a point
+# beyond the ball, never a target the student matches, so none of its representation transfers.
+#
+#   x_hr = x + h (x_adv - x),  h = 2.0
+#   y_hr = argmax std_model(x_adv)          <- read at x_adv, not at x and not at x_hr
+#   L    = CE(f(x), y) + beta KL(f(x_adv) || f(x)) + gamma CE(f(x_hr), y_hr)
+#
+# beta 2.5 and gamma 0.5 are their CIFAR-10 ResNet-18 command; h 2.0 is their parser default (the 3.5
+# in the function signature is not what the README passes).  Their helper model is 50 epochs of plain
+# CE, which is what our `clean_200ep` teacher is a longer version of, so `load: True` uses it.
+#
+# Schedule is our baseline protocol (SGD 0.1, decay 70/90, 100 epochs) rather than their 50 adversarial
+# epochs, so this row is comparable with TRADES and MART in the same table.  More epochs, not fewer.
+method : hat
+weight_decay : 0.0002
+dataset : TinyImageNet
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 2.5
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : TinyImageNet/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+hat_gamma : 0.5
+hat_h : 2.0

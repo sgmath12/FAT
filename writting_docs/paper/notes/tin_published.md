@@ -17,13 +17,16 @@ methods within any one of them.
 | AT + WA + AWP | 48.61 | 19.58 | 34.09 | 27.92 | ADR Tab. 2c |
 | AT + ADR | 48.19 | 19.46 | 33.83 | 27.72 | ADR Tab. 2c |
 | AT + WA | 49.10 | 19.30 | 34.20 | 27.71 | ADR Tab. 2c |
-| **HAT** | **52.60** | 18.14 | 35.37 | 26.98 | ADR Tab. 5 |
-| TE | 47.46 | 18.29 | 32.88 | 26.40 | ADR Tab. 5 |
+| TE\* | 47.46 | 18.29 | 32.88 | 26.40 | ADR Tab. 5 |
 | TRADES + WA | 49.51 | 17.69 | 33.60 | 26.07 | ADR Tab. 4 |
 | TRADES + WA + AWP | 49.21 | 17.66 | 33.44 | 25.99 | ADR Tab. 4 |
 | AT | 45.87 | 18.06 | 31.96 | 25.92 | ADR Tab. 2c/5 |
 | TRADES | 48.49 | 17.35 | 32.92 | 25.56 | ADR Tab. 4 |
-| *(below: not our ResNet-18 --- see the architecture section)* | | | | | |
+| *(below: PreActResNet-18, 11.27M --- same size, different network)* | | | | | |
+| *HAT* | *52.60* | *18.14* | *35.37* | *26.98* | HAT Tab. 9 |
+| *TRADES* | *48.25* | *17.17* | *32.71* | *25.35* | HAT Tab. 9 |
+| *AT* | *47.76* | *17.92* | *32.84* | *26.02* | HAT Tab. 9 |
+| *(below: Bottleneck ResNet-18, 14.35M --- see the architecture section)* | | | | | |
 | *Consistency-AT + RPAT* | *49.74* | *18.84* | *34.29* | *27.33* | RPAT, 14.35M |
 | *PGD-AT + RPAT* | *47.68* | *17.77* | *32.73* | *25.89* | RPAT, 14.35M |
 | *Consistency-AT* | *46.54* | *17.60* | *32.07* | *25.54* | RPAT, 14.35M |
@@ -41,8 +44,8 @@ methods within any one of them.
 ## Our row beats every one of them on both axes
 
 At $55.16 / 20.54$ the shipped recipe is strictly better on clean accuracy **and** AutoAttack than all
-$27$ published rows. Nothing published is above it on either axis taken alone: the highest clean is
-HAT's $52.60$ and the highest AutoAttack is $20.23$ from AT + WA + ADR. NRR $29.93$ against the best
+$27$ published rows. Nothing published is above it on either axis taken alone: among the rows that are the same network as ours the highest clean is TRADES + WA + ADR's
+$51.99$ and the highest AutoAttack is $20.23$ from AT + WA + ADR. NRR $29.93$ against the best
 published $28.56$.
 
 This is the only one of our three datasets where that is true. On CIFAR-10 WideResNet we dominate
@@ -70,6 +73,19 @@ survive the check.
 | **ADR** | `resnet18` in `create_model.py`, standard | 11.27 M |
 | **RPAT** | `resnet18 = ResNet(Bottleneck, [2,2,2,2])` | **14.35 M** |
 | *(RPAT also ships)* | `pre_resnet18 = ResNet(PreActBlock, ...)` | 11.27 M |
+
+**HAT's Tiny-ImageNet row is PreActResNet-18.** ADR's Table 5 lists
+"Rade \& Moosavi-Dezfooli (2022) $18.14 / 52.60$" under a heading that says ResNet-18, but those are
+HAT's own numbers quoted verbatim from its Table 9, whose caption reads "Comparison of HAT using
+\textbf{PreAct ResNet-18} on TinyImagenet-200". HAT's released code makes the point for us: on this
+dataset it asserts `'preact-resnet' in name` and refuses anything else. PreActResNet-18 has the same
+$11.27$M parameters as ours, so it is far closer than RPAT's, but it is a different network and it is
+labelled as one. HAT's Table 9 also gives AT $47.76/17.92$ and TRADES $48.25/17.17$ on the same
+network, which are added rather than dropped since they make that block self-contained.
+
+⚠ **TE's row is unverified.** ADR credits $47.46 / 18.29$ to Dong et al. (2022a) and we do not have
+that paper, so whether it is a standard ResNet-18 cannot be checked the way the others were. It is
+marked with an asterisk and should not carry weight.
 
 **RPAT's Table 1 is a $14.35$M Bottleneck network, $28\%$ larger than ours.** Its paper says
 "ResNet-18 [15]", citing He et al., and its code's `resnet18` uses `Bottleneck` where a standard

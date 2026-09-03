@@ -56,8 +56,14 @@ if ! $PY scripts/check_arch.py > /dev/null 2>&1; then
   exit 1
 fi
 
-CORE="pgdat_100ep adaad_nat100ep at_teacherinit_matched"
-FULL="$CORE trades_100ep mart_100ep ard_nat100ep rslad_nat100ep adaadigdm_nat100ep"
+# HAT is in CORE on Tiny-ImageNet specifically.  The row we currently quote there -- 52.60 / 18.14 --
+# is PreActResNet-18: ADR lists it under ResNet-18 but the numbers come from HAT's own Table 9, whose
+# caption says PreAct, and HAT's code asserts `'preact-resnet' in name` for this dataset and refuses
+# anything else.  It is also the highest published clean accuracy on Tiny-ImageNet, so it is the row
+# our claim is measured against and the one worth having as our own measurement rather than a quote.
+CORE="pgdat_100ep adaad_nat100ep at_teacherinit_matched hat_100ep"
+FULL="$CORE trades_100ep mart_100ep ard_nat100ep rslad_nat100ep adaadigdm_nat100ep \
+      lbgat_100ep consistency_100ep adr_200ep"
 LIST="$CORE"; [ "$MODE" = full ] && LIST="$FULL"
 
 echo "=== $(date '+%m-%d %H:%M') start $DS/$OURS (ours) ==="
