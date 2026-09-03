@@ -59,32 +59,40 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   calls W-Robust; NRR is the harmonic mean. \textsuperscript{j}~LBGAT trains its
   natural branch jointly, so its teacher is not free. \textsuperscript{l}~HAT uses a natural network
   only to \emph{label} helper points beyond the ball, never as a target, so it is grouped with the
-  trade-off methods. \ddg~IGDM is reported at $\alpha = 1$; its published
+  trade-off methods. \textsuperscript{k}~Not a published method: our own recipe with the
+  feature anchor replaced by logit KL at the best temperature. It is the closest thing to
+  KD\,+\,SWA \citep{kdswa} that a natural teacher admits, and it isolates the target from the
+  schedule. \ddg~IGDM is reported at $\alpha = 1$; its published
   $\alpha = 20$ diverges to chance accuracy on both datasets when the teacher is natural, for the
   reason given in \Cref{sec:natteacher}. Published figures for these methods are in
   \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:wrn}, and
   per-attack metrics in \Cref{tab:fullmetrics}.}
   \label{tab:main}
-  \begin{tabular}{llrrrrrrrrl}
+  \begin{tabular}{llrrrrrrrr>{\raggedright\scriptsize\itshape}p{1.05cm}}
     \toprule
     & & \multicolumn{4}{c}{CIFAR-10} & \multicolumn{4}{c}{CIFAR-100} & \\
     \cmidrule(lr){3-6}\cmidrule(lr){7-10}
     Method & T. & Clean & AA & Avg & NRR & Clean & AA & Avg & NRR & \\
     \midrule
-    PGD-AT                           & --    & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
-    TRADES                           & --    & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
-    MART                             & --    & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
+    PGD-AT                           & --    & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    TRADES                           & --    & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    MART                             & --    & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    Consistency-AT                   & --    & -- & -- & -- & -- & -- & -- & -- & -- & queued \\
+    PGD-AT + WA                      & --    & -- & -- & -- & -- & -- & -- & -- & -- & queued \\
+    PGD-AT + WA + AWP                & --    & -- & -- & -- & -- & -- & -- & -- & -- & queued \\
     PGD-AT, init.\ at the teacher    & nat.  & 82.23 & 50.72 & 66.47 & 62.74 & 57.73 & 26.46 & 42.09 & 36.29 &  \\
     \midrule
     ARD                              & nat.  & 84.58 & 43.75 & 64.16 & 57.67 & 57.61 & 20.24 & 38.92 & 29.96 &  \\
     RSLAD                            & nat.  & 85.15 & 42.91 & 64.03 & 57.06 & 59.68 & 21.30 & 40.49 & 31.40 &  \\
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
     AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
-    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
+    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & queued \\
+    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
-    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
-    ADR                              & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{running} \\
-    CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & \emph{does not reproduce} \\
+    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    ADR                              & self  & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & no repro. \\
     RPAT++                           & --    & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule
     \textbf{CFA (ours)}\dg           & nat.  & \textbf{84.96} & \textbf{51.74} & \textbf{68.35} & \textbf{64.31} & \textbf{62.17} & \textbf{28.86} & \textbf{45.52} & \textbf{39.42} &  \\
@@ -108,6 +116,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     PGD-AT                           & --    & -- & -- & -- & -- \\
     TRADES                           & --    & -- & -- & -- & -- \\
     MART                             & --    & -- & -- & -- & -- \\
+    Consistency-AT                   & --    & -- & -- & -- & -- \\
+    PGD-AT + WA                      & --    & -- & -- & -- & -- \\
+    PGD-AT + WA + AWP                & --    & -- & -- & -- & -- \\
     PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- \\
     \midrule
     ARD                              & nat.  & -- & -- & -- & -- \\
@@ -115,7 +126,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & -- & -- & -- & -- \\
     AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
     \midrule
+    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- \\
     LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- \\
+    ARREST                           & nat.  & -- & -- & -- & -- \\
     \midrule
     HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- \\
     ADR                              & self  & -- & -- & -- & -- \\
@@ -144,6 +157,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     PGD-AT                           & --    & -- & -- & -- & -- & -- & -- \\
     TRADES                           & --    & -- & -- & -- & -- & -- & -- \\
     MART                             & --    & -- & -- & -- & -- & -- & -- \\
+    Consistency-AT                   & --    & -- & -- & -- & -- & -- & -- \\
+    PGD-AT + WA                      & --    & -- & -- & -- & -- & -- & -- \\
+    PGD-AT + WA + AWP                & --    & -- & -- & -- & -- & -- & -- \\
     PGD-AT, init.\ at the teacher    & nat.  & -- & -- & -- & -- & -- & -- \\
     \midrule
     ARD                              & nat.  & -- & -- & -- & -- & -- & -- \\
@@ -151,7 +167,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & -- & -- & -- & -- & -- & -- \\
     AdaAD + IGDM                     & nat.  & -- & -- & -- & -- & -- & -- \\
     \midrule
+    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & -- & -- \\
     LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & -- & -- \\
+    ARREST                           & nat.  & -- & -- & -- & -- & -- & -- \\
     \midrule
     HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- \\
     ADR                              & self  & -- & -- & -- & -- & -- & -- \\
