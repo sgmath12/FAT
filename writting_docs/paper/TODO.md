@@ -41,6 +41,17 @@ and turning `tab:linearity` and `tab:teacherladder` into figures so they cost le
 
 ## 3. Runs in flight
 
+**One training per GPU is now enforced in `main.py`, not in the drivers.** `acquire_gpu_lock()` takes
+an exclusive `flock` on `/tmp/fat_gpu.lock` that the process holds for its lifetime; the kernel
+releases it on exit, crash or kill, so there is no stale-lock case. A second launch **waits** rather
+than failing, which is what every waiter script was trying to express, so extra launchers are now
+harmless no matter who wrote them. `FAT_ALLOW_CONCURRENT=1` opts out.
+
+This replaces four rounds of `while pgrep` guards in individual drivers. Those could not work: the
+failure was always a launcher the guard's author did not know about — a scratchpad waiter from a
+previous day, a second copy of the same driver one minute apart. The guard has to live in the one
+place every run passes through.
+
 **This machine runs ablations.** Tiny-ImageNet and WideResNet are being filled elsewhere (§4), so
 the queue here is ordered around what only this machine is doing. One driver,
 `scripts/master_queue_20260902.sh`, runs the four remaining queues strictly sequentially — a single

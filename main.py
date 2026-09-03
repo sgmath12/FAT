@@ -18,6 +18,75 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 torch.cuda.empty_cache()
 
+
+# ----------------------------------------------------------------------------------------------
+# ONE TRAINING PER GPU (2026-09-03).
+#
+# Four separate times, independent launchers have put two trainings on this card at once: a scratchpad
+# waiter racing the master queue, a leftover waiter firing when an earlier driver exited, and so on.
+# Each time the fix was a better `while pgrep` in whichever driver was at fault, and each time the next
+# launcher did not know about it.  Guards in drivers cannot work, because the failure is always a
+# launcher nobody remembered.
+#
+# So the guard lives here instead, in the one place every run passes through, and it is a real mutex:
+# an exclusive flock the process holds for its lifetime.  The kernel releases it when the process
+# exits, crashes or is killed, so there is no stale-lock failure mode -- which is why this is flock and
+# not the PID file that was tried on 09-02 and immediately went stale.
+#
+# Behaviour is to WAIT, not to fail.  A queued run blocking until the card is free is exactly what
+# every one of those waiter scripts was trying to express, so with this in place they become correct
+# no matter how many of them exist or who wrote them.
+#
+# `FAT_ALLOW_CONCURRENT=1` skips it, for the deliberate two-job case.  Evaluation-only and diagnostic
+# scripts do not import this path and are unaffected.
+_GPU_LOCK_PATH = "/tmp/fat_gpu.lock"
+_gpu_lock_fh = None
+
+
+def acquire_gpu_lock(poll_seconds=60):
+    """Block until this process is the only main.py training on the GPU."""
+    global _gpu_lock_fh
+    if os.environ.get("FAT_ALLOW_CONCURRENT") == "1":
+        print("[gpu-lock] FAT_ALLOW_CONCURRENT=1, 락 건너뜀", flush=True)
+        return
+    import fcntl
+    _gpu_lock_fh = open(_GPU_LOCK_PATH, "a+")
+    waited = 0
+    while True:
+        try:
+            fcntl.flock(_gpu_lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if waited == 0:
+                _gpu_lock_fh.seek(0)
+                print(f"[gpu-lock] 다른 학습이 GPU 사용 중 ({_gpu_lock_fh.read().strip()}), "
+                      f"끝날 때까지 대기", flush=True)
+            time.sleep(poll_seconds)
+            waited += poll_seconds
+    # Runs that started BEFORE this guard existed hold no lock, so the flock alone would let us in
+    # beside them.  Wait those out too; this check costs nothing once every run holds the lock.
+    import subprocess
+    while True:
+        try:
+            out = subprocess.run(["pgrep", "-f", "main.py --config_name"],
+                                 capture_output=True, text=True).stdout.split()
+        except Exception:
+            break
+        others = [q for q in out if q.strip() and int(q) != os.getpid()]
+        if not others:
+            break
+        if waited == 0:
+            print(f"[gpu-lock] 락 없이 도는 이전 학습 {others} 대기", flush=True)
+        time.sleep(poll_seconds)
+        waited += poll_seconds
+    _gpu_lock_fh.seek(0)
+    _gpu_lock_fh.truncate()
+    _gpu_lock_fh.write(f"pid={os.getpid()} started={datetime.now():%m-%d %H:%M}\n")
+    _gpu_lock_fh.flush()
+    if waited:
+        print(f"[gpu-lock] 획득 (대기 {waited//60}분)", flush=True)
+
+
 def main(config,npt):
     seed = getattr(config, "seed", 0)          # re-seed here (module-level line 13 runs before config exists)
     import random as _random
@@ -274,4 +343,5 @@ if __name__ == "__main__":
                 level=logging.INFO,
                 filename=logfile)
 
+    acquire_gpu_lock()
     main(config,logger)
