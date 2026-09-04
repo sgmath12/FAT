@@ -334,13 +334,21 @@ name is \emph{sensitivity-matched} $\epsilon$ rather than an angular budget. Wha
 IAAT, MMA and CAT is not directionality but the signal: they allocate from a property of the sample,
 this allocates from the geometry the training loss is written in.
 
-% PENDING (2026-09-04): the norm question -- the derivation gives L1 and the shipped recipe uses L2
-% (featdir_angeps_gnorm defaults to 2, because the 2026-08-04 cell that set the recipe used it and
-% every logged angeps run had to stay reproducible).  The existing answer, champ_angeps_gnorm1 at
-% 62.51 / 28.44, is measured on the pre-2026-08-31 directional design and is NOT quotable here for
-% the same reason the per-sample-eps controls had to be re-run.  champ_gnorm1_l2 -- the shipped
-% config with featdir_angeps_gnorm = 1 and nothing else changed -- is on the card; when it lands,
-% state the comparison against 62.17 / 32.37 / 30.93 / 28.86 / 39.42 here.
+One discrepancy is ours to declare rather than the reader's to find. \Cref{eqn:dual} gives the
+$\ell_1$ norm, and the shipped recipe uses $\ell_2$: the cell that fixed the recipe used it, and every
+logged run since had to stay reproducible against that choice. The two are not the same allocation.
+Measured over training on the shipped configuration, the $\ell_1$ signal's coefficient of variation
+has median $0.68$ against the $\ell_2$ signal's $0.56$, and the per-sample multiplier the attack
+receives has spread $0.34$ against $0.32$ --- so the norms really do distribute the budget
+differently.
+
+They nonetheless land in the same place. Training the shipped recipe with
+\texttt{featdir\_angeps\_gnorm} set to $1$ and nothing else changed gives $62.16 / 31.97 / 30.56 /
+28.57$ (NRR $39.15$) against $62.17 / 32.37 / 30.93 / 28.86$ (NRR $39.42$): clean accuracy is
+identical to a hundredth and AutoAttack differs by $0.29$, in favour of the norm we ship. That a
+genuinely different allocation produces the same frontier point is the strongest form the claim can
+take --- the rule is insensitive to the norm at first order, and the derivation can be read as stated
+without the shipped constant being a silent departure from it.
 
 \subsection{Keeping the radii in the box}
 
