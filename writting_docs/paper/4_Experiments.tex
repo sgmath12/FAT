@@ -94,7 +94,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   baseline's favour rather than faithfully: plain distillation would be $\tau = 1$, which is by some
   margin the worst of the three in \Cref{tab:ablation} at $20.84$ AutoAttack, and this row instead
   uses the $\tau$ that maximizes it, $4$ at $24.48$ there. The comparison is therefore against the
-  best logit target we could find and not against the one the name implies. \ddg~IGDM is reported at $\alpha = 1$; its published
+  best logit target we could find and not against the one the name implies. At the full recipe the
+  temperature matters far more than it does in the base regime, where the two sit $0.48$ apart:
+  $\tau = 16$ reaches only $42.45 / 20.10$ against $\tau = 4$'s $56.97 / 26.96$. \ddg~IGDM is reported at $\alpha = 1$; its published
   $\alpha = 20$ diverges to chance accuracy on both datasets when the teacher is natural, for the
   reason given in \Cref{sec:natteacher}. Published figures for these methods are in
   \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:wrn}, and
@@ -118,7 +120,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     RSLAD                            & nat.  & 85.15 & 42.91 & 64.03 & 57.06 & 59.68 & 21.30 & 40.49 & 31.40 &  \\
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
     AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
-    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & queued \\
+    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & 56.97 & 26.96 & 41.97 & 36.60 & C10 not run \\
     LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 diverged\textsuperscript{n} \\
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
@@ -364,6 +366,20 @@ AWP---replacing the anchor with label cross-entropy costs $6.61$ clean \emph{and
 The anchor is therefore not merely compatible with robustness, as \Cref{prop:decomp} alone would
 license; it is a source of it, and at matched stack the larger source. For scale, the shipped recipe
 leads cross-entropy \emph{with} weight averaging and AWP by $2.40$ AutoAttack.
+
+\paragraph{Feature or logit: does the stack close the gap?} \Cref{tab:ablation} showed the feature
+anchor beating the best logit temperature in the base regime, by $3.33$ clean and $1.40$ AutoAttack.
+The obvious objection is that weight averaging is exactly what KD\,+\,SWA pairs distillation with, so
+the stack might be what our result rests on and the gap might close under it. If it did, the
+contribution would be the schedule and not the target, and this is the measurement that would say so.
+It does not close. Swapping only the loss in the shipped recipe --- logit KL at the temperature that
+maximizes AutoAttack, everything else untouched --- gives $56.97 / 26.96$ against $62.17 / 28.86$.
+The gap \emph{widens} with the stack rather than closing, from $3.33/1.40$ to $5.20/1.90$, so the
+components amplify what the target does rather than substituting for it. The temperature also stops
+being a free parameter there: $\tau = 16$, which trails $\tau = 4$ by $0.48$ AutoAttack without the
+stack, collapses to $42.45 / 20.10$ with it. PGD-20 is the one metric that prefers the logit target
+($33.68$ against $32.37$), for the reason \Cref{app:fullmetrics} gives: it ascends the cross-entropy
+through a head the logit objective has trained and the feature objective has left alone.
 
 \paragraph{Where that robustness comes from, and where it does not.} The natural explanation is local
 stability: \Cref{prop:decomp} bounds the student's oscillation $O$ by the anchor's own loss, so an
