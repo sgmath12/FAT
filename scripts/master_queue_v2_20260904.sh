@@ -31,7 +31,8 @@
 # what lets a waiter in; that is why this script is launched behind it rather than beside it.
 set -u
 cd "$(dirname "$0")/.."
-for q in run_lbgat_c10_rerun_20260904 \
+for q in run_ladder_fh_20260904 \
+         run_lbgat_c10_rerun_20260904 \
          run_lowerps_20260902 \
          run_kdswa_20260903 \
          run_rpat_rest_20260904; do
