@@ -131,7 +131,8 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 \begin{table}[t]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Tiny-ImageNet-200, ResNet-18. Same eleven rows and the same protocol as \Cref{tab:main};
-  \textbf{--} marks a cell we have not run. Our row uses the 200-epoch teacher; the 80-epoch teacher
+  \textbf{--} marks a cell we have not run --- the baseline rows for this dataset are being produced on
+  separate hardware and will be filled from there. Our row uses the 200-epoch teacher; the 80-epoch teacher
   gives $57.08 / 18.96$, which is the teacher-length dial of \Cref{tab:teacherladder} on a third
   dataset. Our row is above every published ResNet-18 Tiny-ImageNet result on \emph{both} axes: the
   highest published clean accuracy is HAT's $52.60$ and the highest AutoAttack is $20.23$
@@ -171,7 +172,9 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 \begin{table}[t]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{WideResNet-34-10, $\ell_\infty$, $\epsilon = 8/255$. Same eleven rows and the same protocol
-  as \Cref{tab:main}; \textbf{--} marks a cell we have not run. Comparison lines are in
+  as \Cref{tab:main}; \textbf{--} marks a cell we have not run --- as for
+  \Cref{tab:tin}, this architecture is being run on separate hardware, our CIFAR-100 row included.
+  Comparison lines are in
   \Cref{tab:published}: on CIFAR-10 the strongest published pair on either criterion is
   AT\,+\,WA\,+\,AWP at $87.42/55.01$ (Avg $71.22$, NRR $67.53$), and on CIFAR-100 it is ADR's
   $62.21/31.60$ (NRR $41.91$) against ARREST's $73.05/24.32$ (Avg $48.69$).}
