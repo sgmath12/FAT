@@ -77,14 +77,14 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   ($84.90 / 49.08$ reported, ResNet-18). HAT publishes no CIFAR-100 result without additional data
   --- its $61.50 / 28.88$ is trained with DDPM-generated data --- so the CIFAR-100 column here has no
   published counterpart to read it against.
-  \textsuperscript{m}~Read this row against ADR's own AT\,+\,ADR
-  ($56.10 / 26.87$), not against the AT\,+\,WA\,+\,AWP\,+\,ADR figure quoted in
-  \Cref{tab:published} ($57.36 / 28.50$): our cell has AWP but no weight averaging, so it is
-  between ADR's two published configurations and its AutoAttack falls between them accordingly.
-  We do not run the weight-averaged configuration, so the stronger of ADR's two rows is
-  represented here only by its published figure. ADR is self-distillation --- its teacher is an
+  \textsuperscript{m}~ADR is being run on separate hardware and its row will be
+  filled from there. Two things have to hold when it is. ADR reports two configurations,
+  AT\,+\,ADR ($56.10 / 26.87$ on CIFAR-100) and AT\,+\,WA\,+\,AWP\,+\,ADR ($57.36 / 28.50$), and
+  the row must name which one it is --- the second is the one component-matched to ours, since our
+  recipe carries both weight averaging and AWP. And ADR is self-distillation: its teacher is an
   exponential moving average of the student, no external network is read, and the student trains
-  from scratch --- so nothing here inherits our natural teacher.
+  from scratch, so the row inherits nothing of our natural teacher and should not be grouped with
+  the methods that do.
   \textsuperscript{l}~HAT uses a natural network
   only to \emph{label} helper points beyond the ball, never as a target, so it is grouped with the
   trade-off methods. \textsuperscript{k}~Not a published method: our own recipe with the
@@ -119,7 +119,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
     HAT\textsuperscript{o}           & nat.\textsuperscript{l} & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 &  \\
-    ADR (AT+AWP+ADR)\textsuperscript{m} & self & -- & -- & -- & -- & 59.93 & 27.20 & 43.57 & 37.44 & C10 running \\
+    ADR\textsuperscript{m}           & self  & -- & -- & -- & -- & -- & -- & -- & -- & other machine \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & no repro. \\
     RPAT++                           & --    & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule
