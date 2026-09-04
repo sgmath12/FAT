@@ -88,9 +88,13 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \textsuperscript{l}~HAT uses a natural network
   only to \emph{label} helper points beyond the ball, never as a target, so it is grouped with the
   trade-off methods. \textsuperscript{k}~Not a published method: our own recipe with the
-  feature anchor replaced by logit KL at the best temperature. It is the closest thing to
-  KD\,+\,SWA \citep{kdswa} that a natural teacher admits, and it isolates the target from the
-  schedule. \ddg~IGDM is reported at $\alpha = 1$; its published
+  feature anchor replaced by logit KL. It is the closest thing to KD\,+\,SWA \citep{kdswa} that a
+  natural teacher admits --- distil, then average weights, with a logit target where ours is a
+  feature one --- and it isolates the target from the schedule. The temperature is chosen in the
+  baseline's favour rather than faithfully: plain distillation would be $\tau = 1$, which is by some
+  margin the worst of the three in \Cref{tab:ablation} at $20.84$ AutoAttack, and this row instead
+  uses the $\tau$ that maximizes it, $4$ at $24.48$ there. The comparison is therefore against the
+  best logit target we could find and not against the one the name implies. \ddg~IGDM is reported at $\alpha = 1$; its published
   $\alpha = 20$ diverges to chance accuracy on both datasets when the teacher is natural, for the
   reason given in \Cref{sec:natteacher}. Published figures for these methods are in
   \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:wrn}, and
