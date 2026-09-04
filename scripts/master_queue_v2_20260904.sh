@@ -10,8 +10,11 @@
 #
 #   1  awpfix_rest    corrections to numbers the paper already reports (app:awp says every
 #                     shipped-recipe figure is post-correction, so these are not optional)
-#   2  adr_wa         ADR with WA on -- adr_200ep reproduces AT + AWP + ADR, which ADR never
-#                     reports; the quoted row is AT + WA + AWP + ADR and is the one matched to us
+#      (run_adr_wa_20260904 was queued here and removed 2026-09-04.  The configs stay in the tree
+#      -- config/*/adr_wa_200ep.yaml -- so it can be run later if the AT + WA + AWP + ADR row is
+#      wanted; the table reports what we actually have, which is AT + AWP + ADR.)
+#   2  lbgat_c10      diverged to chance and was skipped by a completeness test that read the key
+#                     rather than the value
 #   3  lowerps        champ_eps6/7 -- the low end of tab:radius, which is a table in the paper
 #   4  kdswa          abl_kdswa_t4/t16 -- one ablation row
 #   5  rpat_rest      pgdat_wa, pgdat_wa_awp, consistency -- table-filling baselines, last
@@ -25,7 +28,6 @@
 set -u
 cd "$(dirname "$0")/.."
 for q in run_awpfix_rest_20260904 \
-         run_adr_wa_20260904 \
          run_lbgat_c10_rerun_20260904 \
          run_lowerps_20260902 \
          run_kdswa_20260903 \
