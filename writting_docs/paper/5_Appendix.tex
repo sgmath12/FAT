@@ -43,16 +43,34 @@
 \section{Two Partial Results on the Robustness Side}
 \label{app:robustness}
 
-\Cref{sec:decomp} explains why anchoring a non-robust teacher is \emph{free}. Neither result below
-closes the complementary question---how much robustness the objective buys---and both are reported
-with the reason they fall short, because each is instructive about where a proof would have to come
-from.
+Guiding adversarial training with a naturally trained network is not new and we do not claim it:
+LBGAT, ARREST and DP-FAT all do it. What is different here is that they keep the adversarial label
+loss and add the natural teacher on top of it, so their robustness is bought by the label term and the
+anchor is free to contribute clean accuracy alone. Nobody needs to ask whether their teacher's
+fragility leaks into the student, because the term that makes the student robust is not the teacher.
+
+We delete the label loss. \Cref{eqn:anchor} is the whole backbone objective, so the robustness has to
+come from the inner maximization alone, against a target supplied by a network with $0$ AutoAttack
+accuracy. That makes an otherwise idle objection load-bearing: a representation assembled out of
+features an adversary can flip is being handed to a student as the only thing it is trained on, and
+the student might reasonably be expected to inherit the fragility along with the answer. The first
+result below says that in the model where the objection is usually posed, it does not. The second is a
+certificate that tracks robustness without predicting it. Neither closes the question the paper
+actually sells --- how much robustness the objective \emph{buys} --- and both are reported with the
+reason they fall short.
 
 \subsection{In the Two-Feature Model, the Non-Robust Coefficient Is Zeroed Rather Than Shrunk}
 
-Following \citet{tsipras2018robustness}: a robust feature $x_1 = y$ with probability $p$, non-robust
-features $z_j \sim \mathcal{N}(\eta y, 1)$, an $\ell_\infty$ adversary on $z$ only, and a natural
-teacher $\Phi_t = m(z)$. Take $\Phi_s = a x_1 + b\, m(z)$.
+The setting is the two-feature model of \citet{tsipras2018robustness}, which is where the objection is
+usually posed. One feature $x_1$ agrees with the label with probability $p = 0.95$ and cannot be
+attacked. A further $d$ features $z_j \sim \mathcal{N}(\eta y, 1)$ are individually almost
+uninformative, are jointly close to perfectly informative through their mean $m(z)$, and can all be
+moved by an $\ell_\infty$ adversary. A naturally trained network therefore reads $m(z)$: near-perfect
+clean accuracy, no robustness whatever. That is our teacher's profile, so $\Phi_t = m(z)$.
+
+Write the student's feature as $\Phi_s = a x_1 + b\, m(z)$. Then $b$ is exactly the quantity the
+objection is about: how much of the teacher's fragile route the student takes over. If the objection
+is right, minimizing our objective should leave $b$ large.
 
 \begin{proposition}
 \label{prop:l1}
@@ -97,6 +115,16 @@ while the right grows linearly in $\epsilon$, so the kink's slope overtakes the 
 finite radius rather than asymptotically.
 \end{proof}
 
+\paragraph{Why the coefficient is deleted rather than shrunk.} The adversary contributes
+$2\epsilon\lvert b\rvert\,\mathbb{E}\lvert R\rvert$ to the loss --- linear in $\lvert b\rvert$, not
+quadratic in $b$. A quadratic penalty pushes a coefficient toward zero and never arrives; a penalty on
+$\lvert b\rvert$ is kinked at the origin and sets the coefficient to zero outright once its slope
+dominates, which is the same distinction that makes the lasso sparse and the ridge not. What produces
+the kink here is that the student is asked to reproduce a \emph{value} rather than a route: the
+fragile features carry that value on clean data but not inside the ball, so past a certain radius
+carrying any of them costs more than it pays. The teacher supplies what to match, and the inner
+maximization discards how the teacher got there.
+
 At $d=512$ the model's constants give $c = 7.89\times10^{-3}$ and
 $\mathbb{E}\lvert q\eta x_1 - m\rvert = 0.0529$, hence $\epsilon_0 = 0.843\,\eta$ --- inside the
 bracket $(0.5\eta,\,1.0\eta)$ that the Monte-Carlo minimization returns, and far below the $2\eta$ at
@@ -138,8 +166,7 @@ The two columns agree below $\epsilon_0$ and separate above it: the quadratic su
 non-robust coefficient and never deletes it, which is the ordinary picture, while the kinked objective
 sets it to zero and keeps it there.
 
-The adversarial term is an $\ell_1$ penalty on the non-robust coefficient: the teacher supplies the
-value, and the inner maximization discards the route it took there. Since every $\epsilon$
+Since every $\epsilon$
 in $J$ multiplies $b$, at $b^\star = 0$ the objective is $\mathbb{E}(a x_1 - m)^2$ and is
 $\epsilon$-free---past the threshold a larger radius costs the anchor nothing, which matches the
 saturation measured in \Cref{tab:radius}, where AutoAttack and CW at $10/255$ are identical to the last

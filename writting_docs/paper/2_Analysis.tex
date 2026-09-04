@@ -1,6 +1,13 @@
 \section{Analysis}
 \label{sec:analysis}
 
+Adversarial training trades clean accuracy for robustness, and this section asks where in its
+construction the trade sits. The answer we arrive at is that it is in the target: a label asserted
+over a whole ball is a demand that cannot be met without distorting the clean prediction, and
+replacing it with a fixed point in feature space turns two competing objectives into one. That claim
+is what \Cref{prop:decomp} makes precise, and it is also what tells us the anchor cannot cost
+robustness --- which is a weaker statement than the paper needs, and we say so where it matters.
+
 \subsection{Preliminaries}
 
 Let $f=h\circ\Phi$ be a classifier with feature map $\Phi$ and linear head $h$. Adversarial training

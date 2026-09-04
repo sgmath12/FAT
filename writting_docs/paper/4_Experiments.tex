@@ -1,6 +1,16 @@
 \section{Experiments}
 \label{sec:exp}
 
+Four things have to be established, and they are not of equal weight. The first is the frontier claim
+itself: that the method is ahead on standard accuracy without giving up robustness, against baselines
+we run rather than quote. The second is that the accuracy a natural teacher holds is not simply
+available to anyone who distils from one --- if the published objectives recover it when handed our
+teacher, the anchor is not the contribution. The third is the deletion: that removing the label term
+is what buys the gain rather than the schedule, the initialization, or the components stacked around
+it. The fourth is the mechanism, and it is where we report a negative result: the explanation we
+expected is measurably false, and the one that survives is about where features sit rather than how
+far they move.
+
 \subsection{Experimental Settings}
 
 \paragraph{Setup.} CIFAR-10, CIFAR-100 \citep{krizhevsky2009learning} and Tiny-ImageNet-200

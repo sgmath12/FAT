@@ -60,33 +60,36 @@ and B-MTARD \citep{bmtard} pairs a clean teacher with a robust one so that each 
 is good at. In all three the natural network supplies logits and is balanced against another term or
 another teacher, and the balance is what has to be tuned.
 
-Our question is about the other axis. Adversarial training discards standard accuracy that a
-naturally trained copy of the same network still holds, and we ask whether self-distillation can put
-it back---leaving robustness where it already is, in the student's own inner maximization. The answer
-turns on \emph{what the teacher is asked to supply}, and the field already has a candidate that is only
-half right. Adversarial distillation diagnoses
-the target as too sharp and softens it---soft labels, smooth teacher logits, annealed and
-entropy-matched softmax temperatures \citep{LTD, rslad, adr, bmtard}---and a naturally trained network
-is the extreme case, with a maximum softmax probability of $0.820$ against an adversarially trained
-student's $0.016$. Softening works: it lifts AutoAttack accuracy from $20.84$ to $24.48$ across a
-temperature sweep. It also leaves standard accuracy flat near $58$ while the teacher holds $77.66$.
-Temperature moves robustness and not the quantity we came for, because that quantity does not survive
-the teacher's own softmax---it survives one layer earlier, which is where we put the anchor. None of this is a claim that a
-naturally trained teacher is preferable to a robust one: a robust teacher is better guidance for
-robustness, obtaining it is the expensive part, and we do not compete with methods that have one.
-Our objective matches the teacher's feature at the \emph{clean} input against the student's feature at
-the \emph{adversarial} input, and it is the entire objective for the backbone: the label term is
-removed rather than supplemented.
-The teacher is therefore never evaluated inside the perturbation ball, so nothing it does there can
-enter the optimization, and by the same token it cannot contribute robustness.
-All robustness is produced by the student's inner maximization, exactly as in standard adversarial
-training.
-We further show that this single term is not merely a fidelity constraint: writing $F$ for the
-student's clean deviation from the teacher and $O$ for the diameter of the student's own output over
-the $\epsilon$-ball, the anchor loss $L$ satisfies $L \le F + O \le 3L$, so minimizing it controls
-teacher fidelity and local stability together, within a constant factor, with no weight to balance
+Our question is about the other axis. Adversarial training discards standard accuracy that a naturally
+trained copy of the same network still holds. We ask whether that accuracy can be put back by
+distillation, and we leave robustness where it already is: in the student's own inner maximization.
+
+The field has a diagnosis of what the teacher should supply, and it is half right. Adversarial
+distillation reads the one-hot target as too sharp and softens it --- soft labels, smooth teacher
+logits, annealed and entropy-matched temperatures \citep{LTD, rslad, adr, bmtard}. A naturally trained
+network is the extreme point of that idea, with a maximum softmax probability of $0.820$ against an
+adversarially trained student's $0.016$. Softening does work, and it works on the wrong axis: across a
+temperature sweep it lifts AutoAttack accuracy from $20.84$ to $24.48$ while leaving standard accuracy
+flat near $58$, with the teacher holding $77.66$ the whole time. The accuracy we came for does not
+survive the teacher's own softmax. It survives one layer earlier, and that is where we put the anchor.
+
+The student's feature at the \emph{adversarial} input is matched to the teacher's feature at the
+\emph{clean} input, and that is the entire objective for the backbone. The label term is removed
+rather than supplemented, which is the difference between this and the methods that add a
+representation term to a loss they keep. Two consequences follow from the form alone. The teacher is
+never evaluated inside the perturbation ball, so nothing it does there can enter the optimization ---
+and, by the same token, it cannot be a source of robustness. All robustness is produced by the
+student's inner maximization, exactly as in standard adversarial training. None of this says a natural
+teacher is preferable to a robust one; a robust teacher is better guidance for robustness, obtaining
+one is the expensive part, and we do not compete with methods that have one.
+
+Deleting the label term would be a poor trade if the single remaining term only held the student near
+the teacher. It does more than that. Writing $F$ for the student's clean deviation from the teacher
+and $O$ for the diameter of the student's own output over the $\epsilon$-ball, the anchor loss $L$
+satisfies $L \le F + O \le 3L$: minimizing one quantity controls teacher fidelity and local stability
+together, within a constant factor, and with no weight to balance between them. The bound uses only
+the triangle inequality, so it holds for the networks we actually train rather than for a model of
 them.
-The bound uses only the triangle inequality and therefore holds for the networks we actually train.
 
 A second finding concerns what the teacher supplies.
 Across a ladder of naturally trained teachers differing only in training length, teacher accuracy and
@@ -104,16 +107,21 @@ predictive entropy on a consistent subset of the data indicating which way it wi
 Our ladder is the natural-teacher analogue, and what varies along it is class separation rather than
 accuracy.
 
-Building on these observations we propose \textbf{Clean Feature Anchoring} (CFA).
-CFA trains a naturally supervised copy of the student architecture on the same data, initializes the
-student from it, and then trains the backbone with the clean-feature anchor alone; the classifier is
-inherited and never trained.
-To this we add \textbf{sensitivity-matched $\epsilon$}, which redistributes the per-sample attack
-radius in inverse proportion to the input sensitivity of the loss while holding the total budget
-fixed, so that each example is perturbed to a comparable displacement of the objective rather than a
-comparable displacement of the input.
-The resulting method has no temperature, no loss weight and no auxiliary head, and we apply an
-identical configuration to every dataset, changing only the dataset name and the teacher checkpoint.
+Building on these observations we propose \textbf{Clean Feature Anchoring} (CFA). A naturally
+supervised copy of the student architecture is trained on the same data, the student is initialized
+from it, and the backbone is then trained with the clean-feature anchor alone. The classifier is
+inherited and never trained at all.
+
+One component is added to that. The attack radius is optimized over pixels, but what the objective
+measures is a displacement in feature space, and a fixed pixel radius moves different examples by very
+different amounts. \textbf{Sensitivity-matched $\epsilon$} redistributes the per-sample radius in
+inverse proportion to the input sensitivity of the loss, holding the total budget across the batch
+exactly fixed. Each example is then perturbed to a comparable displacement of the objective rather
+than a comparable displacement of the input, and because the total is unchanged, the comparison
+against a uniform radius is a comparison of allocation and not of attack strength.
+
+What is left has no temperature, no loss weight and no auxiliary head. We apply an identical
+configuration to every dataset, changing only the dataset name and the teacher checkpoint.
 
 On CIFAR-100 with ResNet-18, CFA reaches $62.17\%$ standard accuracy at $28.86\%$ AutoAttack
 accuracy (\Cref{fig:frontier}).

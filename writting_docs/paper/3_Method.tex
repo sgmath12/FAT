@@ -4,6 +4,20 @@
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
+Adversarial training asks a model to be confidently right everywhere in a ball around every training
+point. That demand is the source of its accuracy cost, and softening it is what the trade-off
+literature spends its effort on. We remove the demand instead. The label is replaced, as the
+backbone's target, by a single fixed vector: the feature a naturally trained network of the same
+architecture assigns to the clean image. The ball no longer has to reach full confidence anywhere; it
+only has to land on that vector.
+
+The teacher supplying the vector is not robust, and this is deliberate rather than a concession. It is
+what supplies a target that is accurate, and the robustness is left to the maximization that finds
+$x_{\mathrm{adv}}$ --- an arrangement that only makes sense once the label loss is gone, since with a
+label loss present the two would compete for the same parameters. What the rest of this section states
+is the objective, three properties that follow from its \emph{form} rather than from measurement, and
+the one place a hyperparameter survives: how large a ball each example gets.
+
 Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
 same data, and let $h_t$ be its classifier. The student's feature map is initialized at
 $\Phi_s \leftarrow \Phi_t$ and trained with
