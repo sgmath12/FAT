@@ -26,6 +26,7 @@ set -u
 cd "$(dirname "$0")/.."
 for q in run_awpfix_rest_20260904 \
          run_adr_wa_20260904 \
+         run_lbgat_c10_rerun_20260904 \
          run_lowerps_20260902 \
          run_kdswa_20260903 \
          run_rpat_rest_20260904; do

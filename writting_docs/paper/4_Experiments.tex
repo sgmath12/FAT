@@ -67,7 +67,17 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
   left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
   calls W-Robust; NRR is the harmonic mean. \textsuperscript{j}~LBGAT trains its
-  natural branch jointly, so its teacher is not free. \textsuperscript{m}~ADR reports two CIFAR-100 configurations, AT\,+\,ADR and
+  natural branch jointly, so its teacher is not free. \textsuperscript{n}~LBGAT's CIFAR-10 cell diverges to chance ($10.0$ on every
+  metric) under the configuration that trains its CIFAR-100 cell successfully; the two configs differ
+  only in the dataset name and the teacher checkpoint, and the schedule is already LBGAT's own. It is
+  being re-run, and if it diverges again it will be reported as a failed reproduction rather than as a
+  number. \textsuperscript{o}~HAT is run on its own one-cycle schedule rather than ours, which
+  collapses it to chance on both datasets; the same allowance is made for LBGAT. On CIFAR-10 our port
+  reproduces HAT's published no-extra-data figure to within $0.31$ clean and $0.27$ AutoAttack
+  ($84.90 / 49.08$ reported, ResNet-18). HAT publishes no CIFAR-100 result without additional data
+  --- its $61.50 / 28.88$ is trained with DDPM-generated data --- so the CIFAR-100 column here has no
+  published counterpart to read it against.
+  \textsuperscript{m}~ADR reports two CIFAR-100 configurations, AT\,+\,ADR and
   AT\,+\,WA\,+\,AWP\,+\,ADR; the second is quoted in \Cref{tab:published} and is the one
   component-matched to ours, so it is the row run here. The second line is the same cell with
   weight averaging off, which is a configuration ADR does not report and is shown only because it
@@ -105,10 +115,10 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
     AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
     Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & queued \\
-    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 diverged\textsuperscript{n} \\
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
-    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    HAT\textsuperscript{o}           & nat.\textsuperscript{l} & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 &  \\
     ADR (AT+WA+AWP+ADR)\textsuperscript{m} & self & -- & -- & -- & -- & -- & -- & -- & -- & running \\
     \quad without WA (AT+AWP+ADR)    & self  & -- & -- & -- & -- & 59.93 & 27.20 & 43.57 & 37.44 & C10 running \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & no repro. \\
