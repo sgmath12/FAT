@@ -67,7 +67,15 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
   left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
   calls W-Robust; NRR is the harmonic mean. \textsuperscript{j}~LBGAT trains its
-  natural branch jointly, so its teacher is not free. \textsuperscript{l}~HAT uses a natural network
+  natural branch jointly, so its teacher is not free. \textsuperscript{m}~ADR reports two CIFAR-100 configurations, AT\,+\,ADR and
+  AT\,+\,WA\,+\,AWP\,+\,ADR; the second is quoted in \Cref{tab:published} and is the one
+  component-matched to ours, so it is the row run here. The second line is the same cell with
+  weight averaging off, which is a configuration ADR does not report and is shown only because it
+  isolates what weight averaging is worth to the method. ADR is self-distillation --- its teacher is
+  an exponential moving average of the student, no external network is read, and the student trains
+  from scratch --- so nothing in either line inherits our natural teacher. Its weight-averaging
+  start and decay are ours, since ADR does not state them at that precision.
+  \textsuperscript{l}~HAT uses a natural network
   only to \emph{label} helper points beyond the ball, never as a target, so it is grouped with the
   trade-off methods. \textsuperscript{k}~Not a published method: our own recipe with the
   feature anchor replaced by logit KL at the best temperature. It is the closest thing to
@@ -101,7 +109,8 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
     HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- & -- & -- & running \\
-    ADR                              & self  & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    ADR (AT+WA+AWP+ADR)\textsuperscript{m} & self & -- & -- & -- & -- & -- & -- & -- & -- & running \\
+    \quad without WA (AT+AWP+ADR)    & self  & -- & -- & -- & -- & 59.93 & 27.20 & 43.57 & 37.44 & C10 running \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & no repro. \\
     RPAT++                           & --    & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule

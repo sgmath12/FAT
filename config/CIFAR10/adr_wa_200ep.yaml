@@ -1,0 +1,63 @@
+# ADR AT ITS BEST PUBLISHED CONFIGURATION: AT + WA + AWP + ADR (2026-09-04).
+#
+# adr_200ep is weight_avg False, so it reproduces AT + AWP + ADR -- a configuration ADR does not
+# report.  Its two published CIFAR-100 rows are AT + ADR at 56.10 / 26.87 and AT + WA + AWP + ADR at
+# 57.36 / 28.50, and the second is the one the paper quotes and the one component-matched to our own
+# recipe, which carries both WA and AWP.  This cell turns WA on and changes nothing else.
+#
+# ADR is self-distillation: train_adr's teacher is an EMA of the student itself, and the origin_model
+# argument is never read in the body, so `load` here puts a checkpoint in memory that the method does
+# not touch.  `finetune` is False, so the student trains from scratch as ADR does.  Neither flag gives
+# this baseline our warm start.
+#
+# wa_start 0.2 (epoch 40 of 200) and kappa 0.999 are OUR weight-averaging settings, not ADR's, which
+# their paper does not state at this precision.  That assumption belongs in the table footnote.
+#
+# Read against adr_200ep, which is the same cell with WA off: CIFAR-100 gave 59.93 / PGD20 31.61 /
+# CW 29.53 / AA 27.20.
+
+method : adr
+adr_ema_decay : 0.995
+adr_temp_high : 2.0
+adr_temp_low : 1.0
+adr_interp_low : 0.7
+adr_interp_high : 0.85
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+weight_decay : 0.0005
+lr_schedule : piecewise
+stage1 : 100
+stage2 : 150
+lr_factor : 10
+cyclic : False
+epochs : 200
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : True
+wa_start : 0.2
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+awp_style : sam
+awp_gamma : 0.005
+awp_warmup : 0
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
