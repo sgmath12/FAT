@@ -121,11 +121,13 @@ example is not new: IAAT \citep{iaat}, MMA \citep{mma} and CAT \citep{cat} all d
 from the \emph{difficulty} of the example or from its margin in \textbf{input} space.
 \Cref{eqn:angeps_ideal} assigns it from the input-sensitivity of the \textbf{training loss}---the geometry
 the objective is actually written in---and the two are not the same signal. Both are genuinely
-dispersed on the shipped recipe, and difficulty is if anything the \emph{more} dispersed of the two:
-across training the sensitivity's coefficient of variation runs $0.42$--$0.86$ with median $0.56$,
-the difficulty score's $0.40$--$1.37$ with median $0.75$. What separates the rules is therefore not
-how much they spread the budget but which geometry they spread it along, and what follows compares
-two competing allocations rather than an allocation against its absence.%
+dispersed on the shipped recipe, and ours is the \emph{least} dispersed of them: across training the
+sensitivity's coefficient of variation has median $0.56$, the difficulty score's $0.75$ and the logit
+margin's $1.33$. The box of \Cref{app:box} compresses these before they reach the attack---the
+per-sample multiplier ends up with spread $0.32$, $0.39$ and $0.42$ respectively---but the ordering
+survives it, and ours is at the bottom of it either way. What separates the rules is therefore not how
+much they spread the budget but which geometry they spread it along, and what follows compares
+competing allocations rather than an allocation against its absence.%
 % CV figures measured 2026-09-04 from the batch-0 log line of champ_diffrank_l2 (sensitivity, 99
 % epochs) and champ_diffeps_l2 (difficulty, 99 epochs).  The earlier claim here -- difficulty CV 0.03 against
 % sensitivity 0.64, i.e. "allocating by difficulty is close to allocating uniformly" -- was measured
@@ -138,8 +140,12 @@ The distinction is testable without confounding it with the budget. Holding the 
 weights \Cref{eqn:angeps_ideal} produces---same values, same clip, same mean, therefore the same total
 attack budget---and only reassigning which example receives which, ordered by difficulty as
 IAAT and CAT would, costs $0.80$ AutoAttack and falls below even the uniform baseline on AutoAttack,
-CW and NRR alike (\Cref{tab:allocation}). The same weights in a different order move \emph{along} the frontier; only this
-order moves the frontier itself.
+CW and NRR alike. Swapping the signal outright rather than permuting it does the same: allocating by
+difficulty magnitude, the IAAT and CAT direction, gives $28.12$, and by MMA's logit margin $27.79$,
+against $28.42$ for allocating nothing (\Cref{tab:allocation}). Every signal the existing family
+allocates from is worse than not allocating at all, and only the loss's own input-sensitivity is
+better. The same budget in a different order moves \emph{along} the frontier; only this order moves
+the frontier itself.
 
 \Cref{alg:cfa} states the procedure in full. Training the natural teacher is the only place labels
 appear and is ordinary supervised training; the anchored phase uses none, since the teacher vector

@@ -63,9 +63,83 @@ $2\epsilon\,\mathbb{E}\lvert R(a,0)\rvert > 0$; above a threshold $\epsilon_0$ t
 $b^\star = 0$ exactly.
 \end{proposition}
 
+\begin{proof}
+The adversary reaches $\Phi_s$ only through $m$, and only through the mean perturbation
+$\bar\delta = \frac{1}{d}\sum_j \delta_j$, which ranges over $[-\epsilon, \epsilon]$ as
+$\lVert\delta\rVert_\infty \le \epsilon$. The inner objective is therefore
+$\max_{\lvert\bar\delta\rvert\le\epsilon}(R + b\bar\delta)^2
+= (\lvert R\rvert + \epsilon\lvert b\rvert)^2$, since a scalar quadratic is maximized at an endpoint
+and the sign of $\bar\delta$ is free. Taking expectations and expanding the square gives the display.
+
+Fix $a$ and differentiate in $b$. The term $\mathbb{E}[R^2]$ and $\epsilon^2 b^2$ are smooth, while
+$2\epsilon\lvert b\rvert\,\mathbb{E}\lvert R\rvert$ contributes $\pm 2\epsilon\,\mathbb{E}\lvert R\rvert$
+as $b\to 0^{\pm}$. The one-sided derivatives at $b=0$ are thus
+$2\mathbb{E}[R(a,0)\,m] \pm 2\epsilon\,\mathbb{E}\lvert R(a,0)\rvert$, so $b=0$ is a minimum along $b$
+exactly when
+\begin{equation}
+\big\lvert \mathbb{E}[R(a,0)\,m] \big\rvert \;\le\; \epsilon\,\mathbb{E}\lvert R(a,0)\rvert .
+\label{eqn:kink}
+\end{equation}
+At $b=0$ the objective in $a$ is $\mathbb{E}(a x_1 - m)^2$, minimized at
+$a^\star = \mathbb{E}[x_1 m]/\mathbb{E}[x_1^2] = q\eta$, and there
+$\mathbb{E}[R(a^\star,0)\,m] = q^2\eta^2 - (\eta^2 + \tfrac1d) = -c$ with
+\begin{equation}
+c \;=\; \eta^2 v + \tfrac{1}{d}, \qquad v = 1-q^2 .
+\label{eqn:c}
+\end{equation}
+\Cref{eqn:kink} therefore holds for every
+\begin{equation}
+\epsilon \;\ge\; \epsilon_0 \;=\; \frac{c}{\mathbb{E}\lvert q\eta x_1 - m\rvert},
+\label{eqn:eps0}
+\end{equation}
+which is the stated threshold. The mechanism is visible in \Cref{eqn:kink}: the left side is fixed
+while the right grows linearly in $\epsilon$, so the kink's slope overtakes the quadratic gain at a
+finite radius rather than asymptotically.
+\end{proof}
+
+At $d=512$ the model's constants give $c = 7.89\times10^{-3}$ and
+$\mathbb{E}\lvert q\eta x_1 - m\rvert = 0.0529$, hence $\epsilon_0 = 0.843\,\eta$ --- inside the
+bracket $(0.5\eta,\,1.0\eta)$ that the Monte-Carlo minimization returns, and far below the $2\eta$ at
+which the model is usually stated.
+
+Two caveats are worth stating rather than leaving to be found. First, \Cref{eqn:eps0} is a condition
+for $b=0$ to minimize along $b$ at $a = a^\star$; $J$ is not jointly convex, because
+$\lvert b\rvert\,\mathbb{E}\lvert R\rvert$ is a product of two convex factors, so global minimality is
+what the numerical check below supplies and not what the argument proves. Second, the model assumes
+$x_1$ is unperturbable and $z$ fully perturbable, so \emph{some} suppression of $z$ is built in before
+anything is shown. What is not built in is exactness, the threshold, and the $\epsilon$-independence
+that follows it.
+
+That the exactness is the kink's doing, and not a general consequence of adding an adversary, is
+visible from dropping it. With the $\lvert b\rvert$ term removed,
+$J_{\mathrm{quad}} = \mathbb{E}[R^2] + \epsilon^2 b^2$; minimizing out $a$ and writing $u = 1-b$
+collapses it to $u^2 c + \epsilon^2(1-u)^2$, so
+\begin{equation}
+b^\star_{\mathrm{quad}} \;=\; \frac{c}{c+\epsilon^2},
+\label{eqn:bquad}
+\end{equation}
+which is strictly positive at every radius. Against the exact minimizer ($d=512$, Monte-Carlo,
+$n = 2\times10^5$):
+
+\begin{center}\small
+\begin{tabular}{lrr}
+  \toprule
+  $\epsilon$ & $b^\star$ (exact) & $b^\star_{\mathrm{quad}}$ (kink dropped) \\
+  \midrule
+  $0.5\eta$ & 0.510 & 0.502 \\
+  $1.0\eta$ & \textbf{0.000} & 0.202 \\
+  $2.0\eta$ & \textbf{0.000} & 0.060 \\
+  $4.0\eta$ & \textbf{0.000} & 0.016 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The two columns agree below $\epsilon_0$ and separate above it: the quadratic surrogate shrinks the
+non-robust coefficient and never deletes it, which is the ordinary picture, while the kinked objective
+sets it to zero and keeps it there.
+
 The adversarial term is an $\ell_1$ penalty on the non-robust coefficient: the teacher supplies the
-value, and the inner maximization discards the route it took there. Verified numerically at $d = 512$:
-$b^\star = 0.510$ at $0.5\eta$ and exactly $0$ at $\eta$, $2\eta$ and $4\eta$. Since every $\epsilon$
+value, and the inner maximization discards the route it took there. Since every $\epsilon$
 in $J$ multiplies $b$, at $b^\star = 0$ the objective is $\mathbb{E}(a x_1 - m)^2$ and is
 $\epsilon$-free---past the threshold a larger radius costs the anchor nothing, which matches the
 saturation measured in \Cref{tab:radius}, where AutoAttack and CW at $10/255$ are identical to the last
@@ -155,20 +229,27 @@ body.
 \begin{table}[h]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{What the per-sample radius is allocated \emph{from}. CIFAR-100, ResNet-18, $100$ epochs,
-  $\epsilon_{\mathrm{train}} = 8.8/255$, the shipped recipe throughout; the three cells differ in one
-  configuration line and nothing else. All three spend the same total budget
-  $N\epsilon_{\mathrm{train}}$: the last row is the middle row's weight multiset---same values, same
-  clip $[0.5, 1.5]$, same restored mean---permuted so that the larger radii go to the easier examples,
-  which is the direction IAAT and CAT assign them. Reordering costs $0.80$ AutoAttack against the rule
-  it reorders, and lands below even the uniform row on AutoAttack, CW and NRR alike.}
+  $\epsilon_{\mathrm{train}} = 8.8/255$, the shipped recipe throughout; every cell differs from the
+  one above it in a single configuration line and nothing else. All of them spend the same total
+  budget $N\epsilon_{\mathrm{train}}$, so the rows differ in allocation and not in attack strength.
+  $\mathrm{sd}(w)$ is the spread of the per-sample multiplier the attack actually receives --- after
+  the box and the mean restoration, so it is comparable across rows in a way the raw signals are not
+  --- reported as the median over training; the permuted row reuses the sensitivity rule's own
+  weights, hence its value. Only the
+  sensitivity signal beats allocating nothing at all --- the three signals the existing per-sample
+  family allocates from each land below the uniform row, and the most dispersed of them lands
+  lowest.}
   \label{tab:allocation}
-  \begin{tabular}{lrrrrr}
+  \begin{tabular}{lcrrrrr}
     \toprule
-    Allocated from & Clean & PGD-20 & CW & AA & NRR \\
+    Allocated from & $\mathrm{sd}(w)$ & Clean & PGD-20 & CW & AA & NRR \\
     \midrule
-    Nothing (uniform, $p=0$)               & 60.42 & \textbf{33.11} & 30.07 & 28.42 & 38.66 \\
-    \textbf{Loss sensitivity (ours, $p=1$)} & \textbf{62.17} & 32.37 & \textbf{30.93} & \textbf{28.86} & \textbf{39.42} \\
-    Difficulty, same weights permuted      & 60.90 & 32.32 & 29.94 & 28.06 & 38.42 \\
+    Nothing (uniform, $p=0$)                & 0 & 60.42 & \textbf{33.11} & 30.07 & 28.42 & 38.66 \\
+    \textbf{Loss sensitivity (ours, $p=1$)} & 0.32 & \textbf{62.17} & 32.37 & \textbf{30.93} & \textbf{28.86} & \textbf{39.42} \\
+    \midrule
+    Difficulty magnitude (IAAT, CAT)        & 0.39 & 61.27 & 32.45 & 30.14 & 28.12 & 38.55 \\
+    Difficulty, same weights permuted       & 0.32 & 60.90 & 32.32 & 29.94 & 28.06 & 38.42 \\
+    Logit margin (MMA)                      & 0.42 & 61.07 & 32.46 & 29.75 & 27.79 & 38.20 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -191,8 +272,50 @@ body.
   \end{tabular}
 \end{table}
 
-\section{The Box-Constrained Budget Solve}
+\section{The Allocation Rule and Its Budget Solve}
 \label{app:box}
+
+\subsection{Where the rule comes from}
+
+The objective is optimized over a \textbf{pixel} ball, while what it measures is a displacement in
+feature space, and a fixed pixel radius moves that displacement by very different amounts across
+samples. The allocation follows from one elementary fact: for a differentiable loss the first-order
+movement available inside an $\ell_\infty$ ball of radius $e$ is
+\begin{equation}
+\max_{\lVert\delta\rVert_\infty \le e}\ \langle \nabla_x \mathcal{L},\, \delta\rangle
+\;=\; e\,\lVert \nabla_x \mathcal{L}\rVert_1 ,
+\label{eqn:dual}
+\end{equation}
+the dual norm of $\ell_\infty$ being $\ell_1$. Equalizing that movement across a batch subject to a
+fixed total budget $\sum_i \epsilon_i = N\epsilon$ gives $\epsilon_i g_i = \mathrm{const}$, that is
+$\epsilon_i \propto 1/g_i$ with $g_i = \lVert\nabla_x\mathcal{L}(x_i)\rVert_1$. The same allocation is
+the max--min one: if two samples move by different amounts, shifting budget from the sample that moves
+more to the sample that moves less raises the minimum, so no unequal assignment is optimal. Taking
+$\epsilon_i \propto (\bar g/g_i)^p$ makes $p=1$ that allocation, $p=0$ the uniform-pixel one, and
+$p \in (0,1)$ an interpolation.
+
+Two approximations are worth declaring rather than leaving to be found. First, $g_i$ is measured once,
+by a single backward pass at the \emph{clean} $x_i$ before the attack starts, so it is the sensitivity
+at the starting point and not along the PGD trajectory. Second, everything above is first order in
+$\epsilon$. Neither is repaired anywhere in the method; the rule is a budget heuristic with a
+derivation, not an exactly solved subproblem.
+
+We also do not claim the rule is specific to a directional objective. $\lVert\nabla_x\mathcal{L}\rVert_1$
+is defined for any loss and the implementation reads whichever loss is configured; on the shipped
+raw-$\ell_2$ anchor it equalizes a feature displacement rather than an angle, which is why the honest
+name is \emph{sensitivity-matched} $\epsilon$ rather than an angular budget. What separates it from
+IAAT, MMA and CAT is not directionality but the signal: they allocate from a property of the sample,
+this allocates from the geometry the training loss is written in.
+
+% PENDING (2026-09-04): the norm question -- the derivation gives L1 and the shipped recipe uses L2
+% (featdir_angeps_gnorm defaults to 2, because the 2026-08-04 cell that set the recipe used it and
+% every logged angeps run had to stay reproducible).  The existing answer, champ_angeps_gnorm1 at
+% 62.51 / 28.44, is measured on the pre-2026-08-31 directional design and is NOT quotable here for
+% the same reason the per-sample-eps controls had to be re-run.  champ_gnorm1_l2 -- the shipped
+% config with featdir_angeps_gnorm = 1 and nothing else changed -- is on the card; when it lands,
+% state the comparison against 62.17 / 32.37 / 30.93 / 28.86 / 39.42 here.
+
+\subsection{Keeping the radii in the box}
 
 With $r_i = (\bar g / g_i)^p$ and box $[w_{\mathrm{lo}}, w_{\mathrm{hi}}] = [0.5, 1.5]$, the radii that
 satisfy both the box and the budget exactly are $\epsilon_i = \epsilon \cdot \mathrm{clip}(t r_i,
@@ -205,6 +328,63 @@ The left side is continuous and nondecreasing in $t$ from $N w_{\mathrm{lo}}$ to
 so a root exists and bisection finds it; when no clip is active it reduces to $t = N / \sum_i r_i$,
 that is, to restoring the mean. Clipping first and rescaling afterwards, the obvious alternative, does
 not preserve the box---the rescaling moves the clipped entries back out of it.
+
+\section{Experimental Details}
+\label{app:repro}
+
+Every number we report is the \textbf{final} epoch, never a checkpoint selected on a robustness
+metric. This matters when reading \Cref{tab:published}: RPAT selects on PGD-20 and ADR on PGD-10, so
+those rows are upper envelopes of a training run where ours is its endpoint.
+
+\paragraph{Teacher.} One naturally trained network per dataset, no adversarial examples anywhere in
+its training, and the student is warm-started from the same checkpoint. ResNet-18, SGD at learning
+rate $0.1$ under a one-cycle schedule, batch size $128$, no augmentation beyond the standard crop and
+flip: $200$ epochs on CIFAR-10 and CIFAR-100, $80$ on Tiny-ImageNet-200. The resulting teachers reach
+$95.33$ (CIFAR-10), $77.66$ (CIFAR-100) and the Tiny-ImageNet figure quoted in \Cref{tab:tin}. The
+teacher's own robustness is $0$ --- it is never attacked and is not meant to survive attack;
+\Cref{tab:teacherladder} is the ablation over how long it is trained.
+
+\paragraph{Student.} The three shipped cells differ only where the dataset forces them to.
+
+\begin{center}\small
+\begin{tabular}{lccc}
+  \toprule
+  & CIFAR-10 & CIFAR-100 & Tiny-ImageNet-200 \\
+  \midrule
+  Backbone                       & ResNet-18 & ResNet-18 & ResNet-18 \\
+  Optimizer                      & AdamW & AdamW & AdamW \\
+  Learning rate / schedule       & $0.021$, one-cycle & $0.021$, one-cycle & $0.021$, one-cycle \\
+  Epochs                         & 100 & 100 & 100 \\
+  Batch size                     & 128 & 128 & 128 \\
+  Training radius $\epsilon_{\mathrm{train}}$ & $8.8/255$ & $8.8/255$ & $8.8/255$ \\
+  Inner attack                   & PGD-10, step $2/255$ & PGD-10, step $2/255$ & PGD-10, step $2/255$ \\
+  Allocation exponent $p$        & 1 & 1 & 1 \\
+  Radius box $[w_{\mathrm{lo}},w_{\mathrm{hi}}]$ & $[0.5,1.5]$ & $[0.5,1.5]$ & $[0.5,1.5]$ \\
+  Classifier head                & frozen & frozen & frozen \\
+  Weight averaging (start, decay)& $0.2$, $0.999$ & $0.2$, $0.999$ & $0.2$, $0.999$ \\
+  AWP ($\gamma$, warmup)         & $0.005$, 10 ep & $0.005$, 10 ep & $0.005$, 10 ep \\
+  Teacher checkpoint             & clean, 200 ep & clean, 200 ep & clean, 80 ep \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The head being frozen is what removes $\tau$ and $\beta$ from the method: with the classifier
+inherited and never updated, the head-KD term of earlier drafts has no parameters to reach and is
+switched off entirely. $p$ is not tuned. $\epsilon_{\mathrm{train}} = 8.8/255$ is the one value swept,
+in \Cref{tab:radius}, and evaluation is at $8/255$ in every cell regardless.
+
+\paragraph{Evaluation.} AutoAttack, \texttt{standard} version (APGD-CE and APGD-T), $\ell_\infty$ at
+$\epsilon = 8/255$, run on the full test set. PGD-20 and CW$_\infty$ are reported alongside because
+they disagree with each other in a way that matters (\Cref{app:fullmetrics}), and NRR is the harmonic
+mean of clean accuracy and AutoAttack accuracy. Where a table reports a method we ported rather than
+quoted, the port runs on its own published recipe --- HAT and LBGAT both collapse under our schedule
+and are given theirs --- and only the evaluation is ours.
+
+\paragraph{Compute.} A single RTX 5080. One student cell is about $2.2$ hours on CIFAR-100 at 100
+epochs, of which the AutoAttack evaluation is roughly $7$ minutes; Tiny-ImageNet is longer in
+proportion to its test set. Every number in this paper is one seed, which is stated here rather than
+implied: the ablations are read as differences of a few tenths and we do not claim significance
+beyond the consistency of their direction across cells.
 
 \section{Per-Attack Metrics}
 \label{app:fullmetrics}

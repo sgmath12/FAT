@@ -1,0 +1,62 @@
+# L1 GRADIENT NORM ON THE SHIPPED RECIPE (2026-09-04).
+#
+# The allocation rule is derived for an L-inf ball, whose dual norm is L1, so the first-order angle
+# moved is e * ||grad_x L||_1 and the derivation calls for featdir_angeps_gnorm = 1.  The shipped
+# champion uses 2, because the 2026-08-04 cell that set the recipe did and every logged angeps run
+# had to stay reproducible.  The appendix answers the obvious referee objection -- "you derive L1 and
+# ship L2" -- with champ_angeps_gnorm1, 62.51 / 28.44 against 62.17 / 28.59.
+#
+# That cell is `student_norm: True` + `freeze_lr_epoch: 0.65`, i.e. the pre-2026-08-31 directional
+# design, so it answers the objection about a method the paper no longer describes.  This is the same
+# cell on the shipped recipe: byte-identical to l2_bestrecipe_freezehead but for the one line below.
+#
+# ONLY LINE CHANGED: featdir_angeps_gnorm = 1
+#
+# Read against l2_bestrecipe_freezehead (62.17 / 32.37 / 30.93 / 28.86 / 39.42).  If the two sit
+# inside the noise band the derivation can be printed as derived, with a footnote that the allocation
+# is insensitive to the norm at first order.  If they separate, the paper ships what it derives or
+# says why not.
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_angeps_gnorm : 1
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
