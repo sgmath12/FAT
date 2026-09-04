@@ -41,6 +41,7 @@
 set -u
 cd "$(dirname "$0")/.."
 for q in run_kdswa_20260903 \
+         run_seedrepeat_20260904 \
          run_ladder_fh_20260904 \
          run_lbgat_c10_rerun_20260904 \
          run_lowerps_20260902; do
