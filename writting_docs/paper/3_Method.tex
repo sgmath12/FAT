@@ -102,7 +102,7 @@ of any differentiable loss is
 \label{eqn:firstorder}
 \end{equation}
 since $\ell_1$ is the dual norm of $\ell_\infty$. Writing $g_i = \lVert \nabla_x \mathcal{L}(x_i)
-\rVert$, the movement induced at example $i$ by a radius $\epsilon_i$ is $\epsilon_i g_i$ to first
+\rVert_q$, the movement induced at example $i$ by a radius $\epsilon_i$ is $\epsilon_i g_i$ to first
 order, so equalizing it across a minibatch of $N$ examples means imposing
 \begin{equation}
 \epsilon_i \, g_i \;=\; c \quad \text{for all } i ,
@@ -118,7 +118,11 @@ budget fixed. Solving \Cref{eqn:equalize} gives $c = N\epsilon \big/ \sum_j g_j^
 \epsilon_i \;\propto\; g_i^{-p} ,
 \label{eqn:angeps_ideal}
 \end{equation}
-with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization above. Equivalently
+with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization above. We state $g_i$
+with its norm as a parameter because \Cref{eqn:firstorder} gives $q = 1$ and we run $q = 2$: the cell
+that fixed the recipe used it, and the two are measurably different allocations that reach the same
+frontier point ($62.16 / 28.57$ against $62.17 / 28.86$, \Cref{app:box}), so the choice is disclosed
+rather than tuned. Equivalently
 \Cref{eqn:angeps_ideal} is the max--min allocation: moving budget from the example whose objective
 moves most to the one whose objective moves least always improves the worst case, and the optimum is
 where no such move remains.
