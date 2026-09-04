@@ -17,8 +17,14 @@
 #      (run_adr_wa_20260904 was queued here and removed 2026-09-04.  The configs stay in the tree
 #      -- config/*/adr_wa_200ep.yaml -- so it can be run later if the AT + WA + AWP + ADR row is
 #      wanted; the table reports what we actually have, which is AT + AWP + ADR.)
-#   2  kdswa          abl_kdswa_t4/t16 -- the logit-anchor row of tab:main, which is the control
-#                     that isolates our target from our schedule, so it is wanted before the rest
+#   Order note (2026-09-04).  champ_gnorm1_l2 is on the card and may move the recipe from an L2
+#   gradient norm to the L1 the derivation actually gives.  If it does, every cell that allocates a
+#   per-sample radius has to be retrained, so the queue runs the cells that do NOT allocate first:
+#   abl_kdswa_t4/t16 have no featdir_angeps_p at all, and neither does ladder_p0_fh.  What is exposed
+#   is ladder_angeps_fh, ladder_angeps_wa_fh and the champ_eps6/7 pair.
+#
+#   kdswa also happens to be the one wanted soonest: it fills tab:main's "logit anchor + our stack"
+#   row, the control that separates what the target does from what the schedule does.
 #   3  lbgat_c10      diverged to chance and was skipped by a completeness test that read the key
 #                     rather than the value
 #   4  lowerps        champ_eps6/7 -- the low end of tab:radius
@@ -34,8 +40,8 @@
 # what lets a waiter in; that is why this script is launched behind it rather than beside it.
 set -u
 cd "$(dirname "$0")/.."
-for q in run_ladder_fh_20260904 \
-         run_kdswa_20260903 \
+for q in run_kdswa_20260903 \
+         run_ladder_fh_20260904 \
          run_lbgat_c10_rerun_20260904 \
          run_lowerps_20260902; do
   echo "=== $(date '+%m-%d %H:%M') >>> $q ==="
