@@ -280,7 +280,12 @@ forty times further from linear than the ones it was designed for.
   \caption{Component ablation. CIFAR-100, ResNet-18, raw-$\ell_2$ anchor with
   $\epsilon_{\mathrm{train}} = 8.8/255$ held fixed and no learning-rate freeze. Each row adds one
   component to the row above. Columns match \Cref{tab:main}; per-attack values are in
-  \Cref{tab:fullmetrics}.}
+  \Cref{tab:fullmetrics}. The last rung is the shipped recipe, so the ladder ends where
+  \Cref{tab:main} begins; it exists only at 100 epochs, which is the schedule the paper ships.
+  Every rung above it trains the classifier head, and the rungs through AWP were measured before
+  the AWP-proxy correction of \Cref{app:awp} --- they are internally consistent, since all of them
+  carry it and the two that predate AWP cannot, and the final row is post-correction because it is
+  the reported cell.}
   \label{tab:ladder}
   \begin{tabular}{lrrrr}
     \toprule
@@ -296,7 +301,8 @@ forty times further from linear than the ones it was designed for.
     Anchor ($p=0$)                         & 61.21 & 25.24 & 43.23 & 35.74 \\
     \quad + sensitivity-matched $\epsilon$ & 62.98 & 25.43 & 44.20 & 36.23 \\
     \quad + weight averaging               & 62.43 & 27.39 & 44.91 & 38.08 \\
-    \quad + AWP\dg                         & 62.35 & \textbf{28.68} & 45.52 & \textbf{39.29} \\
+    \quad + AWP\dg                         & 62.35 & 28.68 & 45.52 & 39.29 \\
+    \quad + freezing the classifier head   & 62.17 & \textbf{28.86} & 45.52 & \textbf{39.42} \\
     \bottomrule
   \end{tabular}
 \end{table}
