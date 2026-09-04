@@ -8,8 +8,12 @@
 #
 # The order is now by what the paper depends on rather than by what was queued first:
 #
-#   1  awpfix_rest    corrections to numbers the paper already reports (app:awp says every
-#                     shipped-recipe figure is post-correction, so these are not optional)
+#   The AWP re-runs were dropped on 2026-09-04.  The shipped recipe is already post-correction on
+#   both datasets (62.17 / 28.86 and 84.96 / 51.74, re-run 09-02), and the cells that remained
+#   pre-correction are ablation rows whose numbers move by 0.01-0.22 NRR.  tab:ladder's rungs are
+#   also a different design from the shipped one -- they train the head, where the shipped recipe
+#   freezes it -- so re-running them would not have produced the paper's numbers anyway.  The
+#   captions say which tables were measured before the fix.
 #      (run_adr_wa_20260904 was queued here and removed 2026-09-04.  The configs stay in the tree
 #      -- config/*/adr_wa_200ep.yaml -- so it can be run later if the AT + WA + AWP + ADR row is
 #      wanted; the table reports what we actually have, which is AT + AWP + ADR.)
@@ -27,8 +31,7 @@
 # what lets a waiter in; that is why this script is launched behind it rather than beside it.
 set -u
 cd "$(dirname "$0")/.."
-for q in run_awpfix_rest_20260904 \
-         run_lbgat_c10_rerun_20260904 \
+for q in run_lbgat_c10_rerun_20260904 \
          run_lowerps_20260902 \
          run_kdswa_20260903 \
          run_rpat_rest_20260904; do
