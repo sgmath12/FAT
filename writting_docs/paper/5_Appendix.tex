@@ -334,9 +334,12 @@ name is \emph{sensitivity-matched} $\epsilon$ rather than an angular budget. Wha
 IAAT, MMA and CAT is not directionality but the signal: they allocate from a property of the sample,
 this allocates from the geometry the training loss is written in.
 
-One discrepancy is ours to declare rather than the reader's to find. \Cref{eqn:dual} gives the
-$\ell_1$ norm, and the shipped recipe uses $\ell_2$: the cell that fixed the recipe used it, and every
-logged run since had to stay reproducible against that choice. The two are not the same allocation.
+\Cref{eqn:dual} reads the gradient in $\ell_1$ because it asks for the worst direction in the ball;
+the typical-direction reading of \Cref{sec:anchor} gives $\ell_2$, and that is the one we run. The
+honest history is that this was not chosen between: the cell that fixed the recipe used $\ell_2$ and
+every logged run since had to stay reproducible against it, so the second reading is a justification
+found afterwards rather than the reason. That makes the measurement below the load-bearing part, not
+the argument. The two norms are not the same allocation.
 Measured over training on the shipped configuration, the $\ell_1$ signal's coefficient of variation
 has median $0.68$ against the $\ell_2$ signal's $0.56$, and the per-sample multiplier the attack
 receives has spread $0.34$ against $0.32$ --- so the norms really do distribute the budget

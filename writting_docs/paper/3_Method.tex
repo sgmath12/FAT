@@ -101,9 +101,15 @@ of any differentiable loss is
 \;=\; e \, \lVert \nabla_x \mathcal{L} \rVert_1 ,
 \label{eqn:firstorder}
 \end{equation}
-since $\ell_1$ is the dual norm of $\ell_\infty$. Writing $g_i = \lVert \nabla_x \mathcal{L}(x_i)
-\rVert_q$, the movement induced at example $i$ by a radius $\epsilon_i$ is $\epsilon_i g_i$ to first
-order, so equalizing it across a minibatch of $N$ examples means imposing
+since $\ell_1$ is the dual norm of $\ell_\infty$. That is the movement available along the
+\emph{worst} direction in the ball. Along a typical one it is smaller and has a different norm: for
+$\delta$ drawn with independent $\pm e$ coordinates, $\langle \nabla_x \mathcal{L}, \delta\rangle$ has
+standard deviation $e \lVert \nabla_x \mathcal{L} \rVert_2$, and a typical direction is what a PGD
+attack starts from. Both are first-order surrogates for how far the ball can carry the objective, and
+they differ only in which norm they read the gradient with, so we write $g_i = \lVert \nabla_x
+\mathcal{L}(x_i) \rVert_q$ and carry $q$ along. The movement induced at example $i$ by a radius
+$\epsilon_i$ is then $\epsilon_i g_i$ to first order, so equalizing it across a minibatch of $N$
+examples means imposing
 \begin{equation}
 \epsilon_i \, g_i \;=\; c \quad \text{for all } i ,
 \qquad \text{subject to} \qquad
@@ -118,11 +124,10 @@ budget fixed. Solving \Cref{eqn:equalize} gives $c = N\epsilon \big/ \sum_j g_j^
 \epsilon_i \;\propto\; g_i^{-p} ,
 \label{eqn:angeps_ideal}
 \end{equation}
-with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization above. We state $g_i$
-with its norm as a parameter because \Cref{eqn:firstorder} gives $q = 1$ and we run $q = 2$: the cell
-that fixed the recipe used it, and the two are measurably different allocations that reach the same
-frontier point ($62.16 / 28.57$ against $62.17 / 28.86$, \Cref{app:box}), so the choice is disclosed
-rather than tuned. Equivalently
+with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization above. We run $q = 2$,
+the typical-direction reading. The choice turns out not to be one: the two norms allocate measurably
+differently and reach the same frontier point, $62.16 / 28.57$ at $q = 1$ against $62.17 / 28.86$ at
+$q = 2$, which \Cref{app:box} reports along with the history of the constant. Equivalently
 \Cref{eqn:angeps_ideal} is the max--min allocation: moving budget from the example whose objective
 moves most to the one whose objective moves least always improves the worst case, and the optimum is
 where no such move remains.
