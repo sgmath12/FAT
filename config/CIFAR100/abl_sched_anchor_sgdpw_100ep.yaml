@@ -1,0 +1,84 @@
+# DEFENSIVE ABLATION, THE SCHEDULE AXIS (2026-09-06).
+#
+# The objection this answers: "the gain is the natural teacher warm start plus your AdamW/OneCycle
+# schedule, not the anchor."  The warm-start half is already measured -- abl_scratch_init trains the
+# anchor from RANDOM init at the shipped recipe and lands 60.81 / 25.21 against the warm-started
+# 61.29 / 25.36, so the initialization is worth 0.48 clean and 0.15 AutoAttack.  The schedule half
+# was not, because every cell in the paper's base regime uses AdamW at lr 0.021 under OneCycle.
+#
+# These two cells complete the 2x2 at the base regime (no weight averaging, no AWP, p = 0, teacher
+# warm start, train_eps 8.8/255, 100 epochs), changing ONLY the optimizer and the schedule to what
+# PGD-AT itself uses here (SGD 0.1, piecewise x0.1 at 70 and 90, wd 2e-4 -- pgdat_100ep's own):
+#
+#                    AdamW OneCycle (ours)     SGD piecewise (standard)
+#   label CE         54.60 / 19.45             <- abl_sched_ce_sgdpw_100ep
+#   anchor           61.29 / 25.36             <- abl_sched_anchor_sgdpw_100ep
+#
+# Read: if the anchor keeps its lead in the right column, the schedule is not the source.  If the CE
+# column moves a lot, our schedule was handicapping CE and the base-regime comparison has to be
+# restated against the better CE cell -- which is why the CE cell is run at the same time and not
+# assumed.
+#
+# One risk is on record: SGD at lr 0.1 destroyed a clean warm start once before (clean 71 -> 50 ->
+# 40 -> 3 over the first epochs, `featdir_sgd_pw_100ep`), on the OneCycle peak rather than piecewise.
+# If this diverges the same way, that is the answer for the anchor cell and it has to be reported as
+# a divergence rather than as a score.
+#
+# THIS CELL: the anchor, SGD + piecewise.
+
+#
+# tab:ladder measured each component with the classifier head TRAINED, then added "freeze the head"
+# as a final rung.  That makes every rung a measurement in a design the paper does not ship, and
+# turns the head -- which the method section says is inherited and never trained -- into a component
+# rather than part of the construction.  These cells rebuild the ladder with featdir_freeze_head on
+# at every step, so each rung differs from the one below it by exactly the component named and the
+# top rung is l2_bestrecipe_freezehead (62.17 / 32.37 / 30.93 / 28.86 / 39.42) unchanged.
+#
+# A second thing falls out for free.  The old rungs were trained before the AWP-proxy correction of
+# app:awp; these are trained after it, so the rebuilt ladder is uniformly post-correction and the
+# caveat in that appendix loses its remaining exception.
+#
+# Only line changed from ladder_p0_100ep: featdir_freeze_head True.
+
+method : feat_direction
+featdir_freeze_head : True
+weight_avg : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.1
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+weight_decay : 0.0002

@@ -454,7 +454,15 @@ proportion to its test set.
 Several rows of \Cref{tab:main} run a specific variant of the method they name, or are grouped in a
 way that needs saying. This section is those decisions; the table carries none of them.
 
-\paragraph{LBGAT} trains its natural branch jointly with the robust one, so unlike the distillation
+\paragraph{LBGAT, and why its CIFAR-10 cell is empty.} The authors release a training script for
+CIFAR-100 only, and their CIFAR-10 entries are released as pretrained WideResNet checkpoints. Running
+their CIFAR-100 recipe on CIFAR-10 diverges here within thirty steps: the squared error is reduced
+with \texttt{mean} over batch and classes, so a ten-class problem receives ten times the gradient of
+a hundred-class one at equal logit error, and $\mathrm{lr} = 0.1$ is above the stability threshold
+that follows. Lowering the learning rate trains (at $0.01$ the natural branch reaches $49\%$ within
+$180$ steps), but a learning rate we chose is not their recipe, so the cell is left empty rather than
+filled with a number of our own construction. LBGAT trains its natural branch jointly with the robust
+one, so unlike the distillation
 rows its teacher is not obtained for free, and we group it accordingly. The two datasets run different
 variants because the authors publish different ones: CIFAR-100 is LBGAT6 and CIFAR-10 is LBGAT0, their
 release lists CIFAR-10 checkpoints under LBGAT0 alone, and $\beta = 6$ is their CIFAR-100 setting. We
