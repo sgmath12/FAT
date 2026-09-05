@@ -120,8 +120,10 @@ budget fixed. Solving \Cref{eqn:equalize} gives $c = N\epsilon \big/ \sum_j g_j^
 \end{equation}
 with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization above. The
 implementation reads the gradient in $\ell_2$ rather than the $\ell_1$ derived here, for the reason
-\Cref{app:box} gives; the two are measurably different allocations and reach the same frontier point,
-$62.16 / 28.57$ against $62.17 / 28.86$, so the rule is stated as derived. Equivalently
+\Cref{app:box} gives, and the choice is not free: the two land $0.29$ AutoAttack apart. What the rule
+buys over a uniform radius survives it in direction and on the clean axis, and shrinks on the robust
+one --- $+1.75$ clean and $+0.44$ AutoAttack at $\ell_2$, $+1.74$ and $+0.15$ at $\ell_1$. We ship the
+norm we measured to be better and derive the other, and \Cref{app:box} reports both. Equivalently
 \Cref{eqn:angeps_ideal} is the max--min allocation: moving budget from the example whose objective
 moves most to the one whose objective moves least always improves the worst case, and the optimum is
 where no such move remains.

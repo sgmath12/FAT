@@ -241,13 +241,17 @@ body.
     & Clean & PGD-20 & CW & AA & NRR \\
     \midrule
     \multicolumn{6}{l}{\emph{CIFAR-100}} \\
-    $8/255$      & \textbf{63.89} & 31.41 & 29.83 & 27.78 & 38.72 \\
+    $6/255$      & \textbf{68.07} & 28.40 & 28.16 & 25.82 & 37.44 \\
+    $7/255$      & 65.61 & 30.34 & 29.64 & 27.44 & 38.70 \\
+    $8/255$      & 63.89 & 31.41 & 29.83 & 27.78 & 38.72 \\
     $8.8/255$\dg & 62.17 & 32.37 & \textbf{30.93} & \textbf{28.86} & \textbf{39.42} \\
     $10/255$\dg  & 59.99 & \textbf{32.82} & 30.53 & 28.77 & 38.89 \\
     \midrule
     \multicolumn{6}{l}{\emph{CIFAR-10}} \\
-    $8/255$\dg   & \textbf{87.22} & 52.43 & 53.55 & 51.15 & 64.48 \\
-    $8.8/255$\dg & 84.96 & 52.98 & \textbf{53.94} & 51.74 & \textbf{64.31} \\
+    $6/255$      & \textbf{89.64} & 49.29 & 50.20 & 47.88 & 62.42 \\
+    $7/255$      & 88.30 & 51.43 & 52.64 & 50.27 & 64.07 \\
+    $8/255$\dg   & 87.22 & 52.43 & 53.55 & 51.15 & \textbf{64.48} \\
+    $8.8/255$\dg & 84.96 & 52.98 & \textbf{53.94} & 51.74 & 64.31 \\
     $10/255$\dg  & 83.29 & \textbf{53.25} & 53.88 & \textbf{51.79} & 63.87 \\
     \bottomrule
   \end{tabular}
@@ -343,13 +347,18 @@ has median $0.68$ against the $\ell_2$ signal's $0.56$, and the per-sample multi
 receives has spread $0.34$ against $0.32$ --- so the norms really do distribute the budget
 differently.
 
-They nonetheless land in the same place. Training the shipped recipe with
+They nonetheless land close together. Training the shipped recipe with
 \texttt{featdir\_angeps\_gnorm} set to $1$ and nothing else changed gives $62.16 / 31.97 / 30.56 /
 28.57$ (NRR $39.15$) against $62.17 / 32.37 / 30.93 / 28.86$ (NRR $39.42$): clean accuracy is
-identical to a hundredth and AutoAttack differs by $0.29$, in favour of the norm we ship. That a
-genuinely different allocation produces the same frontier point is the strongest form the claim can
-take --- the rule is insensitive to the norm at first order, and the derivation can be read as stated
-without the shipped constant being a silent departure from it.
+identical to a hundredth and AutoAttack differs by $0.29$, in favour of the norm we ship.
+
+We do not call that a tie. It is twice the seed-to-seed spread of \Cref{app:repro}, and it is the same
+order of magnitude as what the allocation buys in the first place: against the uniform radius, $p = 1$
+gains $+1.75$ clean and $+0.44$ AutoAttack at $\ell_2$ and $+1.74$ and $+0.15$ at $\ell_1$. So the
+rule's benefit survives the norm in direction and almost entirely on the clean axis, while most of its
+AutoAttack half does not. The honest statement is that the norm is a real choice which we made before
+we could compare, that the comparison favours what we ship, and that a reader preferring the derived
+$\ell_1$ would still get the clean gain and a third of the robust one.
 
 \subsection{Keeping the radii in the box}
 
@@ -416,11 +425,18 @@ mean of clean accuracy and AutoAttack accuracy. Where a table reports a method w
 quoted, the port runs on its own published recipe --- HAT and LBGAT both collapse under our schedule
 and are given theirs --- and only the evaluation is ours.
 
+\paragraph{Seeds, and how large a difference has to be.} Every number in this paper is one seed. The
+ablations are read as differences of a few tenths, so one repeat is reported to say what a tenth is
+worth: the shipped CIFAR-100 cell at seed $1$ gives $62.00 / 32.49 / 30.82 / 28.74$ against seed $0$'s
+$62.17 / 32.37 / 30.93 / 28.86$, moving each metric by $0.11$ to $0.17$ and AutoAttack by $0.12$.
+Differences at that scale are not read as differences anywhere in this paper; the component deltas of
+\Cref{tab:ladder} and the gaps of \Cref{tab:allocation} are between four and fifteen times it. One
+repeat is one repeat, and it bounds nothing --- it is reported because a reader otherwise has no scale
+at all.
+
 \paragraph{Compute.} A single RTX 5080. One student cell is about $2.2$ hours on CIFAR-100 at 100
 epochs, of which the AutoAttack evaluation is roughly $7$ minutes; Tiny-ImageNet is longer in
-proportion to its test set. Every number in this paper is one seed, which is stated here rather than
-implied: the ablations are read as differences of a few tenths and we do not claim significance
-beyond the consistency of their direction across cells.
+proportion to its test set.
 
 \section{Per-Attack Metrics}
 \label{app:fullmetrics}
