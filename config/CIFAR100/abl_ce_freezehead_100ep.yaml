@@ -1,0 +1,49 @@
+# DEFENSIVE ABLATION: is the gain the free classifier? (2026-09-06)
+#
+# The anchored cells inherit the teacher's classifier and never train it, so a reviewer can read the
+# whole result as "you were handed a well-calibrated head".  abl_ce_nostack is label CE at our base
+# regime but it TRAINS the head, so it cannot separate the two.  This cell is abl_ce_nostack with
+# `featdir_freeze_head: True` and nothing else changed; methods.py:train_madry_at honours the flag as
+# of today (it was previously read only by the anchored trainer).
+#
+# Read as a triple at the base regime, CIFAR-100, 100 epochs, teacher warm start:
+#   anchor, head frozen        61.29 / 25.36   (ladder_p0_fh_100ep)
+#   label CE, head trained     54.60 / 19.45   (abl_ce_nostack)
+#   label CE, head frozen      <- this cell
+# If this lands near the anchor, the head is the story; if it lands near CE, the anchor is.
+#
+
+method : madry_at
+featdir_freeze_head : True
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+val : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

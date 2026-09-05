@@ -2789,6 +2789,16 @@ def train_madry_at(model, train_loader, optimizer, origin_model, epoch, config, 
     freeze_lr_epoch = _resolve_epoch_arg(getattr(config, "freeze_lr_epoch", None), config.epochs)
     wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
     awp_gamma = float(getattr(config, "awp_gamma", 0.0) or 0.0)
+    # featdir_freeze_head, honoured here too (2026-09-06).  The anchored cells inherit the teacher's
+    # classifier and never train it, so "the gain is the free, well-calibrated head" is a live
+    # objection and the CE control has to be runnable with the same head frozen.  Inert unless the
+    # flag is set, so every earlier madry_at run is unchanged.
+    if bool(getattr(config, "featdir_freeze_head", False)):
+        _enc = model.encoder if hasattr(model, "encoder") else model
+        for _p in _enc.linear.parameters():
+            _p.requires_grad_(False)
+        if epoch == 0:
+            logging.info({"madry_at_freeze_head": True})
     use_awp = awp_gamma > 0 and epoch >= int(getattr(config, "awp_warmup", 0) or 0)
     if use_awp:
         if not hasattr(train_madry_at, "_awp"):

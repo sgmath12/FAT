@@ -444,9 +444,47 @@ Differences at that scale are not read as differences anywhere in this paper; th
 repeat is one repeat, and it bounds nothing --- it is reported because a reader otherwise has no scale
 at all.
 
-\paragraph{Compute.} A single RTX 5080. One student cell is about $2.2$ hours on CIFAR-100 at 100
-epochs, of which the AutoAttack evaluation is roughly $7$ minutes; Tiny-ImageNet is longer in
-proportion to its test set.
+\paragraph{Compute, teacher included.} A single RTX 5080. One student cell is about $2.2$ hours on
+CIFAR-100 at 100 epochs, of which the AutoAttack evaluation is roughly $7$ minutes; Tiny-ImageNet is
+longer in proportion to its test set.
+
+The teacher has to be counted, since calling it free would otherwise hide a training run. It is not
+free, but it is cheap: a clean epoch has no inner maximization, so it costs $6.8$ seconds against
+$74.5$ for an adversarial one, and $200$ clean epochs come to $0.39$ hours. The teacher is therefore
+$19\%$ of one student run and is amortized over every cell that reads it, the teacher ladder of
+\Cref{tab:teacherladder} included. \Cref{tab:compute} puts the total against the baselines measured
+on the same machine.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{Wall-clock training cost on one RTX 5080, CIFAR-100, ResNet-18, as logged by the runs
+  reported in this paper. Evaluation is excluded. Adversarial distillation additionally requires an
+  adversarially trained teacher, which is not counted in its row and is the more expensive artifact.}
+  \label{tab:compute}
+  \begin{tabular}{llrrr}
+    \toprule
+    Method & Epochs & Teacher (h) & Student (h) & Total (h) \\
+    \midrule
+    Natural teacher (ours, reused) & 200 clean & --   & 0.39 & 0.39 \\
+    \midrule
+    \textbf{CFA (ours)}            & 100 adv.  & 0.39 & 2.07 & \textbf{2.46} \\
+    Label CE at our regime         & 100 adv.  & 0.39 & 3.22 & 3.61 \\
+    PGD-AT, initialized at the teacher & 100 adv. & 0.39 & 1.72 & 2.11 \\
+    ARD                            & 100 adv.  & 0.39 & 1.52 & 1.91 \\
+    RSLAD                          & 100 adv.  & 0.39 & 1.71 & 2.10 \\
+    AdaAD                          & 100 adv.  & 0.39 & 2.79 & 3.18 \\
+    LBGAT                          & 100 adv.  & joint & 1.88 & 1.88 \\
+    HAT                            & 50 adv.   & 0.39 & 1.10 & 1.49 \\
+    ADR                            & 200 adv.  & self  & 3.52 & 3.52 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two readings follow. The anchor is not bought with compute, since it costs less end to end than label
+cross-entropy at the same regime and about what PGD-AT costs once the teacher is included. And the
+comparison with adversarial distillation is favourable in a way the table understates, because those
+rows assume a robust teacher that the current literature obtains from a WideResNet trained on
+generated data, which is more expensive than every row here combined.
 
 \section{Notes on the Baselines}
 \label{app:baselines}
