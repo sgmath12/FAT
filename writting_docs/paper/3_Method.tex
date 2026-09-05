@@ -4,20 +4,20 @@
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
-Adversarial training asks a model to be confidently right everywhere in a ball around every training
-point.
-That demand is the source of its accuracy cost, and softening it is what the trade-off
-literature spends its effort on. We remove the demand instead. The label is replaced, as the
-backbone's target, by a single fixed vector: the feature a naturally trained network of the same
-architecture assigns to the clean image. The ball no longer has to reach full confidence anywhere; it
-only has to land on that vector.
-
-The teacher supplying the vector is not robust, and this is deliberate rather than a concession. It is
-what supplies a target that is accurate, and the robustness is left to the maximization that finds
-$x_{\mathrm{adv}}$ --- an arrangement that only makes sense once the label loss is gone, since with a
-label loss present the two would compete for the same parameters. What the rest of this section states
-is the objective, three properties that follow from its \emph{form} rather than from measurement, and
-the one place a hyperparameter survives: how large a ball each example gets.
+Adversarial training requires the model to be confidently correct at every point of a ball around every
+training example, and that requirement is the source of its cost in standard accuracy.
+Methods that address the trade-off keep the requirement and soften the target it is imposed on, whereas
+we replace the target itself.
+The backbone is trained against a single fixed vector, namely the feature that a naturally trained
+network of the same architecture assigns to the clean image.
+The perturbation ball is then asked to map onto that vector rather than onto a confident label.
+The network supplying the vector is not robust, which is a deliberate choice: it provides a target that
+is accurate, and the robustness is produced by the maximization that finds $x_{\mathrm{adv}}$.
+Such a division of labour is only coherent once the label loss is removed, because a label loss and an
+inaccurate-but-robust signal would otherwise compete for the same parameters.
+The remainder of this subsection states the objective and three properties that follow from its form
+rather than from measurement, and \Cref{sec:angeps} treats the one quantity that is left to choose,
+namely how large a ball each example receives.
 
 Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
 same data, and let $h_t$ be its classifier. The student's feature map is initialized at
@@ -38,116 +38,128 @@ x^{(k+1)} \;=\; \Pi_{B(x,\epsilon)}\!\left(
 \qquad x^{(0)} = x + \eta ,
 \label{eqn:pgd}
 \end{equation}
-with $\eta$ a small random initialization and $\Pi$ the projection onto the ball. The target
-$\Phi_t(x)$ is a \emph{constant} of this ascent: it is computed once, at the clean input, and does not
-move as $x^{(k)}$ does. Inner and outer problems therefore agree, as they do in standard adversarial training and unlike methods whose attack
-is generated against a different objective from the one being trained.
+with $\eta$ a small random initialization and $\Pi$ the projection onto the ball.
+The target $\Phi_t(x)$ is a constant of this ascent, since it is computed once at the clean input and
+does not move as $x^{(k)}$ does.
+The inner and outer problems therefore optimize the same quantity, as they do in standard adversarial
+training and unlike methods whose attack is generated against a different objective from the one being
+trained.
+\Cref{eqn:anchor} is the entire objective for the backbone, without a label term, a logit term or a
+coefficient joining them, and the three properties below are consequences of that form.
 
-\Cref{eqn:anchor} is the \emph{entire} objective for the backbone. No label term, no logit term, and
-no coefficient joining them. Three properties follow from that form, and each is a statement about the
-construction rather than an empirical observation.
+\paragraph{(i) The teacher never enters the perturbation ball.}
+The teacher is evaluated at $x$ alone in both \Cref{eqn:anchor} and \Cref{eqn:pgd}, so the objective
+depends on $\Phi_t$ only through the single vector $\Phi_t(x)$.
+Two teachers that agree at $x$ and differ arbitrarily on $B(x,\epsilon) \setminus \{x\}$ consequently
+induce the same optimization problem, and the rotation that the teacher undergoes under attack
+(\Cref{sec:analysis}) is exactly such a difference.
+The same argument runs in the other direction as well, because a quantity the objective cannot observe
+cannot serve as a source of robustness either.
+The restriction is load-bearing rather than convenient.
+Evaluating $\Phi_t$ at $x'$ instead would make $\Phi_s = \Phi_t$ a global minimizer of
+\Cref{eqn:anchor}, and that minimizer is a natural model; the student trained this way collapses onto
+the teacher and reaches $0.00$ AutoAttack accuracy (\Cref{tab:controls}).
+Restricting the teacher to $x$ therefore keeps the fragility of the teacher out of the objective and
+keeps the objective from admitting a degenerate solution.
 
-\paragraph{(i) The teacher never enters the perturbation ball.} In both \Cref{eqn:anchor} and
-\Cref{eqn:pgd} the teacher is evaluated at $x$ alone. Formally, the objective is a functional of
-$\Phi_t$ only through the single vector $\Phi_t(x)$, so two teachers agreeing at $x$ and differing
-arbitrarily on $B(x,\epsilon) \setminus \{x\}$ induce the same optimization problem. The teacher's
-$63.8^\circ$ of rotation under attack is exactly such a difference, and it is therefore invisible to
-training. The converse holds by the same argument: a quantity the objective cannot see cannot be a
-source of robustness either.
+\paragraph{(ii) The anchor is exactly zero at the clean point at initialization.}
+The initialization $\Phi_s \leftarrow \Phi_t$ gives $\lVert \Phi_s(x) - \Phi_t(x) \rVert = 0$ for every
+$x$, so the loss is nonzero only because of the perturbation.
+Every gradient the backbone receives at the start of training is thus attributable to the attack, which
+is the quantity we intend to train against.
+A logit target has the same property only at temperature $1$, where it carries no dark knowledge.
+The property is also used by \Cref{sec:angeps}: the per-sample sensitivities are identical at the first
+step, so the radius allocation begins uniform and differentiates only as the student moves away from
+its teacher.
 
-The restriction is load-bearing rather than convenient. Evaluating $\Phi_t$ at $x'$ instead makes
-$\Phi_s = \Phi_t$ a global minimizer of \Cref{eqn:anchor}, and that minimizer is a natural model;
-measured, the student collapses onto the teacher at $76.11$ clean and $0.00$ AutoAttack
-(\Cref{tab:controls}). Restricting the teacher to $x$ is therefore not only what keeps its fragility
-out of the objective, it is what keeps the objective from having a degenerate solution.
-
-\paragraph{(ii) The anchor is exactly zero at the clean point at initialization.} Since
-$\Phi_s \leftarrow \Phi_t$, we have $\lVert \Phi_s(x) - \Phi_t(x) \rVert = 0$ for every $x$, so the loss
-is nonzero only because of the perturbation: every gradient the backbone receives at the start of
-training is attributable to the attack, which is the quantity to be trained. A logit target has this
-property only at temperature $1$, where it carries no dark knowledge. It also has a consequence used
-in \Cref{sec:angeps}: at the first step the per-sample sensitivities are identical, so the radius
-allocation begins uniform and differentiates only as the student moves away from the teacher.
-
-\paragraph{(iii) The classifier is inherited, and this is what a feature target buys.} At test time
-the student is $h_t \circ \Phi_s$: the head is never trained. This is available because the target is
-written on the feature. A loss written on logits constrains only the composition $W\Phi$, so it
-determines the pair $(\Phi, W)$ up to the gauge
+\paragraph{(iii) The classifier is inherited, which is what a feature target buys.}
+The student at test time is $h_t \circ \Phi_s$, and the head is never trained.
+Inheriting the head is possible because the target is written on the feature.
+A loss written on logits constrains only the composition $W\Phi$, and it therefore determines the
+pair $(\Phi, W)$ only up to the gauge
 \begin{equation}
 (\Phi, W) \;\longmapsto\; (A\Phi,\; W A^{-1}), \qquad A \in \mathrm{GL}(d),
 \label{eqn:gauge}
 \end{equation}
-and the same logits are reachable from a continuum of representations, none of which the teacher's
-classifier is calibrated for. Fixing the target at the feature removes that freedom and pins $\Phi_s$
-to $\Phi_t$ itself, so $h_t$ remains the right classifier for it. \Cref{tab:ablation} shows this is not
-merely permissible but preferred: every alternative we tried, including the best head temperature,
-scores below leaving the classifier alone. It is also what removes the last two hyperparameters, since
-a head distillation term would reintroduce a temperature and a weight.
+so that the same logits are reachable from a continuum of representations, none of which the teacher's
+classifier is calibrated for.
+Fixing the target at the feature removes this freedom and pins $\Phi_s$ to $\Phi_t$ itself, which is
+what keeps $h_t$ the correct classifier for it.
+\Cref{tab:ablation} shows that inheriting the head is preferred rather than merely permissible, since
+every alternative we tried scores below leaving the classifier alone, including the best head
+temperature.
+Inheritance also removes the last two hyperparameters, as a head distillation term would reintroduce
+both a temperature and a weight.
 
 \subsection{Sensitivity-Matched $\epsilon$}
 \label{sec:angeps}
 
-\paragraph{The problem a uniform radius creates.} \Cref{eqn:anchor} is optimized over a \emph{pixel}
-ball while what it measures is a \emph{feature} displacement, and the two are not proportional. The
-same $\epsilon$ moves the objective by an amount that varies across the dataset, and by a lot: logged
-over training, the coefficient of variation of $\lVert \nabla_x \mathcal{L} \rVert$ across a minibatch
-is $0.64$. A fixed radius therefore delivers a strongly non-uniform amount of pressure---some examples
-are attacked hard in the geometry the loss lives in, others barely at all---even though every example
-is allotted the same pixel budget. Nothing in \Cref{eqn:anchor} asks for that.
+\paragraph{The problem a uniform radius creates.}
+\Cref{eqn:anchor} is optimized over a pixel ball while the quantity it measures is a feature
+displacement, and the two are not proportional.
+A single $\epsilon$ therefore moves the objective by an amount that varies substantially across the
+dataset, and the coefficient of variation of $\lVert \nabla_x \mathcal{L} \rVert$ within a minibatch is
+$0.64$ when logged over training.
+Examples that receive the same pixel budget are consequently attacked with very different force in the
+geometry the loss is written in, which is not something \Cref{eqn:anchor} asks for.
 
-\paragraph{Equalizing the movement.} Inside an $\ell_\infty$ ball of radius $e$ the first-order change
-of any differentiable loss is
+\paragraph{Equalizing the movement.}
+We assign the radius per sample in order to equalize how far the attack moves the objective rather than
+how far it moves the input.
+The first-order change of a differentiable loss inside an $\ell_\infty$ ball of radius $e$ is
 \begin{equation}
 \max_{\lVert \delta \rVert_\infty \le e} \langle \nabla_x \mathcal{L}, \delta \rangle
 \;=\; e \, \lVert \nabla_x \mathcal{L} \rVert_1 ,
 \label{eqn:firstorder}
 \end{equation}
-since $\ell_1$ is the dual norm of $\ell_\infty$. Writing $g_i = \lVert \nabla_x \mathcal{L}(x_i)
-\rVert_1$, the movement induced at example $i$ by a radius $\epsilon_i$ is $\epsilon_i g_i$ to first
-order, so equalizing it across a minibatch of $N$ examples means imposing
+since $\ell_1$ is the dual norm of $\ell_\infty$.
+Writing $g_i = \lVert \nabla_x \mathcal{L}(x_i) \rVert_1$, the movement induced at example $i$ by a
+radius $\epsilon_i$ is $\epsilon_i g_i$ to first order.
+Equalizing that movement across a minibatch of $N$ examples amounts to imposing
 \begin{equation}
 \epsilon_i \, g_i \;=\; c \quad \text{for all } i ,
 \qquad \text{subject to} \qquad
 \sum_{i=1}^{N} \epsilon_i \;=\; N \epsilon .
 \label{eqn:equalize}
 \end{equation}
-The constraint is what makes the rule comparable to a uniform one: it holds the \emph{total} attack
-budget fixed. Solving \Cref{eqn:equalize} gives $c = N\epsilon \big/ \sum_j g_j^{-1}$ and hence
+The constraint holds the total attack budget fixed, which is what makes the rule comparable to a
+uniform radius at equal attack strength.
+Solving \Cref{eqn:equalize} gives $c = N\epsilon \big/ \sum_j g_j^{-1}$ and hence
 \begin{equation}
 \epsilon_i \;=\; N\epsilon \cdot \frac{g_i^{-1}}{\sum_j g_j^{-1}} ,
 \qquad\text{generalized to}\qquad
 \epsilon_i \;\propto\; g_i^{-p} ,
 \label{eqn:angeps_ideal}
 \end{equation}
-with $p = 0$ recovering the uniform radius and $p = 1$ the full equalization above. The
-implementation reads the gradient in $\ell_2$ rather than the $\ell_1$ derived here, for the reason
-\Cref{app:box} gives, and the choice is not free: the two land $0.29$ AutoAttack apart. What the rule
-buys over a uniform radius survives it in direction and on the clean axis, and shrinks on the robust
-one --- $+1.75$ clean and $+0.44$ AutoAttack at $\ell_2$, $+1.74$ and $+0.15$ at $\ell_1$. We ship the
-norm we measured to be better and derive the other, and \Cref{app:box} reports both. Equivalently
-\Cref{eqn:angeps_ideal} is the max--min allocation: moving budget from the example whose objective
-moves most to the one whose objective moves least always improves the worst case, and the optimum is
-where no such move remains.
+where $p = 0$ recovers the uniform radius and $p = 1$ gives the full equalization above.
+The allocation of \Cref{eqn:angeps_ideal} is equivalently the max--min solution, because moving budget
+from the example whose objective moves most to the example whose objective moves least improves the
+worst case until no such move remains.
+Our implementation reads the gradient in $\ell_2$ rather than in the $\ell_1$ derived here, for the
+reason given in \Cref{app:box}, and the two norms differ by $0.29$ points of AutoAttack accuracy.
+What the rule gains over a uniform radius is preserved in direction under either norm and is larger on
+the clean axis than on the robust one, and \Cref{app:box} reports both settings.
 
-\paragraph{Keeping the radii in range.} Left alone, \Cref{eqn:angeps_ideal} assigns unbounded radii
-where $g_i \to 0$, which happens at the start of training by property (ii). We therefore constrain
-$\epsilon_i / \epsilon \in [0.5, 1.5]$ and solve the budget constraint inside that box, which
-\Cref{app:box} states exactly and which reduces to restoring the mean when no clip is active. We use
-$p = 1$ throughout and never tune it; \Cref{tab:allocation} reports the $p = 0$ endpoint under the
-same recipe.
+\paragraph{Keeping the radii in range.}
+\Cref{eqn:angeps_ideal} assigns unbounded radii where $g_i \to 0$, which is the situation at the start
+of training by property (ii).
+We therefore constrain $\epsilon_i / \epsilon \in [0.5, 1.5]$ and solve the budget constraint inside
+that box, which \Cref{app:box} states exactly and which reduces to restoring the mean when no clip is
+active.
+We use $p = 1$ throughout and never tune it, and \Cref{tab:allocation} reports the $p = 0$ endpoint
+under the same recipe.
 
-\paragraph{Why this is not the existing per-sample radius.} Assigning a different $\epsilon$ per
-example is not new: IAAT \citep{iaat}, MMA \citep{mma} and CAT \citep{cat} all do it. They assign it
-from the \emph{difficulty} of the example or from its margin in \textbf{input} space.
-\Cref{eqn:angeps_ideal} assigns it from the input-sensitivity of the \textbf{training loss}---the geometry
-the objective is actually written in---and the two are not the same signal. Both are genuinely
-dispersed on the shipped recipe, and ours is the \emph{least} dispersed of them: across training the
-sensitivity's coefficient of variation has median $0.56$, the difficulty score's $0.75$ and the logit
-margin's $1.33$. The box of \Cref{app:box} compresses these before they reach the attack---the
-per-sample multiplier ends up with spread $0.32$, $0.39$ and $0.42$ respectively---but the ordering
-survives it, and ours is at the bottom of it either way. What separates the rules is therefore not how
-much they spread the budget but which geometry they spread it along, and what follows compares
-competing allocations rather than an allocation against its absence.%
+\paragraph{Relation to existing per-sample radii.}
+Assigning a different $\epsilon$ to each example is not new, as IAAT \citep{iaat}, MMA \citep{mma} and
+CAT \citep{cat} all do so.
+These methods assign the radius from the difficulty of the example or from its margin in input space,
+whereas \Cref{eqn:angeps_ideal} assigns it from the input sensitivity of the training loss, which is
+the geometry the objective is written in.
+The difference is not one of dispersion, since all three signals are dispersed on the shipped recipe
+and ours is in fact the least dispersed of them (\Cref{app:box}).
+What separates the rules is the geometry along which the budget is spread, and the experiments in
+\Cref{sec:experiments} therefore compare competing allocations rather than an allocation against its
+absence.%
 % CV figures measured 2026-09-04 from the batch-0 log line of champ_diffrank_l2 (sensitivity, 99
 % epochs) and champ_diffeps_l2 (difficulty, 99 epochs).  The earlier claim here -- difficulty CV 0.03 against
 % sensitivity 0.64, i.e. "allocating by difficulty is close to allocating uniformly" -- was measured
@@ -156,23 +168,26 @@ competing allocations rather than an allocation against its absence.%
 % teacher's scale, so that argument does not transfer and the sentence was retired rather than
 % requoted.  The permutation result below does not depend on it, and is stronger without it.
 
-The distinction is testable without confounding it with the budget. Holding the exact multiset of
-weights \Cref{eqn:angeps_ideal} produces---same values, same clip, same mean, therefore the same total
-attack budget---and only reassigning which example receives which, ordered by difficulty as
-IAAT and CAT would, costs $0.80$ AutoAttack and falls below even the uniform baseline on AutoAttack,
-CW and NRR alike. Swapping the signal outright rather than permuting it does the same: allocating by
-difficulty magnitude, the IAAT and CAT direction, gives $28.12$, and by MMA's logit margin $27.79$,
-against $28.42$ for allocating nothing (\Cref{tab:allocation}). Every signal the existing family
-allocates from is worse than not allocating at all, and only the loss's own input-sensitivity is
-better. The same budget in a different order moves \emph{along} the frontier; only this order moves
-the frontier itself.
+The distinction can be tested without confounding it with the budget.
+We hold the exact multiset of weights that \Cref{eqn:angeps_ideal} produces, so that the values, the
+clip and the mean are unchanged, and only reassign which example receives which weight in the order
+that IAAT and CAT would use.
+The reassignment alone costs $0.80$ points of AutoAttack accuracy and falls below the uniform
+baseline on AutoAttack, CW and NRR alike.
+Replacing the signal outright by difficulty magnitude or by the logit margin of MMA is likewise worse
+than allocating nothing (\Cref{tab:allocation}).
+Among the signals we tested, only the input sensitivity of the loss improves on a uniform radius.
 
-\Cref{alg:cfa} states the procedure in full. Training the natural teacher is the only place labels
-appear and is ordinary supervised training; the anchored phase uses none, since the teacher vector
-$\phi_i$ is the entire supervisory signal, read once per example at the clean input, with the
-classifier carried through untouched. The method introduces no loss weight, no temperature and no
-auxiliary head, and the only quantity we vary between datasets is the teacher checkpoint.
+\Cref{alg:cfa} states the procedure in full.
+Training the natural teacher is ordinary supervised training and is the only place where labels
+appear.
+The anchored phase uses no labels at all, because the teacher vector $\phi_i$ read once per example at
+the clean input is the entire supervisory signal, and the classifier is carried through untouched.
+The method introduces no loss weight, no temperature and no auxiliary head, and the teacher checkpoint
+is the only quantity we vary between datasets.
 
-\paragraph{Caveats.} \Cref{eqn:firstorder} asks for the $\ell_1$ norm and our runs use $\ell_2$; both
-were trained and agree within noise. And $g_i$ is a single backward pass at the clean $x_i$, so it is
-the sensitivity at the attack's starting point rather than along its trajectory.
+\paragraph{Caveats.}
+\Cref{eqn:firstorder} is derived for the $\ell_1$ norm while our runs read the gradient in $\ell_2$,
+and the gap between the two is small but larger than our seed spread, as reported in \Cref{app:box}.
+The sensitivity $g_i$ is also a single backward pass at the clean $x_i$, so it measures the sensitivity
+at the starting point of the attack rather than along its trajectory.

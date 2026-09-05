@@ -301,3 +301,26 @@ paragraph says what was done, the reader has to hold it unexplained until the pa
 **Rule 12.** No sentence exists to set up the next one. Every rhetorical fragment in the list above
 was there to make the following sentence land, and each one was deletable without losing content.
 
+## F5 --- The method section, same pass (2026-09-05)
+
+**Removed.** `We remove the demand instead.` / `The ball no longer has to reach full confidence
+anywhere; it only has to land on that vector.` / `No label term, no logit term, and no coefficient
+joining them.` (fragment, folded into the preceding sentence) / `The same budget in a different order
+moves along the frontier; only this order moves the frontier itself.` (rhetorical closer) / `It is
+what supplies a target that is accurate` (sentence-initial `It`).
+
+**Measurements moved out.** The teacher's $63.8^\circ$ rotation now cites \Cref{sec:analysis}; the
+degenerate-control pair `76.11 / 0.00` keeps only the number that carries the argument; the three
+CV figures and the four before/after deltas for $\ell_1$ against $\ell_2$ now cite \Cref{app:box}.
+The section states design and cites the section that establishes each measurement.
+
+**Purpose before mechanism.** `Equalizing the movement` used to open with the dual-norm identity. It
+now opens with why the radius is assigned per sample, and the identity follows.
+
+**A contradiction fixed.** The caveats paragraph said the $\ell_1$ and $\ell_2$ runs `agree within
+noise`, which the corrected text three paragraphs above contradicts ($0.29$ AutoAttack against a
+$0.12$ seed spread). The caveat now states the gap is small but larger than the seed spread.
+
+Result: 1522 words, longest non-mathematical sentence 39 words, no sentence over two commas outside a
+citation or a display.
+
