@@ -354,3 +354,25 @@ staging around them.
 it is false` in bold reads as a performance; `The prediction is not borne out` says the same thing and
 lets the measurement that follows do the work.
 
+## F7 --- The whole paper was rendering without bold (2026-09-05)
+
+> "setup, baselines and evaluation 이런 건 보통 textbf 이런 걸로 하지 않아? 뭐 다른 논문들 좀 봐봐"
+
+The headings were already `\paragraph`, which the ICLR style defines as bold run-in, so the source was
+right and the output was wrong. Checking the fonts actually embedded in the PDF, page 10 carried
+`LMRoman10-Regular` and `NimbusSanL-Bold` and no bold serif at all.
+
+**Cause.** `\usepackage{style/iclr2025_conference,times}` requests the `ptm` family, which has no TU
+(unicode) shapes under this engine. The log had been saying so for a long time --- `Font shape
+TU/ptm/b/n undefined`, `TU/ptm/m/it undefined`, `TU/ptm/m/sc undefined` --- and every one of those
+substituted LM Roman regular silently. All $90$ occurrences of `\textbf`, every `\emph`, every
+`\textsc` and every bold table row were rendering as plain text.
+
+**Fix.** `\usepackage[T1]{fontenc}` before the style, which takes the legacy path where `ptm` has its
+full set of shapes. The PDF now embeds `NimbusRomNo9L-Medi` (Times Bold) on 24 pages and
+`NimbusRomNo9L-ReguItal` for italics, and the font warnings are gone. The paper is also a page
+shorter, Times being narrower than the substitute.
+
+**Rule 14.** A font warning is a rendering bug, not noise. Check the fonts embedded in the output, not
+the markup in the source: `pypdf` over `page['/Resources']['/Font']` lists what actually got used.
+

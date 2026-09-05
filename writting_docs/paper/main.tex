@@ -3,6 +3,11 @@
 % 2027 .sty/.bst into style/ and change the two lines naming them.  Nothing else depends on the
 % year.  Layout: this file + N_Section.tex are the manuscript, style/ is the venue kit, *.bib the
 % bibliography, notes/ the prose companions that are NOT part of the build.
+% 2026-09-05: the `times` option requests the ptm family, which has no TU (unicode) shapes under
+% this engine, so every shape fell back to LM Roman regular and \textbf, \emph and \textsc were
+% silently rendering as regular text -- paragraph headings and bold table rows included.  Forcing T1
+% takes the legacy path, where ptm has its full set of shapes.
+\usepackage[T1]{fontenc}
 \usepackage{style/iclr2025_conference,times}
 
 % Optional math commands from https://github.com/goodfeli/dlbook_notation.
