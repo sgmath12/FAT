@@ -5,7 +5,7 @@ This accuracy gap has motivated a line of work that brings a naturally trained n
 adversarial training.
 Existing methods distill its logits into the robust model or add its predictions as an auxiliary
 regularizer beside the label loss.
-We likewise employ a naturally trained network, but we exploit it far more directly: the label loss is
+We also employ a naturally trained network, but we exploit it far more directly: the label loss is
 discarded entirely and the backbone is trained against the natural network alone.
 In this paper, we propose Clean Feature Anchoring (CFA), which anchors the adversarial feature of the
 student to the clean feature of the teacher rather than to its logits.

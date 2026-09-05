@@ -262,3 +262,8 @@ No published method is ahead on both axes.
     else it holds, in the reference abstracts' form.
 
 Result: 212 words, longest sentence 31 words, no sentence over 2 commas.
+
+**Pass 6 --- one word.** `We likewise employ` --- `likewise` is not a word that appears in this
+literature. Changed to `We also employ`. **Rule: if a connective cannot be recalled from a paper in
+the field, it is the wrong connective, however correct it is.**
+
