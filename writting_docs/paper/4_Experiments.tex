@@ -257,7 +257,7 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
     AdaAD + IGDM\ddg                     & 48.25 & 19.48 & 27.75 & & 85.01 & 45.50 & 59.27 &  \\
     \midrule
     PGD-AT, initialized at the teacher   & 57.73 & \textbf{26.46} & 36.29 & & 82.23 & \textbf{50.72} & 62.74 &  \\
-    CFA (ours), no WA/AWP                & 61.21 & 25.24 & 35.74 & & -- & -- & -- &  \\
+    CFA (ours), no WA/AWP                & 61.29 & 25.36 & 35.88 & & -- & -- & -- &  \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -339,7 +339,7 @@ arm is the $62.17/28.86/39.42$ reported everywhere else.
     \quad read at $x_{\mathrm{adv}}$ instead  & \textbf{76.11} & 0.00 & 0.00 & \textbf{0.00} & 0.00 \\
     \midrule
     \multicolumn{6}{l}{\emph{(b) the anchor against label CE, same regime} (100 epochs)} \\
-    Anchor                                    & \textbf{61.21} & \textbf{31.26} & \textbf{26.82} & \textbf{25.24} & \textbf{35.74} \\
+    Anchor                                    & \textbf{61.29} & \textbf{28.23} & \textbf{27.19} & \textbf{25.36} & \textbf{35.88} \\
     \quad label cross-entropy instead         & 54.60 & 20.60 & 21.21 & 19.45 & 28.68 \\
     \bottomrule
   \end{tabular}
@@ -359,7 +359,8 @@ only thing standing between this objective and a degenerate one.
 cross-entropy row carries them too, but the \emph{anchor} has never been asked what it does with
 neither. \Cref{tab:controls}(b) asks. At the anchor's own base regime---same teacher initialization,
 same schedule, same training radius, no sensitivity-matched $\epsilon$, no weight averaging, no
-AWP---replacing the anchor with label cross-entropy costs $6.61$ clean \emph{and} $5.79$ AutoAttack.
+AWP, and the classifier inherited and untrained as the shipped recipe leaves it---replacing the anchor
+with label cross-entropy costs $6.69$ clean \emph{and} $5.91$ AutoAttack.
 The anchor is therefore not merely compatible with robustness, as \Cref{prop:decomp} alone would
 license; it is a source of it, and at matched stack the larger source. For scale, the shipped recipe
 leads cross-entropy \emph{with} weight averaging and AWP by $2.40$ AutoAttack.
@@ -417,7 +418,7 @@ teacher's separation because the teacher was never asked to be flat and so never
 on flatness.
 
 One objection deserves its own measurement. Cross-entropy without weight averaging robustly overfits
-at this schedule, so part of the $5.79$ could be decay rather than deficit. It does overfit---its
+at this schedule, so part of the $5.91$ could be decay rather than deficit. It does overfit---its
 PGD-20 peaks at $23.31$ near epoch $70$ and decays to $21.13$---but the anchor does not: its PGD-20
 rises monotonically to the final evaluation, $25.23 \to 28.86 \to 30.72 \to 31.47$. Measured against
 cross-entropy's \emph{best} epoch rather than its last, the anchor's \emph{final} still leads by
