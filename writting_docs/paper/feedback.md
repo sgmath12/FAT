@@ -267,3 +267,37 @@ Result: 212 words, longest sentence 31 words, no sentence over 2 commas.
 literature. Changed to `We also employ`. **Rule: if a connective cannot be recalled from a paper in
 the field, it is the wrong connective, however correct it is.**
 
+---
+
+## F4 --- The introduction, rewritten under the abstract's rules (2026-09-05)
+
+> "지금 인트로 메소드 모두 다 약간 처음 앱스트랙션처럼 개판이야."
+> "철저히 논리적 구조 따르면서 접속사 선택, 너무 짧은 문장 지양, 너무 많은 콤마 사용 지양, 왜 이런 걸 하는지에 대한 근거 혹은 목적."
+
+**The pattern behind every note so far.** The prose was written as an essay rather than as a paper:
+rhythm instead of structure, a short rhetorical sentence after a long one, asides addressed to the
+reader, and evidence placed where the eye falls (abstract, captions) rather than in the section that
+establishes it.
+
+**What was fixed in `1_Intro.tex`.**
+
+| Symptom | Instances removed |
+|---|---|
+| rhetorical fragment | `Its cost, however, is standard accuracy.` / `The two lines leave a gap between them.` / `It survives one layer earlier, and that is where we put the anchor.` / `Two consequences follow from the form alone.` |
+| overclaimed setup | `remains the most reliable` (now `most reliable under strong evaluation`), `the principal obstacle to deploying` (now `a major limitation`) |
+| aside to the reader | `drawn for reading rather than fitted for a claim`, `so it is ahead on both axes rather than trading one for the other`, `no method in this setting exceeds ours on both axes` |
+| caption carrying the results | `fig:frontier` cut from 131 words with six number pairs to 54 words with none (F2 had been recorded and then broken in a figure) |
+| intermediate measurements | `0.820`, `0.016`, `20.84`, `24.48`, `58`, `77.66`, and the three AD-on-natural-teacher numbers, all deferred to \Cref{sec:analysis} |
+| wrong position in the literature | `Three lines of work come close` (ARREST, DP-FAT, B-MTARD as near misses) becomes `We also employ a naturally trained network, but we exploit it far more directly`, matching the abstract |
+| purpose missing | the radius paragraph now opens with why (`in order to equalize what the attack accomplishes on the quantity the objective actually measures`) before what |
+
+**Sentence budget after the pass.** 1154 words. Four sentences over 32 words remain, and no sentence
+carries more than two commas outside a citation list. The longest sentences are the two that state
+the bound and the two that state the headline numbers, which is where length is earned.
+
+**Rule 11.** A paragraph states its purpose before its mechanism. If the first sentence of a
+paragraph says what was done, the reader has to hold it unexplained until the paragraph ends.
+
+**Rule 12.** No sentence exists to set up the next one. Every rhetorical fragment in the list above
+was there to make the following sentence land, and each one was deletable without losing content.
+
