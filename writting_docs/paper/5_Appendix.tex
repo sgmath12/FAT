@@ -332,6 +332,15 @@ name is \emph{sensitivity-matched} $\epsilon$ rather than an angular budget. Wha
 IAAT, MMA and CAT is not directionality but the signal: they allocate from a property of the sample,
 this allocates from the geometry the training loss is written in.
 
+The separation is not one of dispersion, which is worth stating because a rule that simply spread the
+budget more aggressively would be the simpler explanation of any gain. Measured over training on the
+shipped configuration, the coefficient of variation of our sensitivity signal has median $0.56$,
+against $0.75$ for the difficulty score IAAT and CAT allocate from and $1.33$ for the logit margin of
+MMA. The box of this section compresses all three before they reach the attack, leaving per-sample
+multipliers of spread $0.32$, $0.39$ and $0.42$ respectively, and the ordering survives the
+compression. Ours is the least dispersed of the three signals either way, so the comparison in
+\Cref{tab:allocation} is a comparison of which geometry the budget follows.
+
 One discrepancy is ours to declare rather than the reader's to find. \Cref{eqn:dual} gives the
 $\ell_1$ norm and the implementation reads $\ell_2$, for no better reason than that the cell which
 fixed the recipe used it and every logged run since had to stay reproducible against that choice. The
