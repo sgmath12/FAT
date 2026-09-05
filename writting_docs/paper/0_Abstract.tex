@@ -1,21 +1,20 @@
 \begin{abstract}
-Adversarial training significantly improves adversarial robustness, yet robust models attain
-substantially lower standard accuracy than naturally trained ones. A naturally trained network of the
-same architecture retains that accuracy and costs nothing adversarial to obtain. Existing methods add
-such a network to adversarial training as an auxiliary target beside the label loss, and the weight
-between them has to be tuned. In contrast to these approaches, we remove the label loss and make the
-natural network the sole target of the backbone.
-
-In this paper, we propose Clean Feature Anchoring (CFA), which anchors the student's adversarial
-feature to the teacher's clean feature. The anchor is read one layer before the softmax, because a
-natural teacher's logits do not carry the accuracy they encode. We prove that this single term
-controls fidelity to the teacher and local stability of the student within a constant factor, so no
-coefficient balances them. We further set the per-sample attack radius from the input sensitivity of
-the loss under a fixed total budget. The resulting objective requires no temperature, no loss weight
-and no trained classifier.
-
-Experimental results show that CFA recovers standard accuracy without giving up robustness.
+Adversarial training significantly improves adversarial robustness, but robust models attain
+substantially lower standard accuracy than naturally trained ones.
+This accuracy gap has motivated a line of work that brings a naturally trained network into
+adversarial training.
+Existing methods distill its logits into the robust model or add its predictions as an auxiliary
+regularizer beside the label loss.
+We likewise employ a naturally trained network, but we exploit it far more directly: the label loss is
+discarded entirely and the backbone is trained against the natural network alone.
+In this paper, we propose Clean Feature Anchoring (CFA), which anchors the adversarial feature of the
+student to the clean feature of the teacher rather than to its logits.
+We prove that this single objective bounds both fidelity to the teacher and local stability of the
+student up to a constant factor, so that no balancing coefficient is required.
+We further assign the attack radius per sample according to the input sensitivity of the loss under a
+fixed total budget, which concentrates the anchor where the feature is most fragile.
+Experimental results show that CFA recovers standard accuracy without sacrificing robustness.
 Particularly, CFA attains $62.17\%$ standard accuracy at $28.86\%$ AutoAttack accuracy on CIFAR-100
-with ResNet-18 and transfers unchanged to CIFAR-10 and Tiny-ImageNet. No published method is ahead on
-both axes.
+with the ResNet-18 architecture, and consistent improvements are observed on CIFAR-10 and
+Tiny-ImageNet.
 \end{abstract}

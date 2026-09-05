@@ -183,3 +183,82 @@ sentence, `sacrifice` repeated from the opening, and a closing sentence carrying
 | abstract length | 150--200 words, against IGDM's 150 |
 
 Result: 337 words and 6 embedded measurements, down to 224 words and one pair of final numbers.
+
+
+Adversarial training significantly improves adversarial robustness, yet robust models attain
+substantially lower standard accuracy than naturally trained ones.
+A naturally trained network of the same architecture retains that accuracy and costs nothing adversarial to obtain.
+>> 굳이 ? 첫째로, 이건 너무 당연한 거고 이미 문제점은 언급함 (로버스트 모델은 lower standard accuracy). 둘재로,  costs nothing adversarial to obtain. 이게 전혀 학술적이지 않아 . 일단 nothing adversarial 이라는 게 너무 애매해
+
+Existing methods add such a network to adversarial training as an auxiliary target beside the label loss, and the weight
+between them has to be tuned.
+
+>> such a network 가 뭐니 애매하잖아. 그냥 existing mehthods adds a addtional regularization to loss to enhance clean accuracy or utilize natural model's logit to enhancw ~~~ 뭐 이런식으로 해야지.
+
+
+In contrast to these approaches, we remove the label loss and make the natural network the sole target of the backbone.
+
+>> 우리도 비슷하게 내츄럴 모델을 이용하는데, 우리는 좀 더 간단하지만 성능적으론 그렇지 않은, 혹은 더 내츄럴모델을 훨씬 더 잘이용하는 방법을 이용한다. 뭐 이렇게 해야지.
+
+In this paper, we propose Clean Feature Anchoring (CFA), which anchors the student's adversarial
+feature to the teacher's clean feature.
+
+
+
+The anchor is read one layer before the softmax, because a natural teacher's logits do not carry the accuracy they encode.
+>> 여기도 좀 이상해. beacuase 이렇게 시작하는게 다소 논문스럽지않고, one layer before the softmax라 할 필요가없어 그냥 feature라 하면 돼. 저게 유일한것도아니고.  그리고 티처 의 로짓이 do not carry eht accuracy they eocnde ㅇ이것도 좀 추상적이야.
+
+We prove that this single term controls fidelity to the teacher and local stability of the student within a constant factor, so no coefficient balances them.
+>> 문장 자체가 좀 단어도 그렇고 학술적인 느낌이 아니야. 뭐랄까 cvpr iclr 에 이런문장 안나올거같아.
+
+We further set the per-sample attack radius from the input sensitivity of
+the loss under a fixed total budget.
+>> 왜 추가했어? under a fixe total budget to utilize ~ to enhance ~ to 극대화하다~ to 우리가 제안한 로스를 좀 더 최적화햇따~ 등
+
+The resulting objective requires no temperature, no loss weight and no trained classifier.
+
+>> 이건 일단 좀 약해. 굳이야. 
+
+Experimental results show that CFA recovers standard accuracy without giving up robustness.
+>> giving up 이게 오바잖아 without sacrifying 이라하던지
+
+Particularly, CFA attains $62.17\%$ standard accuracy at $28.86\%$ AutoAttack accuracy on CIFAR-100
+with ResNet-18 and transfers unchanged to CIFAR-10 and Tiny-ImageNet.
+
+>>ㅇ이것도 갑자기 잘 쓰다가 뭔 transfer uncahnged to 이게뭐야 대체
+
+No published method is ahead on both axes.
+
+>> 너 진심 이런 문장이 학회 앱스트랙션에 나올거같냐. 정신차려라.
+
+
+### F3c --- pass 5, the eight inline notes on the fourth draft
+
+| # | Feedback | What changed |
+|---|---|---|
+| 1 | `A naturally trained network ... costs nothing adversarial to obtain` --- obvious, and `nothing adversarial` is not a phrase | Sentence deleted. The problem was already stated by the opening |
+| 2 | `such a network` is vague; say what existing methods actually do | Replaced by two sentences: the gap motivated bringing a natural network in, and `Existing methods distill its logits into the robust model or add its predictions as an auxiliary regularizer beside the label loss` |
+| 3 | The contrast should be *we use it too, but better*, not *we are different* | `We likewise employ a naturally trained network, but we exploit it far more directly` |
+| 4 | `read one layer before the softmax, because ...` --- do not open with `because`, say `feature`, and the logit claim is vague | Whole clause dropped; the contrast is now inside the CFA sentence, `rather than to its logits` |
+| 5 | The proposition sentence does not read like a paper | `bounds both fidelity to the teacher and local stability of the student up to a constant factor, so that no balancing coefficient is required` |
+| 6 | The radius sentence never says what it is for | Purpose clause added: `which concentrates the anchor where the feature is most fragile` |
+| 7 | `requires no temperature, no loss weight and no trained classifier` is weak | Deleted. Simplicity is already carried by `the label loss is discarded entirely` |
+| 8 | `without giving up robustness` | `without sacrificing robustness` |
+| 9 | `transfers unchanged to CIFAR-10 and Tiny-ImageNet` | `consistent improvements are observed on CIFAR-10 and Tiny-ImageNet`, following IGDM's closing form |
+| 10 | `No published method is ahead on both axes.` does not belong in a conference abstract | Deleted |
+
+**Rules added.**
+
+7. **Position the contribution inside the line of work it belongs to, not outside it.** If we use the
+   same ingredient as prior work, say so and claim the better use of it. `In contrast to these
+   approaches` is for a different ingredient (IGDM: logits vs.\ input gradient); it is the wrong
+   frame when the ingredient is shared.
+8. **Every design choice in an abstract carries its purpose in the same sentence.** A sentence that
+   only says what was done invites the question the reader then asks of the whole method.
+9. **A negative list is not a contribution.** `no temperature, no loss weight, no classifier` states
+   absence; the positive form (`the label loss is discarded entirely`) says the same thing as a
+   decision.
+10. **Nothing rhetorical in the last sentence.** The final sentence is the headline number and where
+    else it holds, in the reference abstracts' form.
+
+Result: 212 words, longest sentence 31 words, no sentence over 2 commas.
