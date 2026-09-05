@@ -486,6 +486,47 @@ comparison with adversarial distillation is favourable in a way the table unders
 rows assume a robust teacher that the current literature obtains from a WideResNet trained on
 generated data, which is more expensive than every row here combined.
 
+\section{The Recipe Controls}
+\label{app:recipe}
+
+Every anchored cell in this paper warm-starts from the natural teacher and trains with AdamW at
+$0.021$ under a one-cycle schedule, while the baselines of \Cref{tab:main} run at their authors'
+recipes. Two objections follow from that asymmetry, and \Cref{tab:recipe} answers both. The first is
+that our recipe is what wins; the second is that the baselines would win with it. Every row is
+measured here at the base regime, which carries no weight averaging, no AWP and a uniform radius, on
+CIFAR-100 with ResNet-18 for 100 epochs.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{The recipe controls. \emph{Ours} is AdamW at $0.021$ under a one-cycle schedule with the
+  teacher warm start; \emph{theirs} is SGD at $0.1$ decayed by ten at epochs $70$ and $90$, which is
+  PGD-AT's schedule here and the one the distillation baselines use. The training radius and every
+  other field are held fixed within each pair.}
+  \label{tab:recipe}
+  \begin{tabular}{llrrrr}
+    \toprule
+    Objective & Recipe & Clean & AA & Avg & NRR \\
+    \midrule
+    Anchor              & ours, teacher init   & \textbf{61.29} & 25.36 & \textbf{43.33} & \textbf{35.88} \\
+    Anchor              & ours, random init    & 60.81 & 25.21 & 43.01 & 35.66 \\
+    Anchor              & theirs, teacher init & 59.65 & \textbf{25.54} & 42.60 & 35.77 \\
+    \midrule
+    Label cross-entropy & ours, teacher init   & 54.60 & 19.45 & 37.03 & 28.68 \\
+    Label cross-entropy & theirs, teacher init & 56.66 & 20.91 & 38.79 & 30.55 \\
+    \midrule
+    AdaAD               & ours, teacher init   & 56.51 & 22.43 & 39.47 & 32.11 \\
+    AdaAD               & theirs, random init  & 59.79 & 23.19 & 41.49 & 33.42 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The anchor moves by $0.22$ NRR between initializations and by $0.11$ between schedules, against a
+seed-to-seed spread of $0.12$ measured in \Cref{app:repro}, so neither is where its result comes from.
+Cross-entropy moves by $1.87$ NRR between the two schedules, which is the more important number: our
+schedule is not the best one for cross-entropy, and the base-regime comparison in
+\Cref{tab:controls} is therefore read against the stronger of its two rows. AdaAD loses $1.31$ NRR
+when given our recipe, so the recipe is not a general improvement that the baselines were denied.
+
 \section{Notes on the Baselines}
 \label{app:baselines}
 

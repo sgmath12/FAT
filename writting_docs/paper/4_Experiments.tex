@@ -312,6 +312,7 @@ arm is the $62.17/28.86/39.42$ reported everywhere else.
     \multicolumn{6}{l}{\emph{(b) the anchor against label CE, same regime} (100 epochs)} \\
     Anchor                                    & \textbf{61.29} & \textbf{28.23} & \textbf{27.19} & \textbf{25.36} & \textbf{35.88} \\
     \quad label cross-entropy instead         & 54.60 & 20.60 & 21.21 & 19.45 & 28.68 \\
+    \quad label cross-entropy, own schedule   & 56.66 & 22.46 & 22.91 & 20.91 & 30.55 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -334,6 +335,12 @@ $\epsilon$, no weight averaging, no AWP and the classifier inherited and untrain
 recipe leaves it.
 Replacing the anchor with label cross-entropy under those conditions costs $6.69$ points of standard
 accuracy and $5.91$ of AutoAttack accuracy.
+Our schedule is not the best one for cross-entropy, however, so the row below it gives cross-entropy
+its own optimizer and schedule instead (SGD at $0.1$, decayed by ten at epochs $70$ and $90$, which is
+what PGD-AT uses here) while keeping the teacher initialization and the training radius.
+Cross-entropy gains $2.06$ standard accuracy and $1.46$ AutoAttack accuracy from the change, and the
+anchor's lead against that stronger row is $4.63$ and $4.45$, which is the comparison we read
+everywhere in this paper.
 The anchor is therefore a source of robustness rather than merely compatible with it, which is more
 than \Cref{prop:decomp} on its own licenses, and it is the larger source at matched stack.
 For scale, the shipped recipe leads cross-entropy with weight averaging and AWP by $2.40$ points of
@@ -352,6 +359,20 @@ The temperature also ceases to be a free parameter under the stack, as $\tau = 1
 $0.48$ points of AutoAttack accuracy without it and collapses to $42.45 / 20.10$ with it. PGD-20 is the one metric that prefers the logit target
 ($33.68$ against $32.37$), for the reason \Cref{app:fullmetrics} gives: it ascends the cross-entropy
 through a head the logit objective has trained and the feature objective has left alone.
+
+\paragraph{Is the gain the recipe rather than the objective?}
+Our cells warm-start from the natural teacher and train with AdamW at $0.021$ under a one-cycle
+schedule, and the baselines of \Cref{tab:main} run at their own published recipes, so the result could
+be read as a recipe that suits us rather than an objective that works.
+Three measurements answer that reading and are collected in \Cref{tab:recipe}.
+The warm start is worth little, as the anchor trained from random initialization reaches
+$60.81 / 25.21$ against $61.29 / 25.36$ warm-started.
+The schedule is worth little to the anchor and something to cross-entropy: moving both to PGD-AT's own
+optimizer and schedule moves the anchor by $-0.11$ NRR and cross-entropy by $+1.87$, and the anchor
+leads on either schedule.
+Handing our recipe to a baseline does not help it, since AdaAD given our optimizer, our schedule, our
+warm start and our training radius falls to $56.51 / 22.43$ from the $59.79 / 23.19$ it reaches at its
+own recipe.
 
 \paragraph{Where that robustness comes from, and where it does not.} The natural explanation is local stability, since \Cref{prop:decomp} bounds the oscillation $O$ of
 the student by the anchor's own loss, so that an anchored student should move less inside the ball
@@ -395,7 +416,7 @@ that is, and the anchored student inherits the separation of a teacher that was 
 and therefore never spent capacity on flatness.
 
 One alternative reading requires its own measurement, since cross-entropy without weight averaging
-robustly overfits at this schedule and part of the $5.91$ could be decay rather than deficit.
+robustly overfits under our schedule and part of the gap could be decay rather than deficit.
 Cross-entropy does overfit, as its PGD-20 accuracy peaks at $23.31$ near epoch $70$ and decays to
 $21.13$, whereas the anchor rises monotonically to the final evaluation
 ($25.23 \to 28.86 \to 30.72 \to 31.47$).

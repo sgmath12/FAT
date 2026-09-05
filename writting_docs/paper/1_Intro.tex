@@ -133,7 +133,8 @@ Our contributions are summarized as follows:
     requires no loss weight, no temperature and no per-dataset tuning. Robustness remains attributable
     to the inner maximization of the student, and the choice of what that maximization ascends is
     consequential: without weight averaging, AWP or the radius rule, the anchor exceeds label
-    cross-entropy by $5.91$ points of AutoAttack accuracy under an identical schedule.
+    cross-entropy by $4.45$ points of AutoAttack accuracy, measured against cross-entropy at its
+    own optimizer and schedule rather than ours.
   \item We establish a new accuracy--robustness frontier on CIFAR-10, CIFAR-100 and Tiny-ImageNet, and
     we show that the gain does not come from weight averaging or AWP, since CFA with weight averaging
     alone and half the schedule already exceeds the best published result that uses both.
