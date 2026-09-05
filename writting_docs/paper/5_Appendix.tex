@@ -516,6 +516,8 @@ CIFAR-100 with ResNet-18 for 100 epochs.
     \midrule
     AdaAD               & ours, teacher init   & 56.51 & 22.43 & 39.47 & 32.11 \\
     AdaAD               & theirs, random init  & 59.79 & 23.19 & 41.49 & 33.42 \\
+    RSLAD               & ours, teacher init   & 54.93 & 19.44 & 37.19 & 28.72 \\
+    RSLAD               & theirs, random init  & 59.68 & 21.30 & 40.49 & 31.40 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -524,8 +526,67 @@ The anchor moves by $0.22$ NRR between initializations and by $0.11$ between sch
 seed-to-seed spread of $0.12$ measured in \Cref{app:repro}, so neither is where its result comes from.
 Cross-entropy moves by $1.87$ NRR between the two schedules, which is the more important number: our
 schedule is not the best one for cross-entropy, and the base-regime comparison in
-\Cref{tab:controls} is therefore read against the stronger of its two rows. AdaAD loses $1.31$ NRR
-when given our recipe, so the recipe is not a general improvement that the baselines were denied.
+\Cref{tab:controls} is therefore read against the stronger of its two rows. AdaAD loses $1.31$ NRR when given our recipe and RSLAD loses $2.68$, so the recipe is not a general
+improvement that the baselines were denied.
+
+\section{Gradient Masking}
+\label{app:gradmask}
+
+The AutoAttack numbers reported in this paper run APGD-CE followed by APGD-T on the full test set. Both
+are white-box gradient attacks, and the objective we train reads neither labels nor logits, so the
+question of whether the robustness is an artifact of obscured gradients has to be answered rather than
+asserted. \Cref{tab:gradmask} runs the checks of \citet{athalye2018obfuscated} on the shipped
+CIFAR-100 cell. FAB-T and Square are evaluated on the first $1000$ test examples, which is the usual
+convention for the two expensive attacks; everything else uses all $10000$.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{Gradient-masking checks on the shipped CIFAR-100 cell (clean accuracy $62.00$). Each
+  attack is run independently at $\epsilon = 8/255$, so the numbers are standalone rather than the
+  cascade AutoAttack reports. The teacher-transfer row builds PGD-20 examples on the natural teacher
+  and evaluates them on the student, which shares the teacher's classifier.}
+  \label{tab:gradmask}
+  \begin{tabular}{llr}
+    \toprule
+    Check & Setting & Accuracy \\
+    \midrule
+    \multicolumn{3}{l}{\emph{white box against black box}, $n = 1000$} \\
+    APGD-CE            & white box, untargeted & 30.20 \\
+    APGD-T             & white box, targeted   & \textbf{28.00} \\
+    FAB-T              & white box, boundary   & 28.70 \\
+    Square             & \textbf{black box}, 5000 queries & 32.80 \\
+    \midrule
+    \multicolumn{3}{l}{\emph{radius sweep}, PGD-20, $n = 10000$} \\
+    $\epsilon = 2/255$  & & 54.62 \\
+    $\epsilon = 4/255$  & & 47.03 \\
+    $\epsilon = 8/255$  & & 32.46 \\
+    $\epsilon = 12/255$ & & 20.88 \\
+    $\epsilon = 16/255$ & & 11.94 \\
+    $\epsilon = 32/255$ & & 1.05 \\
+    $\epsilon = 64/255$ & & \textbf{0.00} \\
+    \midrule
+    \multicolumn{3}{l}{\emph{step sweep}, $\epsilon = 8/255$, $n = 10000$} \\
+    PGD-10 / 20 / 50 / 100 & & 33.17 / 32.57 / 32.30 / 32.24 \\
+    \midrule
+    \multicolumn{3}{l}{\emph{transfer}, $n = 10000$} \\
+    Natural teacher $\rightarrow$ student & PGD-20 built on the teacher & 60.42 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Four things follow. The black-box attack is the weakest of the four, by $4.80$ points against the
+strongest white-box one, where masked gradients produce the opposite ordering. Accuracy falls
+monotonically with the radius and reaches exactly zero at $64/255$, so there is no radius at which the
+attack stops working. Accuracy falls monotonically with the number of steps and flattens by $50$,
+rather than oscillating. And APGD-T, which is the attack our reported number is decided by, is the
+strongest of the four here.
+
+The transfer row is worth reading separately. The student inherits the teacher's classifier and is
+initialized at the teacher's features, so adversarial examples built on the teacher might be expected
+to carry over; they cost the student $1.58$ points against its clean accuracy. Sharing a head is
+therefore not sharing a vulnerability, which is the same conclusion \Cref{sec:components} reaches from
+class separation: what the anchored student changes is where features sit, and the teacher's own
+adversarial directions do not point at the student's boundaries.
 
 \section{Notes on the Baselines}
 \label{app:baselines}

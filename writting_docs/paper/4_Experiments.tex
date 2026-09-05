@@ -374,6 +374,15 @@ Handing our recipe to a baseline does not help it, since AdaAD given our optimiz
 warm start and our training radius falls to $56.51 / 22.43$ from the $59.79 / 23.19$ it reaches at its
 own recipe.
 
+\paragraph{Is the robustness real?}
+Our objective reads neither labels nor logits, which makes obscured gradients a natural suspicion, and
+the reported AutoAttack number is decided by two white-box attacks.
+We therefore run the checks of \citet{athalye2018obfuscated} on the shipped cell (\Cref{app:gradmask}):
+the black-box Square attack is $4.80$ points weaker than the strongest white-box attack rather than
+stronger, accuracy falls monotonically in both the radius and the number of steps and reaches exactly
+zero at $64/255$, and adversarial examples built on the natural teacher cost the student $1.58$ points
+even though it inherits that teacher's classifier.
+
 \paragraph{Where that robustness comes from, and where it does not.} The natural explanation is local stability, since \Cref{prop:decomp} bounds the oscillation $O$ of
 the student by the anchor's own loss, so that an anchored student should move less inside the ball
 than one trained on labels.
