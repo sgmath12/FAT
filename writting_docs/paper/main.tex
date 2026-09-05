@@ -25,6 +25,19 @@
 \usepackage{algorithmic}
 
 \usepackage{array}
+% FLOAT PLACEMENT (2026-09-05).  Every table was declared [t] and there are seven in the experiments
+% section alone, so LaTeX ran out of top slots, deferred them, and dumped the queue at the end of the
+% document -- tab:ladder and tab:controls were landing on page 25 of a 13-page body.  Widening the
+% float parameters gives the placement algorithm room, and placeins puts a barrier at each section so
+% a float can no longer cross out of the section that declares it.
+\usepackage[section]{placeins}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.06}
+\renewcommand{\floatpagefraction}{0.7}
 \usepackage{sidecap}
 \usepackage{xcolor}   % [table] dropped: another package loads xcolor first, and we use no row colours
 

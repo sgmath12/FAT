@@ -191,7 +191,7 @@ The tables below are referred to from the main text and are placed here for spac
 same measurements under the same protocol; nothing is reported here that is not stated in the main
 body.
 
-\begin{table}[h]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Local linearity, which IGDM's construction requires of the teacher: remainder proportion of
   the first-order Taylor expansion over an $\epsilon=8/255$ ball, computed as in IGDM's Sec.~3.1.}
@@ -209,7 +209,7 @@ body.
   \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{What to do with the classifier. CIFAR-100 base regime (50 epochs, raw features, no weight
   averaging, no AWP, $\epsilon=8/255$), so that no stack component can absorb the difference.}
@@ -231,7 +231,7 @@ body.
   \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{$\epsilon_{\mathrm{train}}$ swept with everything else fixed. Evaluation is at
   $\epsilon=8/255$ in every cell.}
@@ -257,19 +257,13 @@ body.
   \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{What the per-sample radius is allocated \emph{from}. CIFAR-100, ResNet-18, $100$ epochs,
-  $\epsilon_{\mathrm{train}} = 8.8/255$, the shipped recipe throughout; every cell differs from the
-  one above it in a single configuration line and nothing else. All of them spend the same total
-  budget $N\epsilon_{\mathrm{train}}$, so the rows differ in allocation and not in attack strength.
-  $\mathrm{sd}(w)$ is the spread of the per-sample multiplier the attack actually receives --- after
-  the box and the mean restoration, so it is comparable across rows in a way the raw signals are not
-  --- reported as the median over training; the permuted row reuses the sensitivity rule's own
-  weights, hence its value. Only the
-  sensitivity signal beats allocating nothing at all --- the three signals the existing per-sample
-  family allocates from each land below the uniform row, and the most dispersed of them lands
-  lowest.}
+  \caption{What the per-sample radius is allocated \emph{from}. CIFAR-100, ResNet-18, the shipped
+  recipe, with the cells differing in one configuration line each and spending the same total budget
+  $N\epsilon_{\mathrm{train}}$. $\mathrm{sd}(w)$ is the spread of the multiplier the attack actually
+  receives, after the box and the mean restoration. Only the sensitivity signal beats allocating
+  nothing at all.}
   \label{tab:allocation}
   \begin{tabular}{lcrrrrr}
     \toprule
@@ -285,7 +279,7 @@ body.
   \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Only the teacher checkpoint changes; the student configuration is untouched. CIFAR-100,
   ResNet-18. $S_w/S_b$ is the ratio of within-class to between-class scatter on the unit sphere.}
@@ -359,6 +353,13 @@ rule's benefit survives the norm in direction and almost entirely on the clean a
 AutoAttack half does not. The honest statement is that the norm is a real choice which we made before
 we could compare, that the comparison favours what we ship, and that a reader preferring the derived
 $\ell_1$ would still get the clean gain and a third of the robust one.
+
+The permuted row of \Cref{tab:allocation} deserves its construction spelled out, since it is what makes
+the comparison a comparison of signals rather than of budgets. It takes the multiset of weights the
+gradient rule produces --- the same values, the same clip $[0.5, 1.5]$, the same restored mean --- and
+only permutes which example receives which, so that the larger radii go to the easier examples, which
+is the direction IAAT and CAT assign them. Reordering costs $0.80$ AutoAttack against the rule it
+reorders and lands below even the uniform row on AutoAttack, CW and NRR alike.
 
 \subsection{Keeping the radii in the box}
 
@@ -438,6 +439,65 @@ at all.
 epochs, of which the AutoAttack evaluation is roughly $7$ minutes; Tiny-ImageNet is longer in
 proportion to its test set.
 
+\section{Notes on the Baselines}
+\label{app:baselines}
+
+Several rows of \Cref{tab:main} run a specific variant of the method they name, or are grouped in a
+way that needs saying. This section is those decisions; the table carries none of them.
+
+\paragraph{LBGAT} trains its natural branch jointly with the robust one, so unlike the distillation
+rows its teacher is not obtained for free, and we group it accordingly. The two datasets run different
+variants because the authors publish different ones: CIFAR-100 is LBGAT6 and CIFAR-10 is LBGAT0, their
+release lists CIFAR-10 checkpoints under LBGAT0 alone, and $\beta = 6$ is their CIFAR-100 setting. We
+report the configuration each dataset has a published counterpart for rather than forcing one $\beta$
+across both.
+
+\paragraph{HAT} uses a naturally trained network only to \emph{label} helper points beyond the ball,
+never as a target, so it belongs with the trade-off methods and not the distillation ones. It is run
+on its own one-cycle schedule rather than ours, which collapses it to chance on both datasets --- the
+same allowance we make for LBGAT. On CIFAR-10 the port reproduces HAT's published no-extra-data figure
+to within $0.31$ clean and $0.27$ AutoAttack ($84.90 / 49.08$ reported, ResNet-18), which is what
+licenses reporting its CIFAR-100 row at all: HAT publishes no CIFAR-100 result without additional data,
+its $61.50 / 28.88$ being trained with DDPM-generated samples, so that column has no published figure
+to be read against.
+
+\paragraph{ADR} is run on separate hardware and its row is filled from there. Two things have to hold
+when it is. ADR reports two configurations --- AT\,+\,ADR at $56.10 / 26.87$ on CIFAR-100 and
+AT\,+\,WA\,+\,AWP\,+\,ADR at $57.36 / 28.50$ --- and the row has to name which, the second being the
+one component-matched to our recipe, which carries both weight averaging and AWP. And ADR is
+self-distillation: its teacher is an exponential moving average of the student, no external network is
+read, and the student trains from scratch, so its row inherits nothing of our natural teacher.
+
+\paragraph{What the published tables are blocked by.} \Cref{tab:published} and
+\Cref{tab:published_tin} separate their rows by network, and the separations are not cosmetic. RPAT's
+``ResNet-18'' is \texttt{ResNet(Bottleneck, [2,2,2,2])} in its released code, $14.35$M parameters
+against the $11.27$M of the standard \texttt{BasicBlock} network used by us and by ADR; they also ship
+a \texttt{pre\_resnet18} at $11.27$M and use PreActResNet-18 explicitly elsewhere, so the distinction
+is theirs. HAT's Tiny-ImageNet row is PreActResNet-18: ADR lists it under ResNet-18, but the figures
+are quoted from HAT's own Table 9, whose caption says PreAct, and HAT's code refuses anything else on
+that dataset --- same parameter count as ours, different network, and its two companions from that
+table are shown beside it. F\textsuperscript{2}AT's plain SAT baseline reaches $31.52 / 9.37$ where
+ADR's plain AT reaches $45.87 / 18.06$, a gap no difference of method explains, so its rows are
+separated too. TE's architecture we could not verify --- it is ADR's attribution to a paper we do not
+have --- and it is marked accordingly. ADR trains Tiny-ImageNet for $80$ epochs against our $100$,
+which favours us and is stated here rather than left implicit. LBGAT reports that dataset without
+AutoAttack and B-MTARD reports it on MobileNet-v2, so neither appears; CURE, ARREST and Generalist++
+do not report it at all.
+
+\paragraph{IGDM} is reported at $\alpha = 1$. Its published $\alpha = 20$ diverges to chance accuracy
+on both datasets when the teacher is natural, for the reason given in \Cref{sec:natteacher}.
+
+\paragraph{Logit anchor + our stack} is not a published method. It is our own recipe with the feature
+anchor replaced by logit KL --- the closest thing to KD\,+\,SWA \citep{kdswa} that a natural teacher
+admits, distil then average weights, with a logit target where ours is a feature one --- and it exists
+to isolate the target from the schedule. Its temperature is chosen in the baseline's favour rather
+than faithfully: plain distillation is $\tau = 1$, which is the worst of the three in
+\Cref{tab:ablation} at $20.84$ AutoAttack, and the row uses the $\tau$ that maximizes it, $4$ at
+$24.48$. The comparison is therefore against the best logit target we could find rather than the one
+the name implies. Temperature also stops being a small effect once the stack is present: the two sit
+$0.48$ apart without it, and $\tau = 16$ reaches only $42.45 / 20.10$ with it, against $\tau = 4$'s
+$56.97 / 26.96$.
+
 \section{Per-Attack Metrics}
 \label{app:fullmetrics}
 
@@ -445,7 +505,7 @@ proportion to its test set.
 accuracy and AutoAttack because those are the two axes the trade-off is defined on, and because
 PGD-20 is not a faithful reading of this method.
 
-\begin{table}[h]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Per-attack accuracy (\%) for our cells. ResNet-18, $\epsilon = 8/255$, final-epoch
   weight-averaged model, full test set.}
@@ -512,15 +572,12 @@ by other codebases, other schedules and other checkpoint-selection rules---RPAT 
 checkpoint by PGD-20 and ADR by PGD-10, where every number of ours is the final epoch---so they should
 be compared within a source rather than across.
 
-\begin{table}[h]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Published results, $\ell_\infty$, $\epsilon = 8/255$, quoted as reported. \textbf{The
-  architecture changes between blocks} and is named in each block heading: the first two are
-  ResNet-18 and are the ones comparable with \Cref{tab:main}, the next two are PreActResNet-18 and the
-  last is WideResNet-34-10. RPAT's leaderboard is reported on the latter two, so its rows are not
-  directly comparable with our ResNet-18 numbers---RPAT++ appears at $82.63/51.00$ on
-  PreActResNet-18 CIFAR-10 and at $86.76/54.97$ on WideResNet-34-10, and the WideResNet figure is the
-  comparison line for \Cref{tab:wrn}, not for \Cref{tab:main}.}
+  architecture changes between blocks} and is named in each heading; only the ResNet-18 blocks are
+  comparable with \Cref{tab:main}. These were produced by other codebases, schedules and
+  checkpoint-selection rules, so they should be compared within a source rather than across.}
   \label{tab:published}
   \begin{tabular}{llrrrrl}
     \toprule
@@ -590,24 +647,11 @@ PreActResNet-18 blocks in the other direction: RPAT++ falls to $82.63/51.00$ the
 as a defeat for RPAT would be the identical error. We state all of this as a comparison across
 codebases and architectures rather than as a controlled result, which is what \Cref{tab:main} is for.
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Published Tiny-ImageNet-200 results, ResNet-18, $\ell_\infty$, $\epsilon = 8/255$, quoted as
-  reported. Our row is strictly above all of them on both axes, and above all thirteen rows that are the same network as ours. ADR trains this dataset for $80$
-  epochs against our $100$, which favours us and is stated here rather than left implicit. Rows from
-  F\textsuperscript{2}AT and RPAT are separated because neither is comparable. RPAT's ``ResNet-18'' is
-  \texttt{ResNet(Bottleneck, [2,2,2,2])} in its released code, $14.35$M parameters against the
-  $11.27$M of the standard \texttt{BasicBlock} network used by us and by ADR---they also ship a
-  \texttt{pre\_resnet18} at $11.27$M and use PreActResNet-18 explicitly elsewhere, so the distinction
-  is theirs. F\textsuperscript{2}AT's plain SAT baseline reaches $31.52/9.37$ where ADR's plain AT
-  reaches $45.87/18.06$, a gap no difference of method explains.
-  HAT's row is separated for a different reason: ADR lists it under ResNet-18, but the numbers are
-  quoted from HAT's own Table 9, captioned ``using PreAct ResNet-18'', and HAT's code refuses anything
-  but a PreAct network on this dataset. Same $11.27$M parameters as ours, different network, so its
-  two companions from that table are shown with it. \textsuperscript{*}TE's architecture we could not
-  verify --- it is ADR's attribution to a paper we do not have. LBGAT reports this dataset without
-  AutoAttack and B-MTARD reports it on MobileNet-v2, so neither appears; CURE, ARREST and
-  Generalist++ report it not at all.}
+  reported. Our row is above all of them on both axes. The blocks are separated because the networks
+  are not the same, and \Cref{app:baselines} says how each differs.}
   \label{tab:published_tin}
   \begin{tabular}{lrrrrl}
     \toprule

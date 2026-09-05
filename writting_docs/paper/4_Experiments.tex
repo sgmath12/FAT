@@ -34,7 +34,7 @@ version) on the full test set at $\epsilon = 8/255$, with $\mathrm{Avg}$ their m
 harmonic mean; per-attack values are in \Cref{tab:fullmetrics}. All of our numbers are the final-epoch
 weight-averaged model, with no best-checkpoint selection.
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Teacher models. AutoAttack accuracy is $0$ by construction: these networks never see an
   adversarial example.}
@@ -58,48 +58,14 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 \textbf{(d)} current accuracy--robustness trade-off methods. Published numbers carry their source;
 `--' means the paper does not report that cell for this dataset and architecture.
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{2.6pt}
   \caption{Main results. ResNet-18, $\ell_\infty$, $\epsilon = 8/255$. \textbf{Every number is measured
-  in this framework}---one data pipeline, one attack implementation, one evaluation, the final-epoch
-  weight-averaged model---so the rows are comparable to each other rather than across papers, and no
-  source column is needed. \textbf{Teacher} is what the method assumes available: \emph{--} none,
-  \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
-  left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
-  calls W-Robust; NRR is the harmonic mean. \textsuperscript{j}~LBGAT trains its
-  natural branch jointly, so its teacher is not free. \textsuperscript{n}~The CIFAR-100 cell is LBGAT6 and the CIFAR-10 cell
-  is LBGAT0, which is what the authors publish for each: their release lists CIFAR-10 checkpoints
-  under LBGAT0 only, and $\beta = 6$ is their CIFAR-100 setting. We report the variant each dataset
-  has a published configuration for rather than forcing one $\beta$ across both. \textsuperscript{o}~HAT is run on its own one-cycle schedule rather than ours, which
-  collapses it to chance on both datasets; the same allowance is made for LBGAT. On CIFAR-10 our port
-  reproduces HAT's published no-extra-data figure to within $0.31$ clean and $0.27$ AutoAttack
-  ($84.90 / 49.08$ reported, ResNet-18). HAT publishes no CIFAR-100 result without additional data
-  --- its $61.50 / 28.88$ is trained with DDPM-generated data --- so the CIFAR-100 column here has no
-  published counterpart to read it against.
-  \textsuperscript{m}~ADR is being run on separate hardware and its row will be
-  filled from there. Two things have to hold when it is. ADR reports two configurations,
-  AT\,+\,ADR ($56.10 / 26.87$ on CIFAR-100) and AT\,+\,WA\,+\,AWP\,+\,ADR ($57.36 / 28.50$), and
-  the row must name which one it is --- the second is the one component-matched to ours, since our
-  recipe carries both weight averaging and AWP. And ADR is self-distillation: its teacher is an
-  exponential moving average of the student, no external network is read, and the student trains
-  from scratch, so the row inherits nothing of our natural teacher and should not be grouped with
-  the methods that do.
-  \textsuperscript{l}~HAT uses a natural network
-  only to \emph{label} helper points beyond the ball, never as a target, so it is grouped with the
-  trade-off methods. \textsuperscript{k}~Not a published method: our own recipe with the
-  feature anchor replaced by logit KL. It is the closest thing to KD\,+\,SWA \citep{kdswa} that a
-  natural teacher admits --- distil, then average weights, with a logit target where ours is a
-  feature one --- and it isolates the target from the schedule. The temperature is chosen in the
-  baseline's favour rather than faithfully: plain distillation would be $\tau = 1$, which is by some
-  margin the worst of the three in \Cref{tab:ablation} at $20.84$ AutoAttack, and this row instead
-  uses the $\tau$ that maximizes it, $4$ at $24.48$ there. The comparison is therefore against the
-  best logit target we could find and not against the one the name implies. At the full recipe the
-  temperature matters far more than it does in the base regime, where the two sit $0.48$ apart:
-  $\tau = 16$ reaches only $42.45 / 20.10$ against $\tau = 4$'s $56.97 / 26.96$. \ddg~IGDM is reported at $\alpha = 1$; its published
-  $\alpha = 20$ diverges to chance accuracy on both datasets when the teacher is natural, for the
-  reason given in \Cref{sec:natteacher}. Published figures for these methods are in
-  \Cref{tab:published}, Tiny-ImageNet in \Cref{tab:tin}, WideResNet in \Cref{tab:wrn}, and
-  per-attack metrics in \Cref{tab:fullmetrics}.}
+  in this framework} --- one data pipeline, one attack implementation, one evaluation, the final-epoch
+  weight-averaged model --- so rows are comparable to each other rather than across papers.
+  \textbf{Teacher} is what the method assumes available: \emph{--} none, \emph{self} its own weight
+  average, \emph{nat.} a naturally trained network. $\mathrm{Avg}$ is the mean of Clean and AA; NRR is
+  their harmonic mean. Which variant each baseline runs, and why, is in \Cref{app:baselines}.}
   \label{tab:main}
   \begin{tabular}{llrrrrrrrr>{\raggedright\scriptsize\itshape\arraybackslash}p{1.05cm}}
     \toprule
@@ -118,13 +84,13 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     ARD                              & nat.  & 84.58 & 43.75 & 64.16 & 57.67 & 57.61 & 20.24 & 38.92 & 29.96 &  \\
     RSLAD                            & nat.  & 85.15 & 42.91 & 64.03 & 57.06 & 59.68 & 21.30 & 40.49 & 31.40 &  \\
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
-    AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
-    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & 56.97 & 26.96 & 41.97 & 36.60 & C10 not run \\
-    LBGAT\textsuperscript{n}         & nat.\textsuperscript{j} & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 running \\
+    AdaAD + IGDM                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
+    Logit anchor + our stack & nat.  & -- & -- & -- & -- & 56.97 & 26.96 & 41.97 & 36.60 & C10 not run \\
+    LBGAT         & nat. & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 running \\
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
-    HAT\textsuperscript{o}           & nat.\textsuperscript{l} & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 &  \\
-    ADR\textsuperscript{m}           & self  & -- & -- & -- & -- & -- & -- & -- & -- & other machine \\
+    HAT           & nat. & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 &  \\
+    ADR           & self  & -- & -- & -- & -- & -- & -- & -- & -- & other machine \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- & -- & -- & no repro. \\
     RPAT++                           & --    & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 &  \\
     \midrule
@@ -133,15 +99,12 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \end{tabular}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Tiny-ImageNet-200, ResNet-18. Same eleven rows and the same protocol as \Cref{tab:main};
-  \textbf{--} marks a cell we have not run --- the baseline rows for this dataset are being produced on
-  separate hardware and will be filled from there. Our row uses the 200-epoch teacher; the 80-epoch teacher
-  gives $57.08 / 18.96$, which is the teacher-length dial of \Cref{tab:teacherladder} on a third
-  dataset. Our row is above every published ResNet-18 Tiny-ImageNet result on \emph{both} axes: the
-  highest published clean accuracy is HAT's $52.60$ and the highest AutoAttack is $20.23$
-  (AT\,+\,WA\,+\,ADR), against our $55.16 / 20.54$. \Cref{tab:published_tin} collects them.}
+  \caption{Tiny-ImageNet-200, ResNet-18. Same rows and protocol as \Cref{tab:main}; the baselines are
+  being produced on separate hardware. Our row uses the 200-epoch teacher and is above every published
+  ResNet-18 result on this dataset on \emph{both} axes; \Cref{tab:published_tin} collects those and
+  \Cref{app:baselines} the details.}
   \label{tab:tin}
   \begin{tabular}{llrrrr}
     \toprule
@@ -160,11 +123,11 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & -- & -- & -- & -- \\
     AdaAD + IGDM                     & nat.  & -- & -- & -- & -- \\
     \midrule
-    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- \\
-    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- \\
+    Logit anchor + our stack & nat.  & -- & -- & -- & -- \\
+    LBGAT                            & nat. & -- & -- & -- & -- \\
     ARREST                           & nat.  & -- & -- & -- & -- \\
     \midrule
-    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- \\
+    HAT                              & nat. & -- & -- & -- & -- \\
     ADR                              & self  & -- & -- & -- & -- \\
     CURE                             & self  & -- & -- & -- & -- \\
     RPAT++                           & --    & -- & -- & -- & -- \\
@@ -174,15 +137,11 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \end{tabular}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{WideResNet-34-10, $\ell_\infty$, $\epsilon = 8/255$. Same eleven rows and the same protocol
-  as \Cref{tab:main}; \textbf{--} marks a cell we have not run --- as for
-  \Cref{tab:tin}, this architecture is being run on separate hardware, our CIFAR-100 row included.
-  Comparison lines are in
-  \Cref{tab:published}: on CIFAR-10 the strongest published pair on either criterion is
-  AT\,+\,WA\,+\,AWP at $87.42/55.01$ (Avg $71.22$, NRR $67.53$), and on CIFAR-100 it is ADR's
-  $62.21/31.60$ (NRR $41.91$) against ARREST's $73.05/24.32$ (Avg $48.69$).}
+  \caption{WideResNet-34-10, $\ell_\infty$, $\epsilon = 8/255$. Same rows and protocol as
+  \Cref{tab:main}; this architecture is being run on separate hardware, our CIFAR-100 row included.
+  Comparison lines are in \Cref{tab:published}.}
   \label{tab:wrn}
   \begin{tabular}{llrrrrrr}
     \toprule
@@ -203,11 +162,11 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & -- & -- & -- & -- & -- & -- \\
     AdaAD + IGDM                     & nat.  & -- & -- & -- & -- & -- & -- \\
     \midrule
-    Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & -- & -- \\
-    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & -- & -- \\
+    Logit anchor + our stack & nat.  & -- & -- & -- & -- & -- & -- \\
+    LBGAT                            & nat. & -- & -- & -- & -- & -- & -- \\
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- \\
     \midrule
-    HAT                              & nat.\textsuperscript{l} & -- & -- & -- & -- & -- & -- \\
+    HAT                              & nat. & -- & -- & -- & -- & -- & -- \\
     ADR                              & self  & -- & -- & -- & -- & -- & -- \\
     CURE                             & self  & -- & -- & -- & -- & -- & -- \\
     RPAT++                           & --    & -- & -- & -- & -- & -- & -- \\
@@ -216,6 +175,17 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     \bottomrule
   \end{tabular}
 \end{table}
+
+\paragraph{Tiny-ImageNet, and the teacher dial on a third dataset.} Our row uses the 200-epoch
+teacher. The 80-epoch one gives $57.08 / 18.96$ --- more clean accuracy, less robustness --- which is
+the teacher-length trade-off of \Cref{tab:teacherladder} reproducing on a dataset it was not measured
+on. Against the literature, the highest published clean accuracy on this dataset for a ResNet-18 is
+HAT's $52.60$ and the highest AutoAttack is $20.23$ (AT\,+\,WA\,+\,ADR), against our $55.16 / 20.54$.
+
+\paragraph{WideResNet comparison lines.} On CIFAR-10 the strongest published pair on either criterion
+is AT\,+\,WA\,+\,AWP at $87.42 / 55.01$ (Avg $71.22$, NRR $67.53$); on CIFAR-100 it is ADR's
+$62.21 / 31.60$ (NRR $41.91$) against ARREST's $73.05 / 24.32$ (Avg $48.69$). Both are in
+\Cref{tab:published}.
 
 \paragraph{WideResNet, CIFAR-10.} At $88.67 / 55.29$ the shipped recipe is strictly better on
 \emph{both} axes than $30$ of the $31$ published WideResNet-34-10 results we collected
@@ -237,13 +207,11 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
 \subsection{Published Distillation Objectives, Given a Natural Teacher}
 \label{sec:natteacher}
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{The four published distillation objectives given the teacher they would have in our
-  setting---our naturally trained network in place of the adversarially trained one they assume. Every
-  number is measured here: ResNet-18, 100 epochs, each method at its own published recipe, same data
-  pipeline and evaluation as every other row we report. The reference rows use that same teacher for
-  initialization only, or as an anchor. Blank cells are runs still in progress.}
+  setting: our naturally trained network in place of the adversarially trained one they assume. Every
+  number is measured here, each method at its own published recipe. Blank cells are runs in progress.}
   \label{tab:natteacher}
   \begin{tabular}{lrrrcrrrl}
     \toprule
@@ -254,7 +222,7 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
     ARD                                  & 57.61 & 20.24 & 29.96 & & 84.58 & 43.75 & 57.67 &  \\
     RSLAD                                & 59.68 & 21.30 & 31.40 & & 85.15 & 42.91 & 57.06 &  \\
     AdaAD                                & 59.79 & 23.19 & 33.42 & & 85.39 & 46.22 & 59.98 &  \\
-    AdaAD + IGDM\ddg                     & 48.25 & 19.48 & 27.75 & & 85.01 & 45.50 & 59.27 &  \\
+    AdaAD + IGDM                     & 48.25 & 19.48 & 27.75 & & 85.01 & 45.50 & 59.27 &  \\
     \midrule
     PGD-AT, initialized at the teacher   & 57.73 & \textbf{26.46} & 36.29 & & 82.23 & \textbf{50.72} & 62.74 &  \\
     CFA (ours), no WA/AWP                & 61.29 & 25.36 & 35.88 & & -- & -- & -- &  \\
@@ -280,15 +248,13 @@ forty times further from linear than the ones it was designed for.
 \subsection{Component Ablation}
 \label{sec:components}
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Component ablation. CIFAR-100, ResNet-18, raw-$\ell_2$ anchor with
-  $\epsilon_{\mathrm{train}} = 8.8/255$ held fixed and no learning-rate freeze. Each row adds one
-  component to the row above, and every rung inherits the teacher's classifier without training it,
-  as the shipped recipe does --- so the 100-epoch ladder ends exactly on the row \Cref{tab:main}
-  reports. Columns match \Cref{tab:main}; per-attack values are in \Cref{tab:fullmetrics}.
-  \textbf{The 50-epoch block is still the earlier build, in which every rung trains the head}, and is
-  being rebuilt; until it is, deltas should be read within a block and not across the two.}
+  \caption{Component ablation. CIFAR-100, ResNet-18, $\epsilon_{\mathrm{train}} = 8.8/255$ fixed. Each
+  row adds one component to the row above, and every rung inherits the teacher's classifier without
+  training it, so the 100-epoch ladder ends on the row \Cref{tab:main} reports. \textbf{The 50-epoch
+  block is the earlier build, in which the head is trained}, and is being rebuilt; read deltas within
+  a block. Per-attack values are in \Cref{tab:fullmetrics}.}
   \label{tab:ladder}
   \begin{tabular}{lrrrr}
     \toprule
@@ -323,7 +289,7 @@ the method. Both arms of that comparison predate the AWP correction described in
 are quoted as measured, so the pair is internally consistent; the corrected number for the frozen-head
 arm is the $62.17/28.86/39.42$ reported everywhere else.
 
-\begin{table}[t]
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
   \caption{Two controls on the anchor itself. CIFAR-100, ResNet-18, base regime---teacher warm start,
   no weight averaging, no AWP, $p = 0$, $\epsilon_{\mathrm{train}} = 8.8/255$---so that no stack
