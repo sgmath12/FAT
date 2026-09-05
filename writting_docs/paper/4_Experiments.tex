@@ -1,15 +1,17 @@
 \section{Experiments}
 \label{sec:exp}
 
-Four things have to be established, and they are not of equal weight. The first is the frontier claim
-itself: that the method is ahead on standard accuracy without giving up robustness, against baselines
-we run rather than quote. The second is that the accuracy a natural teacher holds is not simply
-available to anyone who distils from one --- if the published objectives recover it when handed our
-teacher, the anchor is not the contribution. The third is the deletion: that removing the label term
-is what buys the gain rather than the schedule, the initialization, or the components stacked around
-it. The fourth is the mechanism, and it is where we report a negative result: the explanation we
-expected is measurably false, and the one that survives is about where features sit rather than how
-far they move.
+This section establishes four claims.
+The first is the frontier claim itself, namely that the method gains standard accuracy without giving
+up robustness, measured against baselines we run rather than quote.
+The second is that the accuracy a natural teacher holds is not available to any method that distils
+from one, since the anchor would not be the contribution if the published objectives recovered that
+accuracy when handed our teacher.
+The third concerns the deletion of the label term, which has to be what produces the gain rather than
+the schedule, the initialization or the components stacked around it.
+The fourth is the mechanism, where we report a negative result: the explanation we expected is
+measurably false, and the explanation that survives concerns where features sit rather than how far
+they move.
 
 \subsection{Experimental Settings}
 
@@ -191,16 +193,18 @@ $62.21 / 31.60$ (NRR $41.91$) against ARREST's $73.05 / 24.32$ (Avg $48.69$). Bo
 \emph{both} axes than $30$ of the $31$ published WideResNet-34-10 results we collected
 (\Cref{tab:published}), and it takes both criteria: Avg $71.98$ against the previous best $71.22$ and
 NRR $68.11$ against $67.53$, both held by AT\,+\,WA\,+\,AWP, while its AutoAttack accuracy of $55.29$
-exceeds the highest published figure of $55.26$. The single row it does not dominate is ARREST, which
-has $1.57$ more standard accuracy and $5.09$ less AutoAttack---a different point on the frontier
-rather than a better one. The comparison that matters most is with the two methods that also take a
-naturally trained network: against LBGAT we are $+0.45$ clean and $+2.43$ AutoAttack, and against
-ARREST $-1.57$ clean and $+5.09$ AutoAttack. Both of them pay for standard accuracy with robustness,
-and the anchor does not.
+exceeds the highest published figure of $55.26$. The single row it does not dominate is ARREST, which holds $1.57$ more standard accuracy and $5.09$
+less AutoAttack accuracy and therefore occupies a different point on the frontier rather than a better
+one.
+The most relevant comparison is with the two methods that also take a naturally trained network: we
+gain $0.45$ standard accuracy and $2.43$ AutoAttack accuracy over LBGAT, and $5.09$ AutoAttack
+accuracy over ARREST at $1.57$ less standard accuracy.
+Both of those methods purchase standard accuracy with robustness, whereas the anchor does not.
 
-\paragraph{Reproductions, and one failure.} RPAT++ we reproduce to within $0.31$ AutoAttack of its
-published numbers on both datasets and report our own measurement. CURE we could \emph{not}: seven runs
-of the official repository fall short on \emph{different} axes, and \Cref{app:cure} gives the detail.
+\paragraph{Reproductions, and one failure.} We reproduce RPAT++ to within $0.31$ points of AutoAttack accuracy of its published numbers on both
+datasets and report our own measurement.
+We were unable to reproduce CURE, as seven runs of the official repository fall short on different
+axes, and \Cref{app:cure} gives the detail.
 Its row is therefore left empty rather than filled from the paper. Published figures for every method
 here, including the ones we did not run, are collected in \Cref{tab:published}.
 
@@ -230,18 +234,19 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
   \end{tabular}
 \end{table}
 
-Every one of them lands below the row that does not distil at all: on both datasets, plain adversarial
-training initialized from the same teacher beats all four. The accuracy a natural teacher holds is not
-recovered by treating it as a logit target.
+All four objectives land below the row that does not distil at all, since plain adversarial training
+initialized from the same teacher beats every one of them on both datasets.
+The accuracy a natural teacher holds is therefore not recovered by treating that teacher as a logit
+target.
 
-The IGDM row is reported at $\alpha = 1$ because its published $\alpha = 20$ does not train at all
-here: it collapses to chance on both datasets ($1.00$ on CIFAR-100, $10.00$ on CIFAR-10), so ten
-classes did not rescue it. This is not a porting artifact. With a natural teacher the IGDM target
+The IGDM row is reported at $\alpha = 1$ because its published $\alpha = 20$ does not train here at
+all, collapsing to chance accuracy on both datasets ($1.00$ on CIFAR-100 and $10.00$ on CIFAR-10).
+The collapse is not a porting artifact. With a natural teacher the IGDM target
 $\mathrm{softmax}(f_t(x{+}\delta) - f_t(x{-}\delta))$ places $0.917$ of its mass on a single class and
 the term reaches $17.3\times$ the AdaAD loss. At $\alpha = 1$, which puts the two terms on comparable
-scales and is the most favourable reading available, it trains normally---and still finishes below
-AdaAD alone on both datasets, by $11.54$ clean and $3.71$ AA on CIFAR-100 and by $0.38$ and $0.72$ on
-CIFAR-10. \Cref{tab:linearity} gives the structural reason: IGDM's finite
+scales and is the most favourable reading available, the method trains normally and still finishes
+below AdaAD alone on both datasets, by $11.54$ clean and $3.71$ AutoAttack on CIFAR-100 and by $0.38$
+and $0.72$ on CIFAR-10. \Cref{tab:linearity} gives the structural reason: IGDM's finite
 difference is a gradient only while the teacher is locally linear, and a naturally trained teacher is
 forty times further from linear than the ones it was designed for.
 
@@ -278,7 +283,7 @@ forty times further from linear than the ones it was designed for.
 The sensitivity rule contributes $+0.49$ NRR at 50 epochs and $+0.69$ at 100 ($+1.61/{+}0.21$ and
 $+1.80/{+}0.38$ on the two axes) at identical total attack budget. AWP appears to change sign with schedule
 length --- $-0.25$ NRR at 50 epochs against $+1.08$ at 100 --- but the two blocks are not yet the same
-design, so that reading is held until the 50-epoch rebuild lands. And 50 epochs with weight averaging alone already
+design, so that reading is held until the 50-epoch rebuild lands. Even so, 50 epochs with weight averaging alone already
 exceeds ADR's full stack ($38.46$ against $38.08$), at half the schedule and one fewer component, so
 the gain is not the stack.
 
@@ -311,50 +316,55 @@ arm is the $62.17/28.86/39.42$ reported everywhere else.
   \end{tabular}
 \end{table}
 
-\paragraph{Where the anchor's robustness comes from.} \Cref{tab:controls}(a) moves $\Phi_t$ from $x$
-to $x_{\mathrm{adv}}$ in both the loss and the attack, and changes nothing else. Robustness is not
-degraded but eliminated: $0.00$ under PGD-20, CW and AutoAttack alike, while clean accuracy
-\emph{rises} $14.78$ points to within $1.55$ of the natural teacher. The reason is visible in the
-objective's value, which falls to $6.26$ against roughly $50.7$ for the anchor. Once $\Phi_t$ is
-evaluated inside the ball, $\Phi_s = \Phi_t$ minimizes \Cref{eqn:anchor} exactly---and that solution
-is a natural model. Reading the teacher at the clean point is not a modelling preference; it is the
-only thing standing between this objective and a degenerate one.
+\paragraph{Where the anchor's robustness comes from.} \Cref{tab:controls}(a) moves $\Phi_t$ from $x$ to $x_{\mathrm{adv}}$ in both the loss and the attack
+and changes nothing else.
+Robustness is then not degraded but eliminated, at $0.00$ under PGD-20, CW and AutoAttack alike, while
+clean accuracy rises by $14.78$ points to within $1.55$ of the natural teacher.
+The value of the objective explains the outcome, as it falls to $6.26$ against roughly $50.7$ for the
+anchor: once $\Phi_t$ is evaluated inside the ball, $\Phi_s = \Phi_t$ minimizes \Cref{eqn:anchor}
+exactly, and that solution is a natural model.
+Reading the teacher at the clean point is therefore what separates this objective from a degenerate
+one.
 
-\paragraph{What the anchor is worth on its own.} The comparison against cross-entropy in
-\Cref{tab:main} is not matched in stack: our row carries weight averaging and AWP and the
-cross-entropy row carries them too, but the \emph{anchor} has never been asked what it does with
-neither. \Cref{tab:controls}(b) asks. At the anchor's own base regime---same teacher initialization,
-same schedule, same training radius, no sensitivity-matched $\epsilon$, no weight averaging, no
-AWP, and the classifier inherited and untrained as the shipped recipe leaves it---replacing the anchor
-with label cross-entropy costs $6.69$ clean \emph{and} $5.91$ AutoAttack.
-The anchor is therefore not merely compatible with robustness, as \Cref{prop:decomp} alone would
-license; it is a source of it, and at matched stack the larger source. For scale, the shipped recipe
-leads cross-entropy \emph{with} weight averaging and AWP by $2.40$ AutoAttack.
+\paragraph{What the anchor is worth on its own.} The comparison against cross-entropy in \Cref{tab:main} carries weight averaging and AWP on both
+rows, so it does not report what the anchor does without them.
+\Cref{tab:controls}(b) supplies that comparison at the base regime of the anchor, with the same
+teacher initialization, the same schedule, the same training radius, no sensitivity-matched
+$\epsilon$, no weight averaging, no AWP and the classifier inherited and untrained as the shipped
+recipe leaves it.
+Replacing the anchor with label cross-entropy under those conditions costs $6.69$ points of standard
+accuracy and $5.91$ of AutoAttack accuracy.
+The anchor is therefore a source of robustness rather than merely compatible with it, which is more
+than \Cref{prop:decomp} on its own licenses, and it is the larger source at matched stack.
+For scale, the shipped recipe leads cross-entropy with weight averaging and AWP by $2.40$ points of
+AutoAttack accuracy.
 
-\paragraph{Feature or logit: does the stack close the gap?} \Cref{tab:ablation} showed the feature
-anchor beating the best logit temperature in the base regime, by $3.33$ clean and $1.40$ AutoAttack.
-The obvious objection is that weight averaging is exactly what KD\,+\,SWA pairs distillation with, so
-the stack might be what our result rests on and the gap might close under it. If it did, the
-contribution would be the schedule and not the target, and this is the measurement that would say so.
-It does not close. Swapping only the loss in the shipped recipe --- logit KL at the temperature that
-maximizes AutoAttack, everything else untouched --- gives $56.97 / 26.96$ against $62.17 / 28.86$.
-The gap \emph{widens} with the stack rather than closing, from $3.33/1.40$ to $5.20/1.90$, so the
-components amplify what the target does rather than substituting for it. The temperature also stops
-being a free parameter there: $\tau = 16$, which trails $\tau = 4$ by $0.48$ AutoAttack without the
-stack, collapses to $42.45 / 20.10$ with it. PGD-20 is the one metric that prefers the logit target
+\paragraph{Feature or logit: does the stack close the gap?} \Cref{tab:ablation} showed the feature anchor beating the best logit temperature in the base regime,
+by $3.33$ points of standard accuracy and $1.40$ of AutoAttack accuracy.
+Weight averaging is what KD\,+\,SWA pairs distillation with, so the gap could plausibly close once the
+stack is added, in which case the contribution would be the schedule rather than the target.
+We therefore swap only the loss in the shipped recipe, using logit KL at the temperature that
+maximizes AutoAttack accuracy and leaving everything else untouched, which gives $56.97 / 26.96$
+against $62.17 / 28.86$.
+The gap widens with the stack rather than closing, from $3.33/1.40$ to $5.20/1.90$, so the components
+amplify what the target does rather than substitute for it.
+The temperature also ceases to be a free parameter under the stack, as $\tau = 16$ trails $\tau = 4$ by
+$0.48$ points of AutoAttack accuracy without it and collapses to $42.45 / 20.10$ with it. PGD-20 is the one metric that prefers the logit target
 ($33.68$ against $32.37$), for the reason \Cref{app:fullmetrics} gives: it ascends the cross-entropy
 through a head the logit objective has trained and the feature objective has left alone.
 
-\paragraph{Where that robustness comes from, and where it does not.} The natural explanation is local
-stability: \Cref{prop:decomp} bounds the student's oscillation $O$ by the anchor's own loss, so an
-anchored student should move less inside the ball than one trained on labels. \textbf{We tested that
-and it is false.} Attacking both models of \Cref{tab:controls}(b) with the same true-label PGD and
-measuring the feature displacement they actually incur, the anchored student moves $0.275$ of its own
-feature norm and the cross-entropy student $0.254$, at cosines $0.9626$ and $0.9671$---indistinguishable,
-and if anything favouring cross-entropy. Proposition 1 is true and it is not the mechanism.
+\paragraph{Where that robustness comes from, and where it does not.} The natural explanation is local stability, since \Cref{prop:decomp} bounds the oscillation $O$ of
+the student by the anchor's own loss, so that an anchored student should move less inside the ball
+than one trained on labels.
+The prediction is not borne out.
+Attacking both models of \Cref{tab:controls}(b) with the same true-label PGD and measuring the feature
+displacement they actually incur, the anchored student moves $0.275$ of its own feature norm against
+$0.254$ for the cross-entropy student, at cosines $0.9626$ and $0.9671$.
+The two are indistinguishable on this measurement and the ordering, if anything, favours
+cross-entropy, so \Cref{prop:decomp} holds without being the mechanism.
 
-What separates them is where the features sit, not how far they travel. On the same models and the
-same attack:
+What separates the two models is where the features sit rather than how far they travel, measured on
+the same models under the same attack:
 
 \begin{center}\small
 \begin{tabular}{lrrrcrrr}
@@ -369,27 +379,30 @@ same attack:
 \end{tabular}
 \end{center}
 
-The anchored student's classes are $5.5\times$ better separated on clean data and $2.7\times$ better
-under attack, and it wins on \emph{both} halves of the ratio: its clusters are tighter
-($28.1^\circ$ against $45.4^\circ$ to the class mean) and its class means are further apart
-($28.6^\circ$ against $21.6^\circ$). The cross-entropy student is in the worse position by a margin
-that is easy to state: its samples sit \emph{twice as close} to the nearest wrong class mean as to
-their own, $21.6^\circ$ against $45.4^\circ$. Under attack the anchor's geometry degrades---$0.898$ to
-$2.681$---and still ends up better than cross-entropy's undisturbed state.
+The classes of the anchored student are $5.5\times$ better separated on clean data and $2.7\times$
+better separated under attack, and the improvement holds on both halves of the ratio: its clusters are
+tighter ($28.1^\circ$ against $45.4^\circ$ to the class mean) and its class means are further apart
+($28.6^\circ$ against $21.6^\circ$).
+The cross-entropy student sits twice as close to the nearest wrong class mean as to its own, at
+$21.6^\circ$ against $45.4^\circ$.
+The geometry of the anchored student degrades under attack, from $0.898$ to $2.681$, and even then
+remains better than the undisturbed geometry of the cross-entropy student.
 
-This is the same quantity \Cref{sec:geometry} finds varying along the teacher ladder, measured within
-a single pair of runs instead of across teachers, and it is what the anchor is for. A perturbation has
-to carry a feature across a boundary; separation decides how far that is, and the anchor inherits the
-teacher's separation because the teacher was never asked to be flat and so never spent its capacity
-on flatness.
+Class separation is the same quantity that \Cref{sec:geometry} finds varying along the teacher
+ladder, measured here within a single pair of runs instead of across teachers.
+A perturbation has to carry a feature across a decision boundary and separation determines how far
+that is, and the anchored student inherits the separation of a teacher that was never asked to be flat
+and therefore never spent capacity on flatness.
 
-One objection deserves its own measurement. Cross-entropy without weight averaging robustly overfits
-at this schedule, so part of the $5.91$ could be decay rather than deficit. It does overfit---its
-PGD-20 peaks at $23.31$ near epoch $70$ and decays to $21.13$---but the anchor does not: its PGD-20
-rises monotonically to the final evaluation, $25.23 \to 28.86 \to 30.72 \to 31.47$. Measured against
-cross-entropy's \emph{best} epoch rather than its last, the anchor's \emph{final} still leads by
-$8.16$. Not robustly overfitting is itself a property of the objective here, and it is the property
-weight averaging is normally bought to supply.
+One alternative reading requires its own measurement, since cross-entropy without weight averaging
+robustly overfits at this schedule and part of the $5.91$ could be decay rather than deficit.
+Cross-entropy does overfit, as its PGD-20 accuracy peaks at $23.31$ near epoch $70$ and decays to
+$21.13$, whereas the anchor rises monotonically to the final evaluation
+($25.23 \to 28.86 \to 30.72 \to 31.47$).
+Measured against the best epoch of cross-entropy rather than its last, the final anchor still leads by
+$8.16$ points.
+Not overfitting is itself a property of the objective here, and it is the property that weight
+averaging is normally bought to supply.
 
 \subsection{Training Radius, Teacher Length, and Larger Architectures}
 \label{sec:radius}
@@ -398,19 +411,20 @@ weight averaging is normally bought to supply.
 
 \paragraph{The training radius is a plateau, not a tuned point.} Sweeping
 $\epsilon_{\mathrm{train}} \in \{8, 8.8, 10\}/255$ with everything else fixed and evaluating at
-$8/255$ throughout (\Cref{tab:radius}), NRR peaks at $8.8/255$ on both datasets but the curve is mild,
-and the standard $8/255$ already exceeds the best published result on either ($38.72$ against ADR's
-$38.08$; $64.48$ against CURE's $63.19$). Past $8.8/255$ the radius buys nothing: AutoAttack and CW at
-$10/255$ are identical to the last decimal to those at $8.8/255$ on both datasets, while standard
-accuracy falls $2.66$ and $2.29$---the $\epsilon$-independence \Cref{app:robustness} predicts above the
+$8/255$ throughout (\Cref{tab:radius}), NRR peaks at $8.8/255$ on both datasets and the curve around the peak is mild, and the standard
+$8/255$ already exceeds the best published result on either dataset ($38.72$ against ADR's $38.08$,
+and $64.48$ against CURE's $63.19$).
+Beyond $8.8/255$ the radius buys nothing, since AutoAttack and CW accuracy at $10/255$ match those at
+$8.8/255$ to the last decimal on both datasets while standard accuracy falls by $2.66$ and $2.29$
+points, which is the $\epsilon$-independence that \Cref{app:robustness} predicts above the
 threshold.
 
 \paragraph{What the teacher transfers is geometry, not accuracy.} Changing only the teacher checkpoint
 and leaving the student configuration untouched (\Cref{tab:teacherladder}), teacher accuracy and
 student accuracy are anti-correlated at $r = -0.999$ across five teachers trained for 50 to 300
-epochs: the teacher gains $2.51$ points and the student \emph{loses} $2.04$. NRR peaks in the middle,
-so the teacher's training length is a control on the operating point, and locating it costs five
-natural-training runs and no adversarial ones. The effect reproduces on Tiny-ImageNet where teacher
+epochs, so that the teacher gains $2.51$ points while the student loses $2.04$.
+NRR peaks in the middle of the ladder, which makes the training length of the teacher a control on the
+operating point, and locating that peak costs five natural-training runs and no adversarial ones. The effect reproduces on Tiny-ImageNet where teacher
 accuracy is controlled to $0.32$ points, so accuracy cannot be the cause; what varies monotonically is
 the teacher's class separation.
 

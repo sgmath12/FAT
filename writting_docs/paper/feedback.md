@@ -324,3 +324,33 @@ $0.12$ seed spread). The caveat now states the gap is small but larger than the 
 Result: 1522 words, longest non-mathematical sentence 39 words, no sentence over two commas outside a
 citation or a display.
 
+## F6 --- Formatting and the experiments section (2026-09-05)
+
+> "Proposition 1, proof 이런 게 잘 안 보여서 그런데 뭐 thm 관련 패키지 없음? 그리고 문장 시작이 And 로 시작하는 것도 어색함. Experiment 도 다시 쓰고. 세팅 등에서 Setup, Baselines and evaluation 이런 것도 textbf라든지 noindent라든지 좀 더 가독성 있게 꾸며봐"
+
+**Propositions were invisible.** `amsthm` was loaded and `\newtheorem` declared, but nothing styled
+the environments, so a proposition read as one more paragraph. Added `tcolorbox` and gave
+`proposition`, `corollary` and `proof` a left rule with space above and below --- a $2$pt rule for
+statements, a lighter $1$pt one for proofs, no shading and no frame.
+
+**Run-in headings had no air.** `\paragraph` was redefined through `\@startsection` with a larger
+skip above, so `\textbf{Setup.}`-style headings separate the parts of the experiments section instead
+of merging into the previous paragraph. This applies everywhere `\paragraph` is used, so no call site
+changed.
+
+**`And` at the start of a sentence.** Four occurrences across the analysis, experiments, appendix and
+conclusion. Each was a rhetorical continuation of the preceding sentence and each was replaced by an
+explicit connective (`Furthermore`, `Even so`, `also` moved inside the clause) or by naming the item
+(`The second is that ...`).
+
+**Experiments, rewritten on the same rules.** Removed: `\Cref{tab:controls}(b) asks.` /
+`\textbf{We tested that and it is false.}` / `It does not close.` / `Proposition 1 is true and it is
+not the mechanism.` / `so ten classes did not rescue it` / `by a margin that is easy to state` /
+`Reading the teacher at the clean point is not a modelling preference; it is the only thing standing
+between this objective and a degenerate one.` The measurements are unchanged; what was removed was the
+staging around them.
+
+**Rule 13.** A negative result is reported in the same register as a positive one. `We tested that and
+it is false` in bold reads as a performance; `The prediction is not borne out` says the same thing and
+lets the measurement that follows do the work.
+

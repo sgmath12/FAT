@@ -12,9 +12,10 @@ no temperature and no trained classifier, whose robustness is produced by the st
 maximization rather than borrowed from the teacher, and which transfers across three datasets with
 only the teacher checkpoint changed.
 
-Two findings sit alongside it. Consuming the same natural teacher the way adversarial distillation
-does---as a logit target, or read inside the ball---is worse than not distilling at all, on both
-datasets and for all four published objectives. And what the teacher transfers is its class geometry
+Two findings sit alongside it. The first is that consuming the same natural teacher the way
+adversarial distillation does, as a logit target or read inside the ball, is worse than not distilling
+at all on both datasets and for all four published objectives. The second is that the teacher
+transfers its class geometry
 rather than its accuracy, with the two anti-correlated at $r = -0.999$ across training lengths, which
 turns the teacher's own schedule into a trade-off control that costs nothing to exercise.
 

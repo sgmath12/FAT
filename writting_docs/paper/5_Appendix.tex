@@ -473,7 +473,7 @@ to be read against.
 \paragraph{ADR} is run on separate hardware and its row is filled from there. Two things have to hold
 when it is. ADR reports two configurations --- AT\,+\,ADR at $56.10 / 26.87$ on CIFAR-100 and
 AT\,+\,WA\,+\,AWP\,+\,ADR at $57.36 / 28.50$ --- and the row has to name which, the second being the
-one component-matched to our recipe, which carries both weight averaging and AWP. And ADR is
+one component-matched to our recipe, which carries both weight averaging and AWP. ADR is also
 self-distillation: its teacher is an exponential moving average of the student, no external network is
 read, and the student trains from scratch, so its row inherits nothing of our natural teacher.
 

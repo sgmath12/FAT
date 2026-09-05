@@ -198,7 +198,7 @@ small $O$, and the prediction is checkable on the trained network. Measured over
 balls on CIFAR-100, $L = 7.58$, $F = 6.30$ and $O_{\mathrm{lb}} = 2.16$, against the teacher's own
 $O = 6.68$: the student is $3.1\times$ more stable than the network it was distilled from, on the same
 balls. Two things follow. The teacher's instability was not inherited, which is what the construction
-predicts. And $F \gg O_{\mathrm{lb}}$, so what remains in the loss at convergence is fidelity rather
+predicts. Furthermore, $F \gg O_{\mathrm{lb}}$, so what remains in the loss at convergence is fidelity rather
 than instability---the anchor is not being satisfied by making the student flat.
 
 \paragraph{What the proposition is for, and what it is not.} \Cref{prop:decomp} says the anchor does
