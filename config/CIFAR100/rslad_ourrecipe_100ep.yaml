@@ -1,0 +1,56 @@
+# DEFENSIVE ABLATION: the baselines given OUR recipe, not just our teacher (2026-09-06).
+#
+# The objection: "you hand the distillation objectives your natural teacher but leave them on their
+# own SGD schedule from a random init, while your own cells get a natural warm start, AdamW at
+# 0.021 and OneCycle.  Give them what you use and they would be ahead too."
+#
+# tab:natteacher answers only half of it -- same teacher, their recipe.  This cell answers the other
+# half: RSLAD at OUR base regime, changed in exactly four fields from its own config.
+#
+#   optim SGD 0.1 piecewise 70/90  ->  AdamW 0.021 OneCycle   (our optimizer and schedule)
+#   finetune False                 ->  True                   (our natural warm start)
+#   eps 8/255                      ->  train_eps 8.8/255      (our training radius)
+#   weight_decay 5e-4              ->  5e-4 kept              (theirs, untouched)
+#
+# No weight averaging and no AWP, which is the base regime the anchor is read at
+# (ladder_p0_fh_100ep, 61.29 / 25.36).  Read against that row and against this method's own-recipe
+# row in tab:natteacher.  If the number goes UP, the recipe is a general improvement and the paper
+# has to say so; if it goes down or collapses, the recipe is ours in the sense that matters and the
+# per-method schedules in tab:main are the right protocol.
+#
+
+method : rslad
+rslad_scale : 10.0
+rslad_w_adv : 0.8333333333333334
+weight_decay : 0.0002
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+cyclic : True
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
