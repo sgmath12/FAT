@@ -5,7 +5,8 @@
 \label{sec:anchor}
 
 Adversarial training asks a model to be confidently right everywhere in a ball around every training
-point. That demand is the source of its accuracy cost, and softening it is what the trade-off
+point.
+That demand is the source of its accuracy cost, and softening it is what the trade-off
 literature spends its effort on. We remove the demand instead. The label is replaced, as the
 backbone's target, by a single fixed vector: the feature a naturally trained network of the same
 architecture assigns to the clean image. The ball no longer has to reach full confidence anywhere; it

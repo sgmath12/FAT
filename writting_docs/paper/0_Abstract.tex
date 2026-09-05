@@ -1,22 +1,18 @@
 \begin{abstract}
-Adversarial training is among the most reliable defenses against adversarial examples, but it degrades
-standard accuracy, and this trade-off is the central obstacle to its use. The accuracy is not lost in
-general: a network of the same architecture trained naturally on the same data still holds it. We ask
-whether self-distillation can put it back, leaving robustness where it already is, in the inner
-maximization. Such a teacher is the extreme case of what adversarial distillation says goes wrong---the
-field diagnoses the target as too sharp and builds machinery to soften it, and a naturally trained
-network's maximum softmax probability is $0.820$ against an adversarially trained student's $0.016$.
-Softening does help, raising AutoAttack accuracy from $20.84$ to $24.48$ across a temperature sweep,
-and it leaves standard accuracy flat at $58$ while the teacher holds $77.66$: it repairs robustness,
-not the axis we came for. Reading the same teacher's \emph{feature} instead recovers both. We anchor
-the student's adversarial feature to the teacher's clean feature, so the teacher is never evaluated
-under attack and transfers neither its instability nor any robustness, and prove that this single term
-is equivalent within a constant factor to fidelity plus local stability, with no coefficient between
-them. Combined with a per-sample attack radius set by the input sensitivity of the loss at fixed total
-budget, the method has no loss weight, no temperature and no trained classifier. The anchor is not
-merely compatible with robustness: with no weight averaging, no AWP and no radius rule, it leads label
-cross-entropy by $5.91$ points of AutoAttack and $6.69$ of standard accuracy under an identical
-schedule. At a fixed weight-averaging and AWP stack it matches the best published AutoAttack accuracy
-on CIFAR-100 to within $0.27$ points while keeping $5.29$ more points of standard accuracy, and
-transfers unchanged to CIFAR-10 and Tiny-ImageNet.
+Adversarial training improves adversarial robustness, but it does so at a cost in standard accuracy.
+Adversarial distillation reduces this cost by guiding the student with an adversarially trained
+teacher, whose robustness has to be obtained beforehand and at greater expense than training the
+student itself. In contrast to these approaches, we guide the student with a naturally trained
+network, a teacher that costs nothing adversarial to obtain, and ask it only for the standard accuracy
+it holds, leaving robustness to the student's own inner maximization. Existing methods read a teacher
+through its logits, and we find that the published distillation objectives all fall below plain
+adversarial training when given a natural one. In this paper we propose Clean Feature Anchoring (CFA),
+which anchors the student's adversarial feature to the teacher's clean feature. We prove that this
+single term controls fidelity to the teacher and local stability of the student together within a
+constant factor, so no coefficient is needed to balance them, and we pair it with a per-sample attack
+radius set by the input sensitivity of the loss at a fixed total budget. The method requires no
+temperature, no loss weight and no trained classifier, and one configuration is used on every dataset.
+Experimental results show that CFA reaches $62.17\%$ standard accuracy at $28.86\%$ AutoAttack
+accuracy on CIFAR-100 with ResNet-18, where no published method is ahead on both axes, and transfers
+unchanged to CIFAR-10 and Tiny-ImageNet.
 \end{abstract}
