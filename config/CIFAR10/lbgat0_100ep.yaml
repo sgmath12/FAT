@@ -1,0 +1,53 @@
+# LBGAT0 ON CIFAR-10 -- THE CONFIGURATION THE AUTHORS ACTUALLY PUBLISH (2026-09-05).
+#
+# lbgat_100ep runs beta = 6, and on CIFAR-10 that sat at chance from epoch 0 on two separate runs.
+# It was nearly written up as a failed reproduction.  It is not one: beta = 6 is LBGAT's CIFAR-100
+# setting, and the authors publish CIFAR-10 under LBGAT0 alone -- their README lists only
+# CIFAR-10-LBGAT0 checkpoints, and their own launch script is `--beta 0`.  We were running a
+# configuration they never run on this dataset.
+#
+# Two things had to change for this cell to be possible at all.  methods.py computed
+# `beta = float(getattr(config, "beta", 0.0) or 0.0) or 6.0`, in which beta = 0 falls through to 6,
+# so LBGAT0 was unreachable; that is fixed.  And the CIFAR-100 cell stays at beta = 6, which is
+# LBGAT6 and is a configuration they do publish, so the two datasets legitimately run different
+# variants and tab:main says which.
+#
+# Only line changed from lbgat_100ep: beta 6.0 -> 0.0.
+
+method : lbgat
+weight_decay : 0.0002
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : lbgat
+stage1 : 76
+stage2 : 91
+lr_factor : 10
+cyclic : False
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 0.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : False
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+joint_teacher : True

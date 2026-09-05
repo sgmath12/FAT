@@ -3055,7 +3055,13 @@ def train_lbgat(model, train_loader, optimizer, origin_model, epoch, config, sch
     origin_model.train()                    # the natural branch is being trained, not evaluated
     eps_train = float(getattr(config, "train_eps", 0.0) or 0.0) or config.eps
     wa_start = _resolve_epoch_arg(getattr(config, "wa_start", None), config.epochs) or 0
-    beta = float(getattr(config, "beta", 0.0) or 0.0) or 6.0
+    # 2026-09-05: this was `float(getattr(config, "beta", 0.0) or 0.0) or 6.0`, in which beta = 0 is
+    # unreachable -- `0.0 or 6.0` is 6.0 -- so LBGAT0 could not be run at all.  That matters because
+    # LBGAT0 is the only CIFAR-10 configuration the authors publish (their README lists CIFAR-10 under
+    # LBGAT0 alone, and their own script is `--beta 0`); beta = 6 is the CIFAR-100 setting.  Asking
+    # for beta = 0 silently trained beta = 6, and the CIFAR-10 cell sat at chance from epoch 0.
+    _b = getattr(config, "beta", None)
+    beta = 6.0 if _b is None else float(_b)
     criterion_kl = nn.KLDivLoss(reduction='sum')
     mse = nn.MSELoss()
 

@@ -67,11 +67,10 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
   left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
   calls W-Robust; NRR is the harmonic mean. \textsuperscript{j}~LBGAT trains its
-  natural branch jointly, so its teacher is not free. \textsuperscript{n}~LBGAT's CIFAR-10 cell diverges to chance ($10.0$ on
-  every metric, twice) under the configuration that trains its CIFAR-100 cell to $56.46 / 26.02$. The
-  two configs differ only in the dataset name and the teacher checkpoint, and the schedule is already
-  LBGAT's own, so we have no account of the failure and report it as one rather than as a number ---
-  as with CURE in \Cref{app:cure}. The CIFAR-100 column is unaffected. \textsuperscript{o}~HAT is run on its own one-cycle schedule rather than ours, which
+  natural branch jointly, so its teacher is not free. \textsuperscript{n}~The CIFAR-100 cell is LBGAT6 and the CIFAR-10 cell
+  is LBGAT0, which is what the authors publish for each: their release lists CIFAR-10 checkpoints
+  under LBGAT0 only, and $\beta = 6$ is their CIFAR-100 setting. We report the variant each dataset
+  has a published configuration for rather than forcing one $\beta$ across both. \textsuperscript{o}~HAT is run on its own one-cycle schedule rather than ours, which
   collapses it to chance on both datasets; the same allowance is made for LBGAT. On CIFAR-10 our port
   reproduces HAT's published no-extra-data figure to within $0.31$ clean and $0.27$ AutoAttack
   ($84.90 / 49.08$ reported, ResNet-18). HAT publishes no CIFAR-100 result without additional data
@@ -121,7 +120,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
     AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
     Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & 56.97 & 26.96 & 41.97 & 36.60 & C10 not run \\
-    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 no repro.\textsuperscript{n} \\
+    LBGAT\textsuperscript{n}         & nat.\textsuperscript{j} & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 running \\
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
     HAT\textsuperscript{o}           & nat.\textsuperscript{l} & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 &  \\
