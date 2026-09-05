@@ -137,3 +137,49 @@ Seven separate notes on the abstract, and what each one changed. The rewritten v
 
 **Still to apply.** Points 1-6 were written about the abstract but read as general. The introduction
 and section openings have not been reread against them.
+
+### F3b — three more passes on the same abstract
+
+The first rewrite was rejected twice more. What was still wrong, and the rule each time.
+
+**Pass 2 --- `but it does so at a cost in standard accuracy` is weak, and adversarial distillation
+arrives unconnected.** The reference abstracts were read for structure and not for sentence
+construction. Their second sentence is *derived from* the first --- IGDM: "superior performance is
+primarily attained with large models. **This substantial performance gap** ... has spurred active
+research into AD" --- where mine named a new field with no bridge. Rules: **do not open a clause with
+`it`**; **every sentence after the first has to attach to the one before it**, and if it cannot, the
+first sentence is the one that is wrong.
+
+**Pass 3 --- adversarial distillation does not belong in the abstract at all.**
+
+> "굳이 AD를 끌어들일 필요가 없어 지금은. 차라리 내츄럴 모델을 사용하는 애들을 끌고와야지."
+> "AD는 인트로에 좀 적고 related work 및 메소드에서 비교하면 돼"
+
+The abstract's contrast has to be with the work our contribution actually differs from --- the methods
+that already use a naturally trained network (LBGAT, ARREST, DP-FAT, B-MTARD) --- not with the
+literature we merely sit near. Adversarial distillation belongs in the introduction and in the
+comparisons, where there is room to say what it is. **Rule: the abstract names one line of prior work,
+and it is the one the contribution is defined against.** The difference is now stated as what it is:
+they add the natural network beside the label loss and tune the weight, we remove the label loss.
+
+An error was also caught in pass 2's draft. It claimed the accuracy loss motivated adversarial
+distillation. It did not --- AD exists because small models are hard to make robust. **Rule: a
+narrative bridge is still a factual claim.**
+
+**Pass 4 --- word choice, pronouns, commas, one at a time.** A sentence-level audit found: `models
+sacrifice` (models are not agents), `leverage X, and depend on Y` (a comma before `and` joining two
+predicates of one subject), a relative clause splitting `guide ... and transfer`, two `and`s in one
+sentence, `sacrifice` repeated from the opening, and a closing sentence carrying four commas.
+
+**Checks to run on any paragraph before calling it done.**
+
+| check | threshold |
+|---|---|
+| words per sentence | over 28 is suspect |
+| commas per sentence | over 1 needs a reason; over 2 is a rewrite |
+| comma before `and` | only when joining independent clauses |
+| sentence-initial `it` / `this` / `these` | none, unless followed by a noun (`This gap`) |
+| repeated content word | not twice in a paragraph |
+| abstract length | 150--200 words, against IGDM's 150 |
+
+Result: 337 words and 6 embedded measurements, down to 224 words and one pair of final numbers.

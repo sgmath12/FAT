@@ -1,18 +1,21 @@
 \begin{abstract}
-Adversarial training improves adversarial robustness, but it does so at a cost in standard accuracy.
-Adversarial distillation reduces this cost by guiding the student with an adversarially trained
-teacher, whose robustness has to be obtained beforehand and at greater expense than training the
-student itself. In contrast to these approaches, we guide the student with a naturally trained
-network, a teacher that costs nothing adversarial to obtain, and ask it only for the standard accuracy
-it holds, leaving robustness to the student's own inner maximization. Existing methods read a teacher
-through its logits, and we find that the published distillation objectives all fall below plain
-adversarial training when given a natural one. In this paper we propose Clean Feature Anchoring (CFA),
-which anchors the student's adversarial feature to the teacher's clean feature. We prove that this
-single term controls fidelity to the teacher and local stability of the student together within a
-constant factor, so no coefficient is needed to balance them, and we pair it with a per-sample attack
-radius set by the input sensitivity of the loss at a fixed total budget. The method requires no
-temperature, no loss weight and no trained classifier, and one configuration is used on every dataset.
-Experimental results show that CFA reaches $62.17\%$ standard accuracy at $28.86\%$ AutoAttack
-accuracy on CIFAR-100 with ResNet-18, where no published method is ahead on both axes, and transfers
-unchanged to CIFAR-10 and Tiny-ImageNet.
+Adversarial training significantly improves adversarial robustness, yet robust models attain
+substantially lower standard accuracy than naturally trained ones. A naturally trained network of the
+same architecture retains that accuracy and costs nothing adversarial to obtain. Existing methods add
+such a network to adversarial training as an auxiliary target beside the label loss, and the weight
+between them has to be tuned. In contrast to these approaches, we remove the label loss and make the
+natural network the sole target of the backbone.
+
+In this paper, we propose Clean Feature Anchoring (CFA), which anchors the student's adversarial
+feature to the teacher's clean feature. The anchor is read one layer before the softmax, because a
+natural teacher's logits do not carry the accuracy they encode. We prove that this single term
+controls fidelity to the teacher and local stability of the student within a constant factor, so no
+coefficient balances them. We further set the per-sample attack radius from the input sensitivity of
+the loss under a fixed total budget. The resulting objective requires no temperature, no loss weight
+and no trained classifier.
+
+Experimental results show that CFA recovers standard accuracy without giving up robustness.
+Particularly, CFA attains $62.17\%$ standard accuracy at $28.86\%$ AutoAttack accuracy on CIFAR-100
+with ResNet-18 and transfers unchanged to CIFAR-10 and Tiny-ImageNet. No published method is ahead on
+both axes.
 \end{abstract}
