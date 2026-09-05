@@ -67,11 +67,11 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \emph{self} its own weight average, \emph{nat.} a naturally trained network. Rows we have not run are
   left empty with the reason. $\mathrm{Avg} = \tfrac12(\text{Clean}+\text{AA})$, the criterion B-MTARD
   calls W-Robust; NRR is the harmonic mean. \textsuperscript{j}~LBGAT trains its
-  natural branch jointly, so its teacher is not free. \textsuperscript{n}~LBGAT's CIFAR-10 cell diverges to chance ($10.0$ on every
-  metric) under the configuration that trains its CIFAR-100 cell successfully; the two configs differ
-  only in the dataset name and the teacher checkpoint, and the schedule is already LBGAT's own. It is
-  being re-run, and if it diverges again it will be reported as a failed reproduction rather than as a
-  number. \textsuperscript{o}~HAT is run on its own one-cycle schedule rather than ours, which
+  natural branch jointly, so its teacher is not free. \textsuperscript{n}~LBGAT's CIFAR-10 cell diverges to chance ($10.0$ on
+  every metric, twice) under the configuration that trains its CIFAR-100 cell to $56.46 / 26.02$. The
+  two configs differ only in the dataset name and the teacher checkpoint, and the schedule is already
+  LBGAT's own, so we have no account of the failure and report it as one rather than as a number ---
+  as with CURE in \Cref{app:cure}. The CIFAR-100 column is unaffected. \textsuperscript{o}~HAT is run on its own one-cycle schedule rather than ours, which
   collapses it to chance on both datasets; the same allowance is made for LBGAT. On CIFAR-10 our port
   reproduces HAT's published no-extra-data figure to within $0.31$ clean and $0.27$ AutoAttack
   ($84.90 / 49.08$ reported, ResNet-18). HAT publishes no CIFAR-100 result without additional data
@@ -121,7 +121,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD                            & nat.  & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 &  \\
     AdaAD + IGDM\ddg                 & nat.  & 85.01 & 45.50 & 65.25 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 &  \\
     Logit anchor + our stack\textsuperscript{k} & nat.  & -- & -- & -- & -- & 56.97 & 26.96 & 41.97 & 36.60 & C10 not run \\
-    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 diverged\textsuperscript{n} \\
+    LBGAT                            & nat.\textsuperscript{j} & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 & C10 no repro.\textsuperscript{n} \\
     ARREST                           & nat.  & -- & -- & -- & -- & -- & -- & -- & -- & not run \\
     \midrule
     HAT\textsuperscript{o}           & nat.\textsuperscript{l} & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 &  \\
@@ -285,13 +285,11 @@ forty times further from linear than the ones it was designed for.
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Component ablation. CIFAR-100, ResNet-18, raw-$\ell_2$ anchor with
   $\epsilon_{\mathrm{train}} = 8.8/255$ held fixed and no learning-rate freeze. Each row adds one
-  component to the row above. Columns match \Cref{tab:main}; per-attack values are in
-  \Cref{tab:fullmetrics}. The last rung is the shipped recipe, so the ladder ends where
-  \Cref{tab:main} begins; it exists only at 100 epochs, which is the schedule the paper ships.
-  Every rung above it trains the classifier head, and the rungs through AWP were measured before
-  the AWP-proxy correction of \Cref{app:awp} --- they are internally consistent, since all of them
-  carry it and the two that predate AWP cannot, and the final row is post-correction because it is
-  the reported cell.}
+  component to the row above, and every rung inherits the teacher's classifier without training it,
+  as the shipped recipe does --- so the 100-epoch ladder ends exactly on the row \Cref{tab:main}
+  reports. Columns match \Cref{tab:main}; per-attack values are in \Cref{tab:fullmetrics}.
+  \textbf{The 50-epoch block is still the earlier build, in which every rung trains the head}, and is
+  being rebuilt; until it is, deltas should be read within a block and not across the two.}
   \label{tab:ladder}
   \begin{tabular}{lrrrr}
     \toprule
@@ -304,18 +302,18 @@ forty times further from linear than the ones it was designed for.
     \quad + AWP\dg                         & 59.90 & 28.05 & 43.98 & 38.21 \\
     \midrule
     \multicolumn{5}{l}{\emph{100 epochs}} \\
-    Anchor ($p=0$)                         & 61.21 & 25.24 & 43.23 & 35.74 \\
-    \quad + sensitivity-matched $\epsilon$ & 62.98 & 25.43 & 44.20 & 36.23 \\
-    \quad + weight averaging               & 62.43 & 27.39 & 44.91 & 38.08 \\
-    \quad + AWP\dg                         & 62.35 & 28.68 & 45.52 & 39.29 \\
-    \quad + freezing the classifier head   & 62.17 & \textbf{28.86} & 45.52 & \textbf{39.42} \\
+    Anchor ($p=0$)                         & 61.29 & 25.36 & 43.33 & 35.88 \\
+    \quad + sensitivity-matched $\epsilon$ & \textbf{63.09} & 25.74 & 44.42 & 36.56 \\
+    \quad + weight averaging               & 62.30 & 27.69 & 45.00 & 38.34 \\
+    \quad + AWP\dg                         & 62.17 & \textbf{28.86} & \textbf{45.52} & \textbf{39.42} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The sensitivity rule contributes exactly $+0.49$ NRR at both schedule lengths ($+1.61/{+}0.21$ at 50
-epochs, $+1.77/{+}0.19$ at 100) at identical total attack budget. AWP changes sign with schedule
-length: $-0.25$ NRR at 50 epochs, $+1.21$ at 100. And 50 epochs with weight averaging alone already
+The sensitivity rule contributes $+0.49$ NRR at 50 epochs and $+0.69$ at 100 ($+1.61/{+}0.21$ and
+$+1.80/{+}0.38$ on the two axes) at identical total attack budget. AWP appears to change sign with schedule
+length --- $-0.25$ NRR at 50 epochs against $+1.08$ at 100 --- but the two blocks are not yet the same
+design, so that reading is held until the 50-epoch rebuild lands. And 50 epochs with weight averaging alone already
 exceeds ADR's full stack ($38.46$ against $38.08$), at half the schedule and one fewer component, so
 the gain is not the stack.
 
