@@ -53,22 +53,17 @@
 \setlength{\aboverulesep}{0.6pt}
 \setlength{\belowrulesep}{1.5pt}
 
-\usepackage[most]{tcolorbox}
-
 % Propositions and proofs were running into the surrounding prose and were hard to find when
-% skimming.  A left rule and a little air around them is enough; no shading, no frame.
+% skimming.  amsthm's plain style (bold header, italic body) plus a little air around the environment
+% is enough; an earlier version drew a rule down the left margin, which read as a quote block.
 \theoremstyle{plain}
 \newtheorem{proposition}{Proposition}
 \newtheorem{corollary}{Corollary}
-\tcolorboxenvironment{proposition}{blanker, breakable,
-  borderline west={2pt}{0pt}{black!60}, left=8pt, right=0pt, top=4pt, bottom=4pt,
-  before skip=9pt, after skip=9pt}
-\tcolorboxenvironment{corollary}{blanker, breakable,
-  borderline west={2pt}{0pt}{black!60}, left=8pt, right=0pt, top=4pt, bottom=4pt,
-  before skip=9pt, after skip=9pt}
-\tcolorboxenvironment{proof}{blanker, breakable,
-  borderline west={1pt}{0pt}{black!25}, left=8pt, right=0pt, top=2pt, bottom=2pt,
-  before skip=7pt, after skip=9pt}
+\makeatletter
+\def\thm@space@setup{%
+  \thm@preskip=1.4\parskip \@plus 3pt \@minus 1pt
+  \thm@postskip=\thm@preskip}
+\makeatother
 
 % Run-in headings carry the structure of the experiments section, so give them room to be seen.
 \makeatletter
