@@ -535,25 +535,32 @@ improvement that the baselines were denied.
 The AutoAttack numbers reported in this paper run APGD-CE followed by APGD-T on the full test set. Both
 are white-box gradient attacks, and the objective we train reads neither labels nor logits, so the
 question of whether the robustness is an artifact of obscured gradients has to be answered rather than
-asserted. \Cref{tab:gradmask} runs the checks of \citet{athalye2018obfuscated} on the shipped
-CIFAR-100 cell, on the full test set throughout.
+asserted. \Cref{tab:gradmask} runs the checks of \citet{athalye2018obfuscated} on the full test set. The model
+is the seed-1 repeat of the shipped CIFAR-100 configuration ($62.00$ clean, $28.74$ AutoAttack against
+the seed-0 run's $62.17 / 28.86$ reported elsewhere), which is the checkpoint that survives on disk;
+none of the checks below is a property that a seed changes.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
-  \caption{Gradient-masking checks on the shipped CIFAR-100 cell (clean accuracy $62.00$), all
-  $10000$ test images. Each attack is run independently at $\epsilon = 8/255$, so the numbers are
-  standalone rather than the cascade AutoAttack reports. The teacher-transfer row builds PGD-20 examples on the natural teacher
-  and evaluates them on the student, which shares the teacher's classifier.}
+  \caption{Gradient-masking checks, all $10000$ test images, $\epsilon = 8/255$. The first block runs
+  each attack \emph{independently} from the clean test set, which is what compares their strengths;
+  the second runs them as AutoAttack does, each attack seeing only the points the previous ones left
+  standing. The teacher-transfer row builds PGD-20 examples on the natural teacher and evaluates them
+  on the student, which shares the teacher's classifier.}
   \label{tab:gradmask}
   \begin{tabular}{llr}
     \toprule
     Check & Setting & Accuracy \\
     \midrule
     \multicolumn{3}{l}{\emph{white box against black box}} \\
-    APGD-CE            & white box, untargeted & \phantom{0}--- \\
-    APGD-T             & white box, targeted   & \phantom{0}--- \\
-    FAB-T              & white box, boundary   & \phantom{0}--- \\
-    Square             & \textbf{black box}, 5000 queries & \phantom{0}--- \\
+    APGD-CE            & white box, untargeted & 31.80 \\
+    APGD-T             & white box, targeted   & \textbf{28.83} \\
+    FAB-T              & white box, boundary   & 29.16 \\
+    Square             & \textbf{black box}, 5000 queries & 34.82 \\
+    \midrule
+    \multicolumn{3}{l}{\emph{as a cascade}} \\
+    APGD-CE $\rightarrow$ APGD-T & what this paper reports & 28.73 \\
+    \quad $\rightarrow$ FAB-T $\rightarrow$ Square & AutoAttack's \texttt{standard} version & 28.73 \\
     \midrule
     \multicolumn{3}{l}{\emph{radius sweep}, PGD-20} \\
     $\epsilon = 2/255$  & & 54.62 \\
@@ -573,12 +580,13 @@ CIFAR-100 cell, on the full test set throughout.
   \end{tabular}
 \end{table}
 
-Four things follow. The black-box attack is the weakest of the four, by $4.80$ points against the
-strongest white-box one, where masked gradients produce the opposite ordering. Accuracy falls
-monotonically with the radius and reaches exactly zero at $64/255$, so there is no radius at which the
-attack stops working. Accuracy falls monotonically with the number of steps and flattens by $50$,
-rather than oscillating. And APGD-T, which is the attack our reported number is decided by, is the
-strongest of the four here.
+Four things follow. The black-box attack is the weakest of the four, by $5.99$ points against the
+strongest white-box one, where masked gradients produce the opposite ordering. Adding FAB-T and Square
+to the cascade changes the reported number by $0.00$: neither attack breaks a single one of the $2873$
+points left standing by APGD-CE and APGD-T, which is why the two-attack figure is what we report
+throughout. Accuracy falls monotonically with the radius and reaches exactly zero at $64/255$, so
+there is no radius at which the attack stops working, and it falls monotonically with the number of
+steps and flattens by $50$ rather than oscillating.
 
 The transfer row is worth reading separately. The student inherits the teacher's classifier and is
 initialized at the teacher's features, so adversarial examples built on the teacher might be expected
