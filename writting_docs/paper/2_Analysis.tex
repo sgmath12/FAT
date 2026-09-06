@@ -8,12 +8,12 @@ matching its logits alongside the label loss \citep{lbgat, arrest, dpfat}.
 More recent work argues that a one-hot target is too sharp for adversarial training and replaces it
 with a softened teacher distribution \citep{ard, rslad, LTD, adr}, and a naturally trained model
 represents the extreme of that spectrum, since its logits are sharper still.
-We revisit this softened-logit route more rigorously, and then examine what is gained by distilling
-the feature instead.
-We further establish a geometric property of the feature objective: a single scalar controls both the
-distance to the target at the clean input and the variation of the trained network's feature over the
-perturbation ball, so the two need not be balanced by a coefficient.
-The property concerns the training representation and is not, by itself, a guarantee of robust
+We revisit this softened-logit route more rigorously, and find that softening improves robustness
+while leaving the clean-accuracy gap almost unchanged.
+We then analyse distilling the feature instead, which improves both, and show that this objective
+bounds the distance to the teacher and the variation of the trained network's feature over the
+perturbation ball by the same quantity, so that no coefficient is needed between them.
+The bound concerns the training representation and is not, by itself, a guarantee of robust
 classification.
 
 \subsection{Preliminaries}
