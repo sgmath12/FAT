@@ -431,3 +431,29 @@ the word twice in one sentence to make a symmetry that the reader does not need.
 **Rule 16.** Verbs are subject to rule 15 as much as nouns are. A verb chosen because it is precise
 in English but absent from the field's writing reads as an outsider's paraphrase of the field.
 
+## F9 --- Two drafts of the analysis opening, merged (2026-09-06)
+
+A second agent rewrote the section opening and the two versions were compared side by side. The
+comparison is worth keeping because the two failure modes are opposite and both are mine to avoid.
+
+**What my draft got wrong.** It claimed `\Cref{prop:decomp} ... tells us the anchor cannot cost
+robustness`, which is the overclaim the review had just identified; it carried a meta-aside (`which is
+a weaker statement than the paper needs, and we say so where it matters`), which is the paper
+apologizing for its own argument; and it opened with `this section asks where the trade sits`, another
+`ask`.
+
+**What the other draft got wrong.** `the input at which it is read` put `read` back after the section
+had been rewritten to `evaluated` throughout; `It controls both agreement ...` opened a sentence with
+a bare pronoun; `give a simple geometric property` both mis-collocates (`establish` / `state`) and
+grades our own work (`simple`). Five roadmap sentences in a row also left the paragraph with no claim
+in it.
+
+**The merge, which is what ships.** Its scoping (`not, by itself, a guarantee of robust
+classification`) plus the substance mine had (`so the two need not be balanced by a coefficient`,
+which is the reason the proposition is in the paper at all), with `read`, the bare `It`, `simple` and
+the meta-aside all gone.
+
+**Rule 17.** The two ways to lose are opposite: a claim that outruns what was proved, and a paragraph
+so careful it states nothing. Check for both --- after scoping a claim, read the paragraph again and
+ask what it now asserts.
+

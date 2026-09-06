@@ -1,12 +1,14 @@
 \section{Analysis}
 \label{sec:analysis}
 
-This section examines two choices involved in using a naturally trained model during adversarial
-training: the quantity transferred from the teacher and the input at which it is read.  The
-measurements motivate matching a clean teacher feature rather than a teacher logit.  We then give a
-simple geometric property of this objective.  It controls both agreement with the teacher at the
-clean input and variation of the student's feature over the perturbation ball.  This property is
-about the training representation; it is not, by itself, a guarantee of robust classification.
+This section examines two choices involved in using a naturally trained network during adversarial
+training: which quantity is transferred from the teacher, and at which input the teacher is evaluated.
+The measurements motivate matching a clean teacher feature rather than a teacher logit.
+We then establish a geometric property of the resulting objective: a single scalar controls both the
+agreement with the teacher at the clean input and the variation of the student's feature over the
+perturbation ball, so the two need not be balanced by a coefficient.
+The property concerns the training representation and is not, by itself, a guarantee of robust
+classification.
 
 \subsection{Preliminaries}
 
