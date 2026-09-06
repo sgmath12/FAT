@@ -10,10 +10,10 @@ with a softened teacher distribution \citep{ard, rslad, LTD, adr}, and a natural
 represents the extreme of that spectrum, since its logits are sharper still.
 We revisit this softened-logit route more rigorously, and find that softening improves robustness
 while leaving the clean-accuracy gap almost unchanged.
-We instead analyse distilling the feature.
-Minimizing this loss keeps the attacked feature close to the teacher's clean feature, and the same
-term limits how far the feature moves inside the perturbation ball.
-Distilling the feature improves clean accuracy and robustness together.
+Softening makes the target less sharp, but the target is still the output of the teacher, and the
+clean accuracy of a model is not held in its output alone: much of it is in the representation the
+output is computed from.
+We therefore distil that representation, which improves clean accuracy and robustness together.
 
 \subsection{Preliminaries}
 
