@@ -1,10 +1,19 @@
 \section{Analysis}
 \label{sec:analysis}
 
-A naturally trained network can guide adversarial training in more than one way, and two choices
-decide how: whether the quantity matched is its logits or its feature, and whether it is evaluated at
-the clean input or inside the perturbation ball.
-Our measurements motivate matching the feature at the clean input.
+This section investigates the use of a naturally trained model to mitigate the loss of clean accuracy
+that adversarial training incurs.
+Most existing methods transfer the clean accuracy of such a model through knowledge distillation,
+matching its logits alongside the label loss \citep{lbgat, arrest, dpfat}.
+More recent work argues that a one-hot target is too sharp for adversarial training and replaces it
+with a softened teacher distribution \citep{ard, rslad, LTD, adr}, and a naturally trained model sits
+at the extreme of that spectrum, since its logits are sharper still.
+We revisit this softened-logit route and examine it more rigorously, and then examine what is gained
+by distilling the feature instead.
+The two questions we separate are which quantity is matched, logits or feature, and at which input the
+model is evaluated, the clean image or a perturbed one.
+
+The measurements motivate matching the feature at the clean input.
 We then establish a geometric property of the resulting objective: a single scalar controls both the
 distance to that target at the clean input and the variation of the trained network's feature over the
 perturbation ball, so the two need not be balanced by a coefficient.
