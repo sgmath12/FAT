@@ -422,3 +422,12 @@ became `The natural explanation is`. Two sentence-initial `It`s went with them.
 `supply`, `asserted` were all doing real work here and none of them is how the literature names it,
 which makes the prose read as a talk transcript rather than as a paper.
 
+**F8b --- `consume`.** `Methods that consume a natural network` --- the verb is wrong for a paper;
+`utilize` or `exploit` is what the literature uses. Replaced by `exploit` in all five places, and the
+paragraph after it lost the `A naturally trained network is deficient in both when it is consumed the
+way adversarial distillation consumes an adversarially trained one` construction, which was carrying
+the word twice in one sentence to make a symmetry that the reader does not need.
+
+**Rule 16.** Verbs are subject to rule 15 as much as nouns are. A verb chosen because it is precise
+in English but absent from the field's writing reads as an outsider's paraphrase of the field.
+

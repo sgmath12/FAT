@@ -26,12 +26,12 @@ data, frozen and used as the teacher throughout, with feature $\Phi_t(x)$ and lo
 \subsection{Where a Natural Teacher Fails, and Where It Does Not}
 \label{sec:fragile}
 
-Methods that consume a natural network take its logits as the target, either as an auxiliary term
-beside the label loss or as a second teacher \citep{lbgat, arrest, bmtard, dpfat}.
-Two design choices are implicit in that use: which quantity of the teacher is matched, and at which
+Methods that exploit a naturally trained network take its logits as the target, either as an
+auxiliary term beside the label loss or as a second teacher \citep{lbgat, arrest, bmtard, dpfat}.
+Two design choices are implicit in this use: which quantity of the teacher is matched, and at which
 input the teacher is evaluated.
-A naturally trained network is deficient in both when it is consumed the way adversarial distillation
-consumes an adversarially trained one, and the two deficiencies can be measured separately.
+Adversarial distillation settles both for an adversarially trained teacher, and neither answer
+transfers to a naturally trained one, as the two measurements below show separately.
 
 \paragraph{Which quantity is matched: softening repairs only half of the problem.}
 The distillation literature diagnoses the difficulty of the target as its sharpness, and four separate
@@ -44,9 +44,9 @@ scale as $\log C - H(P_T)$, so that a sharper teacher carries a larger one---and
 temperature online to equalize it. In each of these the operative object is
 $\mathrm{softmax}(z_t / \tau)$ and the design question is $\tau$.
 
-Not every method that consumes a natural network poses it, and \Cref{sec:related} places the
-exceptions; LBGAT \citep{lbgat} in particular matches logits under a squared error with no softmax at
-all, at the cost of training its natural branch jointly.
+Not every method poses the question in this form, and \Cref{sec:related} places the exceptions.
+LBGAT \citep{lbgat} in particular matches logits under a squared error with no softmax at all, at the
+cost of training its natural branch jointly.
 
 By that account a naturally trained teacher is the extreme case, and the measurement agrees: on clean
 test data its maximum softmax probability is $0.820$, against $0.016$ for the adversarially trained
