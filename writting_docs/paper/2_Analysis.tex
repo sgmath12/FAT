@@ -14,6 +14,11 @@ Softening makes the target less sharp, but the target is still the output of the
 clean accuracy of a model is not held in its output alone: much of it is in the representation the
 output is computed from.
 We therefore distil that representation, which improves clean accuracy and robustness together.
+Matching intermediate representations is itself a standard distillation technique \citep{fitnets}, and
+what differs here is the setting it is placed in.
+The label loss is removed rather than augmented, the feature at the attacked input is matched to the
+teacher's feature at the clean input, and the same distance defines the attack the network is trained
+against.
 
 \subsection{Preliminaries}
 
