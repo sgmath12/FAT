@@ -1,0 +1,58 @@
+# DEFENSIVE ABLATION: the strongest distillation baseline WITH our stack (2026-09-06).
+#
+# The objection: our row in tab:main carries weight averaging and an AWP proxy, and ARD, RSLAD,
+# AdaAD, HAT and LBGAT do not, because each runs at its authors' recipe.  Half the answer already
+# exists -- the anchor without any stack (61.29 / 25.36, ladder_p0_fh_100ep) already beats AdaAD at
+# its own recipe (59.79 / 23.19).  This cell is the other half: AdaAD with the stack we use, at its
+# own optimizer, schedule and initialization, so nothing but the two components changes.
+#
+# Changed from adaad_nat100ep in exactly three fields:
+#   weight_avg False -> True,  wa_start 0.2,  kappa 0.999   (our weight averaging)
+#   awp_gamma 0.005, awp_warmup 10                          (our AWP proxy)
+#   train_eps 8.8/255                                       (our training radius, so the radius is
+#                                                            not the remaining difference either)
+#
+# Read against our shipped 62.17 / 28.86 and against AdaAD's own 59.79 / 23.19.
+#
+
+method : adaad
+adaad_beta : 1.0
+weight_decay : 0.0005
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.1
+lr_schedule : piecewise
+stage1 : 70
+stage2 : 90
+lr_factor : 10
+cyclic : False
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : True
+wa_start : 0.2
+awp_gamma : 0.005
+awp_warmup : 10
+kappa : 0.999
+alpha : 1.0
+beta : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

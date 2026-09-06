@@ -1,0 +1,56 @@
+# THE MISSING RUNG: the anchor with the stack but WITHOUT the radius rule (2026-09-06).
+#
+# The component ladder is cumulative, so it has p0 / +angeps / +WA / +AWP and no cell with the stack
+# on a uniform radius.  That cell is what the AdaAD comparisons need: adaad_ourrecipe_wa_awp gets our
+# optimizer, schedule, warm start, radius, weight averaging and AWP, but it cannot get the
+# sensitivity-matched radius, which lives in the anchored trainer.  Without this rung the shipped row
+# differs from it in TWO things -- the objective and the allocation -- and the comparison cannot
+# attribute either.
+#
+# Differs from ladder_p0_fh_100ep in three fields: weight_avg True, wa_start 0.2, awp_gamma 0.005 /
+# awp_warmup 10.  p stays 0, i.e. a uniform radius at 8.8/255.
+#
+# Read as: this row against adaad_ourrecipe_wa_awp (objective only), and against the shipped
+# 62.17 / 28.86 (the radius rule only).
+#
+
+method : feat_direction
+featdir_freeze_head : True
+weight_avg : True
+wa_start : 0.2
+awp_gamma : 0.005
+awp_warmup : 10
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
