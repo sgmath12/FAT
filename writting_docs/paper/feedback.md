@@ -376,3 +376,49 @@ shorter, Times being narrower than the substitute.
 **Rule 14.** A font warning is a rendering bug, not noise. Check the fonts embedded in the output, not
 the markup in the source: `pypdf` over `page['/Resources']['/Font']` lists what actually got used.
 
+
+
+The supervisory signal is the label, and it is asserted uniformly over B(x, ε): every point of the ball
+must reach full confidence in one class. That is where the accuracy cost comes from. We write
+ft = ht ◦Φt for a network of the same architecture trained naturally on the same data—the teacher
+throughout, frozen—so that Φt(x) is its feature and ft(x) its logits, and ask what it can supply.
+
+> it is asserted uniformly ? 또 지시대명사 쓰네 , 그리고 asserted 라는 단어도 좀 어색해보이고 이 문장 자체가 어색해 수학적으로 써 
+> that is where the accruacy cost comes from 이것도 좀 이상해. 이게 굳이 왜 있어야함 ? 
+> and ask what it can supply  이것도 . ask가뭐니 논문에.. supply 이것도..
+
+A method that consumes a teacher can go wrong in two independent places: where it reads the
+teacher, and what it reads from it. Both defects are present when a naturally trained network is used
+the way adversarial distillation uses one, and they can be measured separately.
+
+> 이것도 첫 시작을 이렇게 하면 어떡해. 기존 방법들은 자연티처를 주로 로짓 가이드로 써왔다. 뭐 이렇게 시작해야지
+
+What is read: the field’s prescription is softening, and it is only half a fix. Four separate lines of
+work converge on the same diagnosis—the target is too sharp—and each builds its own machinery
+to soften it. 
+
+> 이것도 너 무 갑자기야. What is read 가 뭐니. 자꾸 뭘 Read래 . Read 이거 논문에 안나와 보통!!! 제발!!!! 그리고. 갑자기 냅다 four seprarte lines 하면 어떡해
+
+## F8 --- The analysis section's openings (2026-09-06)
+
+Four notes, all on the same habit: the section was written as a guided tour ("what is read", "where it
+is read", "ask what it can supply") instead of as an analysis.
+
+| Feedback | What changed |
+|---|---|
+| `it is asserted uniformly over $B(x,\epsilon)$` --- another loose pronoun, `asserted` is the wrong verb, and the sentence should be mathematical | `the inner maximization imposes it at every point of $B(x,\epsilon)$, so the objective requires $f_\theta(x') \approx y$ uniformly on the ball rather than at $x$ alone as in natural training` |
+| `That is where the accuracy cost comes from.` --- why is this here | Deleted. The introduction states the cost; the preliminaries only have to state the objective |
+| `and ask what it can supply` --- `ask` and `supply` are not paper words | The sentence now just defines the teacher and its two outputs |
+| `A method that consumes a teacher can go wrong in two independent places` --- start from what prior work does | `Methods that consume a natural network take its logits as the target, either as an auxiliary term beside the label loss or as a second teacher`, then the two design choices |
+| `What is read:` / `Where it is read:` as paragraph headings --- `read` does not appear in papers this way | `Which quantity is matched: softening repairs only half of the problem.` / `At which input the teacher is evaluated: away from the clean point its outputs are unreliable.` |
+| `Four separate lines of work converge on the same diagnosis` arrives with no lead-in | `The distillation literature diagnoses the difficulty of the target as its sharpness, and four separate lines of work build machinery to soften it.` |
+
+Eight further occurrences of the `read` framing were rewritten through the section: `the read point`
+became `the input at which the teacher is evaluated`, `Reading the teacher's feature` became
+`Matching`, `we do not read it as one` became `we do not treat it as one`, `The obvious reading is`
+became `The natural explanation is`. Two sentence-initial `It`s went with them.
+
+**Rule 15.** A word that carries the argument has to be the field's word for the thing. `read`,
+`supply`, `asserted` were all doing real work here and none of them is how the literature names it,
+which makes the prose read as a talk transcript rather than as a paper.
+
