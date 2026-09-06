@@ -378,8 +378,8 @@ own recipe.
 Our objective reads neither labels nor logits, which makes obscured gradients a natural suspicion, and
 the reported AutoAttack number is decided by two white-box attacks.
 We therefore run the checks of \citet{athalye2018obfuscated} on the shipped cell (\Cref{app:gradmask}):
-the black-box Square attack is $4.80$ points weaker than the strongest white-box attack rather than
-stronger, accuracy falls monotonically in both the radius and the number of steps and reaches exactly
+the black-box Square attack is weaker than the strongest white-box attack rather than stronger,
+accuracy falls monotonically in both the radius and the number of steps and reaches exactly
 zero at $64/255$, and adversarial examples built on the natural teacher cost the student $1.58$ points
 even though it inherits that teacher's classifier.
 

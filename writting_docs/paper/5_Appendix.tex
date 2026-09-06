@@ -536,27 +536,26 @@ The AutoAttack numbers reported in this paper run APGD-CE followed by APGD-T on 
 are white-box gradient attacks, and the objective we train reads neither labels nor logits, so the
 question of whether the robustness is an artifact of obscured gradients has to be answered rather than
 asserted. \Cref{tab:gradmask} runs the checks of \citet{athalye2018obfuscated} on the shipped
-CIFAR-100 cell. FAB-T and Square are evaluated on the first $1000$ test examples, which is the usual
-convention for the two expensive attacks; everything else uses all $10000$.
+CIFAR-100 cell, on the full test set throughout.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
-  \caption{Gradient-masking checks on the shipped CIFAR-100 cell (clean accuracy $62.00$). Each
-  attack is run independently at $\epsilon = 8/255$, so the numbers are standalone rather than the
-  cascade AutoAttack reports. The teacher-transfer row builds PGD-20 examples on the natural teacher
+  \caption{Gradient-masking checks on the shipped CIFAR-100 cell (clean accuracy $62.00$), all
+  $10000$ test images. Each attack is run independently at $\epsilon = 8/255$, so the numbers are
+  standalone rather than the cascade AutoAttack reports. The teacher-transfer row builds PGD-20 examples on the natural teacher
   and evaluates them on the student, which shares the teacher's classifier.}
   \label{tab:gradmask}
   \begin{tabular}{llr}
     \toprule
     Check & Setting & Accuracy \\
     \midrule
-    \multicolumn{3}{l}{\emph{white box against black box}, $n = 1000$} \\
-    APGD-CE            & white box, untargeted & 30.20 \\
-    APGD-T             & white box, targeted   & \textbf{28.00} \\
-    FAB-T              & white box, boundary   & 28.70 \\
-    Square             & \textbf{black box}, 5000 queries & 32.80 \\
+    \multicolumn{3}{l}{\emph{white box against black box}} \\
+    APGD-CE            & white box, untargeted & \phantom{0}--- \\
+    APGD-T             & white box, targeted   & \phantom{0}--- \\
+    FAB-T              & white box, boundary   & \phantom{0}--- \\
+    Square             & \textbf{black box}, 5000 queries & \phantom{0}--- \\
     \midrule
-    \multicolumn{3}{l}{\emph{radius sweep}, PGD-20, $n = 10000$} \\
+    \multicolumn{3}{l}{\emph{radius sweep}, PGD-20} \\
     $\epsilon = 2/255$  & & 54.62 \\
     $\epsilon = 4/255$  & & 47.03 \\
     $\epsilon = 8/255$  & & 32.46 \\
@@ -565,10 +564,10 @@ convention for the two expensive attacks; everything else uses all $10000$.
     $\epsilon = 32/255$ & & 1.05 \\
     $\epsilon = 64/255$ & & \textbf{0.00} \\
     \midrule
-    \multicolumn{3}{l}{\emph{step sweep}, $\epsilon = 8/255$, $n = 10000$} \\
+    \multicolumn{3}{l}{\emph{step sweep}, $\epsilon = 8/255$} \\
     PGD-10 / 20 / 50 / 100 & & 33.17 / 32.57 / 32.30 / 32.24 \\
     \midrule
-    \multicolumn{3}{l}{\emph{transfer}, $n = 10000$} \\
+    \multicolumn{3}{l}{\emph{transfer}} \\
     Natural teacher $\rightarrow$ student & PGD-20 built on the teacher & 60.42 \\
     \bottomrule
   \end{tabular}
