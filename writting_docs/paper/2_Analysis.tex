@@ -1,12 +1,12 @@
 \section{Analysis}
 \label{sec:analysis}
 
-Adversarial training trades clean accuracy for robustness, and this section asks where in its
-construction the trade sits. The answer we arrive at is that it is in the target: a label asserted
-over a whole ball is a demand that cannot be met without distorting the clean prediction, and
-replacing it with a fixed point in feature space turns two competing objectives into one. That claim
-is what \Cref{prop:decomp} makes precise, and it is also what tells us the anchor cannot cost
-robustness --- which is a weaker statement than the paper needs, and we say so where it matters.
+This section examines two choices involved in using a naturally trained model during adversarial
+training: the quantity transferred from the teacher and the input at which it is read.  The
+measurements motivate matching a clean teacher feature rather than a teacher logit.  We then give a
+simple geometric property of this objective.  It controls both agreement with the teacher at the
+clean input and variation of the student's feature over the perturbation ball.  This property is
+about the training representation; it is not, by itself, a guarantee of robust classification.
 
 \subsection{Preliminaries}
 
@@ -17,45 +17,37 @@ Let $f=h\circ\Phi$ be a classifier with feature map $\Phi$ and linear head $h$. 
 \qquad B(x,\epsilon)=\{x':\lVert x'-x\rVert_\infty\le\epsilon\}.
 \label{eqn:at}
 \end{equation}
-The supervision in \Cref{eqn:at} is the label $y$, and the inner maximization imposes it at every
-point of $B(x,\epsilon)$, so the objective requires $f_\theta(x') \approx y$ uniformly on the ball
-rather than at $x$ alone as in natural training.
+The supervision in \Cref{eqn:at} is the label $y$.  Its inner problem searches the ball for an input
+at which the classifier disagrees most strongly with that label, whereas natural training constrains
+the prediction only at $x$.
 We write $f_t = h_t \circ \Phi_t$ for a network of the same architecture trained naturally on the same
 data, frozen and used as the teacher throughout, with feature $\Phi_t(x)$ and logits $f_t(x)$.
 
 \subsection{Where a Natural Teacher Fails, and Where It Does Not}
 \label{sec:fragile}
 
-Methods that exploit a naturally trained network take its logits as the target, either as an
-auxiliary term beside the label loss or as a second teacher \citep{lbgat, arrest, bmtard, dpfat}.
-Two design choices are implicit in this use: which quantity of the teacher is matched, and at which
-input the teacher is evaluated.
-Adversarial distillation settles both for an adversarially trained teacher, and neither answer
-transfers to a naturally trained one, as the two measurements below show separately.
+Existing methods commonly use the logits of a naturally trained network, either alongside the label
+loss or together with another teacher \citep{lbgat, arrest, bmtard, dpfat}.  This leaves two choices:
+which teacher quantity to match, and where to evaluate the teacher.  We examine them separately.
 
-\paragraph{Which quantity is matched: softening repairs only half of the problem.}
-The distillation literature diagnoses the difficulty of the target as its sharpness, and four separate
-lines of work build machinery to soften it. LTD \citep{LTD} argues that one-hot labels are the wrong supervision
-for adversarial training and replaces them with soft ones. RSLAD \citep{rslad} makes the smoothness of
-the teacher's logits its central claim. ADR \citep{adr} draws its target from a weight average and
-scales it by a softmax temperature that starts near-uniform and is annealed down over training.
-B-MTARD \citep{bmtard} formalizes the quantity being controlled---writing the teacher's knowledge
-scale as $\log C - H(P_T)$, so that a sharper teacher carries a larger one---and adjusts each teacher's
-temperature online to equalize it. In each of these the operative object is
-$\mathrm{softmax}(z_t / \tau)$ and the design question is $\tau$.
+\paragraph{Logit matching benefits from softening, but does not recover clean accuracy.}
+Much of the distillation literature treats target sharpness as the main difficulty.  LTD
+\citep{LTD}, RSLAD \citep{rslad}, ADR \citep{adr}, and B-MTARD \citep{bmtard} consequently modify the
+temperature or entropy of a logit target.  In this family of methods, the transferred object is
+$\mathrm{softmax}(z_t / \tau)$ and $\tau$ determines its sharpness.
 
 Not every method poses the question in this form, and \Cref{sec:related} places the exceptions.
 LBGAT \citep{lbgat} in particular matches logits under a squared error with no softmax at all, at the
 cost of training its natural branch jointly.
 
-By that account a naturally trained teacher is the extreme case, and the measurement agrees: on clean
-test data its maximum softmax probability is $0.820$, against $0.016$ for the adversarially trained
-student it is supposed to teach. The teacher therefore asks for a confidence twenty times sharper than the student's own.
+The natural teacher is an extreme instance of this setting.  Its mean maximum softmax probability on
+clean test data is $0.820$, compared with $0.016$ for the adversarially trained student in this
+comparison.  Direct logit matching therefore supplies a substantially sharper target than the
+student's own output.
 
-The prescription follows, and it works. Sweeping $\tau$ on that teacher's logits in a fixed base
-regime---50 epochs, no weight averaging, no AWP, $\epsilon = 8/255$---AutoAttack accuracy rises from
-$20.84$ at $\tau = 1$ to $24.48$ at $\tau = 4$, then turns over. Sharpness is a genuine defect and
-softening genuinely repairs it.
+In a fixed base regime---50 epochs, no weight averaging, no AWP, and $\epsilon = 8/255$---increasing
+$\tau$ improves AutoAttack accuracy from $20.84$ at $\tau = 1$ to $24.48$ at $\tau = 4$; it then
+declines at $\tau = 16$.  Thus, target sharpness matters in this comparison.
 
 \begin{center}\small
 \begin{tabular}{lrrr}
@@ -71,37 +63,36 @@ softening genuinely repairs it.
 \end{tabular}
 \end{center}
 
-What it does not repair is the accuracy. Across the whole sweep clean accuracy moves between $57.78$
-and $59.39$---it is flat in $\tau$---while the teacher it is being distilled from has $77.66$. Matching
-the same teacher's \emph{feature} instead, with no temperature anywhere, gains a further $1.40$
-AutoAttack and $3.33$ clean at the same input and under the same regime.
+The temperature sweep does not similarly improve clean accuracy: it remains between $57.78$ and
+$59.39$, while the teacher reaches $77.66$.  Under the same regime and at the same input, matching
+the teacher's feature instead gives a further $1.40$ points of AutoAttack accuracy and $3.33$ points
+of clean accuracy, without a temperature.
 
-The two numbers separate cleanly. \textbf{Temperature moves robustness and leaves accuracy where it
-was; the feature moves both.} Sharpness is therefore a real problem with a real fix, and it is not the
-problem this paper addresses: the accuracy a naturally trained network holds does not survive its own
-softmax, and no choice of $\tau$ recovers it. The feature retains it.
+These results distinguish two effects.  Softening improves the robustness of logit matching in this
+setting, but it does not close the clean-accuracy gap.  The feature target performs better on both
+metrics, suggesting that useful information from the natural teacher is not adequately represented by
+its softened softmax output.
 
-\paragraph{At which input the teacher is evaluated: away from the clean point its outputs are
-unreliable.} Under
-$\epsilon = 8/255$ the teacher's own feature rotates by $63.8^\circ$ and its norm inflates by
-$\times 2.45$, so its output inside the ball is not a softened version of its output at the centre. The consequence is sharpest for methods that evaluate the teacher there. IGDM \citep{igdm} matches a finite difference
-$f_t(x{+}\delta) - f_t(x{-}\delta)$ as a stand-in for the teacher's input gradient, which is a gradient
-only while the teacher is locally linear; its own diagnostic reports a Taylor remainder proportion of
-$0.012$ for adversarially trained teachers. Applying that diagnostic to our checkpoints gives $0.0111$
-for an adversarially trained ResNet-18---reproducing their value, so the measurement is
-calibrated---and $\mathbf{0.4763}$ for the natural teacher, forty times further from linear. The target
-it constructs is correspondingly degenerate: $\lVert f_t(x{+}\delta) - f_t(x{-}\delta) \rVert = 14.14$
-against $\lVert f_t(x) \rVert = 18.36$, with the softmax of that difference placing $0.917$ of its mass
-on one class.
+\paragraph{A natural teacher is not a stable target inside the ball.} Under
+$\epsilon = 8/255$, the teacher's feature rotates by $63.8^\circ$ and its norm grows by a factor of
+$2.45$.  Its representation inside the ball is therefore quite different from its representation at
+the clean input.  This matters particularly for methods that evaluate the teacher at perturbed
+points. IGDM \citep{igdm} matches a finite difference
+$f_t(x{+}\delta) - f_t(x{-}\delta)$ as an approximation to the teacher's input gradient. This
+approximation is informative only when the teacher is locally close to linear. IGDM reports a Taylor
+remainder proportion of $0.012$ for adversarially trained teachers. We obtain $0.0111$ for an
+adversarially trained ResNet-18 and $\mathbf{0.4763}$ for the natural teacher. For the latter, the
+finite difference has norm $14.14$, compared with $\lVert f_t(x) \rVert = 18.36$, and its softmax puts
+$0.917$ of its mass on one class. These measurements indicate that this finite-difference target is
+poorly behaved for the natural teacher.
 
-\paragraph{Together, they cost more than the teacher is worth.} \Cref{tab:natteacher} gives the
-published objectives with our natural teacher in place of the robust one they assume, each at its own
-published recipe. Every one lands below plain adversarial training initialized from that same
-teacher---that is, below not distilling at all. The accuracy the teacher holds is real, and the logit
-route does not recover it.
+\paragraph{Published logit objectives with a natural teacher.} \Cref{tab:natteacher} evaluates
+published objectives after replacing their robust teacher with our natural teacher, using each
+method's published recipe. All of them are below adversarial training initialized from that teacher.
+In this setting, the logit-based route does not transfer the teacher's clean accuracy effectively.
 
-The construction that follows evaluates the teacher at $x$, where the second deficiency cannot arise,
-and takes its feature, which the first measurement shows to be the better target.
+These observations motivate the construction below: the teacher is evaluated at $x$, and the target
+is its feature rather than its logits.
 
 \subsection{What a Clean-Feature Anchor Controls}
 \label{sec:decomp}
@@ -112,10 +103,10 @@ Consider matching the teacher's feature at the \emph{clean} input against the st
 \mathcal{L}(x) \;=\; \max_{x' \in B(x,\epsilon)} \big\lVert \Phi_s(x') - \Phi_t(x) \big\rVert^2 .
 \label{eqn:anchor_percell}
 \end{equation}
-Read literally, \Cref{eqn:anchor_percell} asks the student to reproduce a \emph{fixed} vector from
-every point of the ball. That is a fidelity constraint, and a fidelity constraint alone would have no
-reason to produce robustness. It turns out not to be one, and the reason is visible once the quantity
-is compared with the two properties one would otherwise have to impose separately.
+Equation \Cref{eqn:anchor_percell} asks the student's feature at every attacked input to approach one
+fixed teacher feature. It therefore combines agreement with the teacher at the clean input and limited
+variation of the student's feature within the ball. The following observation makes that relation
+explicit.
 
 Fix $x$, write $B = B(x,\epsilon)$, and define
 \begin{align}
@@ -123,11 +114,9 @@ L &= \max_{x' \in B} \lVert \Phi_s(x') - \Phi_t(x) \rVert , \label{eqn:L}\\
 F &= \lVert \Phi_s(x) - \Phi_t(x) \rVert , \label{eqn:F}\\
 O &= \max_{x', x'' \in B} \lVert \Phi_s(x') - \Phi_s(x'') \rVert . \label{eqn:O}
 \end{align}
-Here $L$ is the square root of \Cref{eqn:anchor_percell}, the quantity the method minimizes; $F$ is
-\emph{fidelity}, how far the student is from the teacher at the clean point; and $O$ is
-\emph{oscillation}, the diameter of the student's own feature map over the ball. $F$ is what
-adversarial training gives up relative to natural training, and $O$ is what its label term buys. They
-are ordinarily two objectives.
+Here $L$ is the square root of \Cref{eqn:anchor_percell}; $F$ measures clean feature agreement with
+the teacher; and $O$ is the diameter of the student's feature map over the ball. The latter is a
+representation-level notion of local variation, not a direct measure of classification robustness.
 
 \begin{proposition}
 \label{prop:decomp}
@@ -157,34 +146,29 @@ For the left-hand inequality, insert $\Phi_s(x)$ instead: for any $x' \in B$,
 and taking the maximum over $x'$ gives $L \le F + O$.
 \end{proof}
 
-Only the triangle inequality is used, so \Cref{prop:decomp} holds for the networks we actually train:
-no smoothness, no linearity, no assumption on the architecture or on the attack that realizes the
-maximum. Two consequences follow immediately.
+The result uses only the triangle inequality. It therefore requires no smoothness or linearity
+assumption, and it holds independently of the architecture or of how the maximum is approximated.
 
 \begin{corollary}
 \label{cor:both}
 If the anchor is driven to $L \le \delta$ at $x$, then $F \le \delta$ and $O \le 2\delta$ at $x$.
 \end{corollary}
 
-That is the operative statement: driving one scalar down bounds \emph{both} properties, at rates that
-differ by a factor of two and by nothing else. Conversely, by the left inequality, $L$ cannot be small
-unless both are, so the objective admits no solution that satisfies one at the expense of the other.
-A weighted sum $F + \lambda O$ has no such property for any fixed $\lambda$: its level sets contain
-points where either term is arbitrarily large. This is why the anchor is stated as the whole objective
-rather than as a regularizer, and why there is no coefficient to select.
+Thus, reducing the anchor bounds both quantities. Conversely, the left inequality shows that the
+anchor cannot be small unless both fidelity error and feature variation are small. This differs from
+using a weighted sum of separate terms, where their relative scale is set by a coefficient and must
+be chosen externally. The anchor has no such coefficient because both properties arise from the same
+distance to a fixed target.
 
-\paragraph{Where the constant $3$ comes from, and how tight it is.} The factor is $1 + 2$: one from
-$F \le L$ and two from $O \le 2L$, and the second is attained when the student's outputs at the two
-extreme points of the ball sit on opposite sides of $\Phi_t(x)$ at distance $L$ each. Our trained
-students are far from that configuration, which is the content of the measurement below.
+\paragraph{The constant.} The factor $3$ is $1+2$: $F \le L$, and $O \le 2L$. The latter bound is
+tight when two student features lie on opposite sides of $\Phi_t(x)$, each at distance $L$.
 
-\paragraph{The teacher appears at $x$ and nowhere else.} \Cref{eqn:anchor_percell} evaluates $\Phi_t$
-at the clean point only, in the loss and in the attack that realizes the maximum. Whatever the teacher
-does inside $B$ is therefore absent from the objective, and the instability measured in
-\Cref{sec:fragile}---$63.8^\circ$ of rotation, $\times 2.45$ of norm---has no path into the
-optimization. The same fact settles the symmetric question: since the teacher is never asked to resist
-a perturbation, it cannot supply robustness either, and all of it is produced by the student's inner
-maximization.
+\paragraph{Why the teacher is read only at the clean input.}
+Equation \Cref{eqn:anchor_percell} evaluates $\Phi_t$ only at $x$, both in the loss and in the inner
+maximization. The teacher's behavior elsewhere in $B$---including the instability measured in
+\Cref{sec:fragile}---is consequently not used as a target. This does not make the teacher irrelevant:
+its clean feature geometry and classifier define the representation the student is asked to preserve.
+It does, however, separate that clean guidance from the teacher's adversarial behavior.
 
 The claim is testable by moving the input at which the teacher is evaluated and changing nothing
 else. Replacing $\Phi_t(x)$ with $\Phi_t(x')$ in both the loss and the attack drives AutoAttack accuracy
@@ -192,34 +176,29 @@ from $26.19$ to $0.00$ while clean accuracy \emph{rises} to $76.11$, within $1.5
 teacher (\Cref{tab:controls}). The failure is not that a moving target is harder to track, but that
 $\lVert \Phi_s(x') - \Phi_t(x') \rVert$ is minimized exactly by $\Phi_s = \Phi_t$, so a student that
 copies the natural teacher everywhere is optimal and has no robustness at all. Evaluating the teacher
-at the clean input is therefore what makes \Cref{eqn:anchor_percell} non-degenerate, and the asymmetry
-that keeps the teacher's fragility out of the objective is the same one that excludes the trivial
-solution.
+at the clean input therefore prevents this degenerate natural-copy solution.
 
-\paragraph{Verification.} \Cref{prop:decomp} predicts that a student trained on $L$ ends up with a
-small $O$, and the prediction is checkable on the trained network. Measured over $\epsilon = 8/255$
-balls on CIFAR-100, $L = 7.58$, $F = 6.30$ and $O_{\mathrm{lb}} = 2.16$, against the teacher's own
-$O = 6.68$: the student is $3.1\times$ more stable than the network it was distilled from, on the same
-balls. Two things follow. The teacher's instability was not inherited, which is what the construction
-predicts. Furthermore, $F \gg O_{\mathrm{lb}}$, so what remains in the loss at convergence is fidelity rather
-than instability---the anchor is not being satisfied by making the student flat.
+\paragraph{Empirical check.} On CIFAR-100 over $\epsilon=8/255$ balls, we measure $L=7.58$,
+$F=6.30$, and a lower bound $O_{\mathrm{lb}}=2.16$, compared with $O=6.68$ for the teacher on the
+same balls. The student is therefore more stable in this feature-space measurement, despite using a
+natural teacher. Moreover, $F \gg O_{\mathrm{lb}}$, indicating that the remaining anchor loss is not
+explained solely by a flat student representation.
 
-\paragraph{What the proposition is for, and what it is not.} \Cref{prop:decomp} says the anchor does
-not \emph{cost} robustness: local stability is bounded by the same scalar as fidelity, so the two
-cannot be traded against each other. It is not a lower bound on how much robustness the objective
-buys, and we do not treat it as one; \Cref{app:robustness} gives two partial results in that direction,
-each with the reason it falls short.
+\paragraph{Scope of the proposition.} \Cref{prop:decomp} is a statement about the objective and the
+student representation. It does not lower-bound robust accuracy or establish a classification margin.
+Those require properties of the classifier and of the class geometry that the inequality does not
+assume. The robustness gains reported below are therefore empirical results, not consequences of the
+proposition.
 
-The measurement is stronger than the proposition, and it is stronger for a different reason than the
-proposition would suggest. Asked to work with neither weight averaging nor AWP nor a
+The empirical result is stronger than this representation-level observation, and it appears to arise
+for a different reason. Asked to work with neither weight averaging nor AWP nor a
 sensitivity-matched radius---the anchor alone, against label cross-entropy under an identical
 schedule, initialization and training radius---the anchor leads by $6.69$ clean \emph{and} $5.91$
 AutoAttack, and by $4.63$ and $4.45$ against cross-entropy run at its own optimizer and schedule
-instead of ours (\Cref{tab:controls}, \Cref{tab:recipe}). The natural explanation is that \Cref{prop:decomp}'s bound on $O$ is
-doing the work, and \Cref{sec:components} shows it is not: the two students oscillate by the same
-relative amount under a matched attack. What differs is class separation, by a factor of $5.5$, and
-that is where we locate the effect. For scale, the full recipe leads cross-entropy \emph{with} weight
-averaging and AWP by $2.40$. So the anchor is a source of robustness rather than a neutral passenger
-on one, and at matched stack it is the larger source; the components in \Cref{tab:ladder} are
-additive on top of it rather than the origin of the effect. We keep \Cref{prop:decomp} stated as the
-weaker claim because that is what the inequality supports---the gap is measured, not derived.
+instead of ours (\Cref{tab:controls}, \Cref{tab:recipe}). The two students have similar relative
+feature displacement under a matched attack (\Cref{sec:components}), so this comparison does not
+support local feature variation as the sole mechanism. Their class separation differs by a factor of
+$5.5$, which is the more informative correlate in our measurements. At the full stack, CFA also
+leads cross-entropy with weight averaging and AWP by $2.40$ AutoAttack points. We therefore treat the
+robustness gain as an empirical effect associated with the learned class geometry; the proposition
+explains a property of the objective, not the magnitude of that gain.
