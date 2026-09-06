@@ -51,7 +51,11 @@ def main():
         ("natural teacher (clean_200ep)", "CIFAR100/checkpoint/clean_200ep/clean_last.pkl"),
         ("PGD-AT ResNet-18 (ours)",       "CIFAR100/checkpoint/at_teacherinit_matched/madry_at_last.pkl"),
         ("anchor student (p=0)",          "CIFAR100/checkpoint/ladder_p0_100ep/feat_direction_last.pkl"),
-        ("anchor student (shipped)",      "CIFAR100/checkpoint/l2_bestrecipe_freezehead/feat_direction_last.pkl"),
+        # 2026-09-06: this path moved.  The figures this script produced for the paper were measured
+        # on 08-31, when the directory still held the seed-0 checkpoint; the 09-04 seed repeat
+        # later overwrote it, and checkpoints are now written per seed (main.py:142).  Re-running
+        # this script therefore measures the seed-1 model unless seed 0 is retrained.
+        ("anchor student (shipped)",      "CIFAR100/checkpoint/l2_bestrecipe_freezehead_seed1/feat_direction_last.pkl"),
     ]
     print(f"{'checkpoint':<34}{'remainder proportion':>22}")
     for name, path in cells:

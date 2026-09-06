@@ -139,7 +139,14 @@ def main(config,npt):
         return 
     
     best_robust_acc = 0.0
-    model_save_path = os.path.join(str(path.parent.absolute()),config.dataset)+ '/checkpoint/' + config.config_name.split('.')[0] + '/'
+    # Seed in the path (2026-09-06).  A seed repeat used to write into the same directory as the run
+    # it repeats, so the second run silently replaced the first: the checkpoint behind the reported
+    # 62.17 / 28.86 was gone, and the gradient-masking evaluation of app:gradmask ran on the seed-1
+    # model without anything on disk saying so.  Seed 0 keeps the old path, so every config's
+    # `checkpoint:` field and every checkpoint already written stays valid; other seeds get their own
+    # directory.
+    _seed = int(getattr(config, "seed", 0) or 0)
+    model_save_path = os.path.join(str(path.parent.absolute()),config.dataset)+ '/checkpoint/' + config.config_name.split('.')[0] + ('' if _seed == 0 else '_seed%d' % _seed) + '/'
     os.makedirs(model_save_path, exist_ok=True) 
 
     d2 = ({

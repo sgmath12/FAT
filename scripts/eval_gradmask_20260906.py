@@ -24,7 +24,7 @@ from autoattack import AutoAttack
 
 MEAN = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
 STD  = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
-STUDENT = "CIFAR100/checkpoint/l2_bestrecipe_freezehead/feat_direction_last.pkl"
+STUDENT = "CIFAR100/checkpoint/l2_bestrecipe_freezehead_seed1/feat_direction_last.pkl"
 TEACHER = "CIFAR100/checkpoint/clean_200ep/clean_last.pkl"
 
 def build(path):
