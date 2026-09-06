@@ -511,3 +511,30 @@ is about stating a claim the section has not yet earned.
 **Rule 19.** A section opening states the question the section answers, not the answer. The answer
 belongs where the measurement is.
 
+### F10b --- the section opening, as a template
+
+The version that ships is the reference shape for every section opening in this paper. Four sentences,
+four moves:
+
+1. **Topic.** What is examined, in plain words. `We examine how a naturally trained teacher can help
+   preserve clean accuracy during adversarial training.`
+2. **Prior work, then the gap.** One clause for what the literature does, one for what it leaves open,
+   joined by `but`. `Prior work motivates the use of soft targets in place of one-hot labels, but it
+   remains unclear whether softening the predictions of a natural teacher is sufficient to recover its
+   clean accuracy.`
+3. **What we do about it**, attached with `therefore`. `We therefore examine feature distillation as an
+   alternative.`
+4. **What the analysis shows**, at the level of mechanism and with a hedged verb --- no numbers, no
+   verdict. `Our analysis shows how distilling the teacher's clean features into the student's
+   adversarial features can jointly control fidelity to the teacher and stability under input
+   perturbations through a single objective.`
+
+Properties to copy, not just the outline: every sentence attaches to the previous one with an explicit
+connective; the verbs are hedged where the claim is not yet established (`motivates`, `remains
+unclear`, `can control`); there are no numbers, no em-dash asides, no fragments, and no sentence that
+exists to set up the next one. The paragraph reads cold, without the reader knowing any result.
+
+**Rule 20.** Write section openings against this template before writing anything else in the section.
+My failures have been at move 2 (I skip the gap and assert the finding) and move 4 (I state the
+verdict, or overclaim what the analysis licenses).
+
