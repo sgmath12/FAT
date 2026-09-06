@@ -471,3 +471,43 @@ by`; `the block sits above us` was hiding `exceeds`. Removing the word forces th
 precise verb exists (`exceeds`, `differs by`, `lies`, `represents`), the spatial one is a paraphrase
 of it.
 
+## F10 --- A second agent's analysis opening, read against mine (2026-09-06)
+
+Not edited, only read. Four sentences against my seven, and the differences are instructive in both
+directions.
+
+**What theirs does better.**
+
+1. **A gap sentence instead of a verdict.** `it remains unclear whether softening the predictions of a
+   natural teacher is sufficient to recover its clean accuracy` is the standard move and it earns the
+   section: the reader is given a question the next two pages answer. Mine announced the answer
+   (`we find that softening improves robustness while leaving the clean-accuracy gap almost
+   unchanged`), which spends the finding before the measurement that supports it and then repeats it
+   in \Cref{sec:fragile}.
+2. **Length.** Four sentences. Mine carried a separate sentence for the softening bridge and another
+   for what the natural model's sharpness implies, both of which the gap sentence absorbs.
+3. **No dependence on a later reveal.** Theirs can be read cold; mine needs the reader to accept an
+   unsupported numerical claim in the opening.
+
+**What mine does better.**
+
+1. **Position in the literature.** Mine cites the methods that already use a naturally trained network
+   (LBGAT, ARREST, DP-FAT) and says what they do with it; theirs cites only the soft-target line, so
+   the paper's own family disappears from the opening. This was the specific thing the feedback asked
+   for.
+2. **Terminology before definition.** Theirs uses `teacher` and `student` a paragraph before
+   \Cref{sec:analysis}'s preliminaries introduce them, and `fidelity` and `stability` before either is
+   defined. Mine says `the attacked feature` and `the clean feature of the teacher`, which need
+   nothing.
+3. **`examine` three times** in four sentences (`We examine`, `We therefore examine`, plus
+   `Our analysis shows`), which is the repetition rule.
+
+**What I would take.** The gap sentence, and the brevity that follows from it. A section opening that
+poses the question reads as a paper; one that reports the answer reads as a summary of itself. That
+is the opposite error from the one I was making earlier this week (overclaiming), so both directions
+are now on the record: F9's rule 17 was about scoping a claim without emptying the paragraph, and this
+is about stating a claim the section has not yet earned.
+
+**Rule 19.** A section opening states the question the section answers, not the answer. The answer
+belongs where the measurement is.
+
