@@ -592,7 +592,7 @@ The transfer row is worth reading separately. The student inherits the teacher's
 initialized at the teacher's features, so adversarial examples built on the teacher might be expected
 to carry over; they cost the student $1.58$ points against its clean accuracy. Sharing a head is
 therefore not sharing a vulnerability, which is the same conclusion \Cref{sec:components} reaches from
-class separation: what the anchored student changes is where features sit, and the teacher's own
+class separation: what the anchored student changes is the position of its features, and the teacher's own
 adversarial directions do not point at the student's boundaries.
 
 \section{Notes on the Baselines}
@@ -658,8 +658,8 @@ to isolate the target from the schedule. Its temperature is chosen in the baseli
 than faithfully: plain distillation is $\tau = 1$, which is the worst of the three in
 \Cref{tab:ablation} at $20.84$ AutoAttack, and the row uses the $\tau$ that maximizes it, $4$ at
 $24.48$. The comparison is therefore against the best logit target we could find rather than the one
-the name implies. Temperature also stops being a small effect once the stack is present: the two sit
-$0.48$ apart without it, and $\tau = 16$ reaches only $42.45 / 20.10$ with it, against $\tau = 4$'s
+the name implies. Temperature also stops being a small effect once the stack is present: the two differ by
+$0.48$ without it, and $\tau = 16$ reaches only $42.45 / 20.10$ with it, against $\tau = 4$'s
 $56.97 / 26.96$.
 
 \section{Per-Attack Metrics}
@@ -804,7 +804,7 @@ Read against \Cref{tab:main} and restricted to the ResNet-18 blocks, which are t
 are comparable with, our CFA row exceeds every published Avg and NRR on both datasets: $62.17/28.86$
 at Avg $45.52$ on CIFAR-100 and $84.96/51.74$ at Avg $68.35$ on CIFAR-10.
 
-The restriction is not a convenience. The WideResNet-34-10 block sits above us on both criteria---
+The restriction is not a convenience. The WideResNet-34-10 block exceeds ours on both criteria---
 RPAT++ reaches Avg $70.87$ and NRR $67.30$ there---because a $48.3$M network is a different model, not
 a better method, and \Cref{tab:wrn} is where that comparison belongs. The same caution applies to the
 PreActResNet-18 blocks in the other direction: RPAT++ falls to $82.63/51.00$ there, and reading that
@@ -888,4 +888,5 @@ All numbers reported for the shipped recipe are post-correction. Two exceptions 
 appear: the head-freeze comparison (in \Cref{sec:components} and again in \Cref{app:fullmetrics}), the
 component ladder in \Cref{tab:ladder}, and the $\epsilon_{\mathrm{train}}$ sweep in
 \Cref{tab:radius} were measured before it. In each, every arm shares the defect, so the comparison is
-internally consistent even though its absolute values sit a few hundredths from the corrected ones.
+internally consistent even though its absolute values differ from the corrected ones by a few
+hundredths.

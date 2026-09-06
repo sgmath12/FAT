@@ -457,3 +457,17 @@ the meta-aside all gone.
 so careful it states nothing. Check for both --- after scoping a claim, read the paragraph again and
 ask what it now asserts.
 
+**F9b --- `sit` / `sits`.** Nine occurrences across four files (`a naturally trained model sits at the
+extreme`, `where the features sit`, `the two sit $0.48$ apart`, `the block sits above us`, `its values
+sit a few hundredths from`, `Two findings sit alongside it`). Replaced with the verb each place
+actually needed: `represents`, `the position of`, `differ by`, `exceeds`, `accompany`.
+
+This is the third word of its kind after `read` and `consume`, and the pattern is now clear enough to
+name: the word is spatial and informal, it reads naturally in speech, and it stands in for a precise
+relation that the sentence should be stating instead. `the two sit $0.48$ apart` was hiding `differ
+by`; `the block sits above us` was hiding `exceeds`. Removing the word forces the real verb out.
+
+**Rule 18.** Before using a spatial or physical verb for an abstract relation, name the relation. If a
+precise verb exists (`exceeds`, `differs by`, `lies`, `represents`), the spatial one is a paraphrase
+of it.
+

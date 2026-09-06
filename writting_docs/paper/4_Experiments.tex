@@ -10,8 +10,8 @@ accuracy when handed our teacher.
 The third concerns the deletion of the label term, which has to be what produces the gain rather than
 the schedule, the initialization or the components stacked around it.
 The fourth is the mechanism, where we report a negative result: the explanation we expected is
-measurably false, and the explanation that survives concerns where features sit rather than how far
-they move.
+measurably false, and the explanation that survives concerns the position of the features rather
+than the distance they move.
 
 \subsection{Experimental Settings}
 
@@ -393,8 +393,8 @@ $0.254$ for the cross-entropy student, at cosines $0.9626$ and $0.9671$.
 The two are indistinguishable on this measurement and the ordering, if anything, favours
 cross-entropy, so \Cref{prop:decomp} holds without being the mechanism.
 
-What separates the two models is where the features sit rather than how far they travel, measured on
-the same models under the same attack:
+What separates the two models is the position of their features rather than the distance those
+features travel, measured on the same models under the same attack:
 
 \begin{center}\small
 \begin{tabular}{lrrrcrrr}
@@ -413,7 +413,7 @@ The classes of the anchored student are $5.5\times$ better separated on clean da
 better separated under attack, and the improvement holds on both halves of the ratio: its clusters are
 tighter ($28.1^\circ$ against $45.4^\circ$ to the class mean) and its class means are further apart
 ($28.6^\circ$ against $21.6^\circ$).
-The cross-entropy student sits twice as close to the nearest wrong class mean as to its own, at
+The cross-entropy student lies twice as close to the nearest wrong class mean as to its own, at
 $21.6^\circ$ against $45.4^\circ$.
 The geometry of the anchored student degrades under attack, from $0.898$ to $2.681$, and even then
 remains better than the undisturbed geometry of the cross-entropy student.

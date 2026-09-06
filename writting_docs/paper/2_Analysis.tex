@@ -6,8 +6,8 @@ that adversarial training incurs.
 Most existing methods transfer the clean accuracy of such a model through knowledge distillation,
 matching its logits alongside the label loss \citep{lbgat, arrest, dpfat}.
 More recent work argues that a one-hot target is too sharp for adversarial training and replaces it
-with a softened teacher distribution \citep{ard, rslad, LTD, adr}, and a naturally trained model sits
-at the extreme of that spectrum, since its logits are sharper still.
+with a softened teacher distribution \citep{ard, rslad, LTD, adr}, and a naturally trained model represents the
+extreme of that spectrum, since its logits are sharper still.
 We revisit this softened-logit route and examine it more rigorously, and then examine what is gained
 by distilling the feature instead.
 The two questions we separate are which quantity is matched, logits or feature, and at which input the
