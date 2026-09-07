@@ -1646,12 +1646,21 @@ def train_temperature(model, train_loader, optimizer, origin_model, epoch, confi
             _, teacher_logits = origin_model(x, feat=True)      # raw teacher logits = linear(Phi)
             target = (teacher_logits / config.tau).detach()     # global temperature; tau=1 == raw teacher
 
-        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size, _eps_train_tmp, perturb_steps=config.steps)
+        # kd_symmetric (2026-09-08): CONVENTIONAL knowledge distillation, the same temperature on
+        # the student as on the teacher, with the usual tau^2 scaling of the loss.  Without it this
+        # trainer softens the teacher alone, so at tau != 1 the two distributions differ at
+        # initialization even when the student IS the teacher; with it the clean discrepancy is
+        # exactly zero at every tau under our warm start.  That is what separates "the feature is a
+        # better target" from "asymmetric temperature created an initial mismatch".
+        _kd_sym = bool(getattr(config, "kd_symmetric", False))
+        _tau_s = float(config.tau) if _kd_sym else 1.0
+        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size,
+                                       _eps_train_tmp, perturb_steps=config.steps, tau=_tau_s)
 
         def _step_loss():
             pl = model(x_pgd)
-            kl = criterion_kl(F.log_softmax(pl, dim=1), F.softmax(target, dim=1))
-            l = (1.0 / N) * (kl.sum(dim=1)).sum()
+            kl = criterion_kl(F.log_softmax(pl / _tau_s, dim=1), F.softmax(target, dim=1))
+            l = (1.0 / N) * (kl.sum(dim=1)).sum() * (_tau_s ** 2)
             sl = model(x)   # clean forward: updates student BN running stats (matches DPFAT_adaptive)
             if config.lamda is not None and config.lamda > 0:
                 cons = criterion_kl(F.log_softmax(pl, dim=1), F.softmax(sl, dim=1))
@@ -4722,6 +4731,60 @@ def _trades_inner_attack(model, x_natural, step_size, epsilon, perturb_steps):
     if was_training:
         model.train()
     return x_adv.detach()
+
+
+def train_logit_mse(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """Squared error between the student's ADVERSARIAL logits and the teacher's CLEAN logits, with
+    the teacher's classifier inherited and frozen and no temperature anywhere (2026-09-08).
+
+        L = E_x || h_t(Phi_s(x_adv)) - h_t(Phi_t(x)) ||^2
+
+    The point of this cell is to ask the logits-versus-features question without routing it through
+    a softmax.  The anchor is the same objective one layer earlier, so with the head frozen the two
+    differ in exactly one thing: this one is the anchor composed with W, i.e. it constrains only the
+    part of the representation the classifier is sensitive to, and leaves the rest of the ball free.
+
+    Reduction matches the anchor's -- sum over the output dimensions, mean over the batch -- so the
+    two losses differ in what they measure rather than in how they are averaged.  The gradient scale
+    still differs, which is why the learning rate has to be swept before the comparison is fair.
+    """
+    model.train()
+    origin_model.eval()
+    st = _DistillStack(train_logit_mse, model, epoch, config)
+    enc = model.encoder if hasattr(model, "encoder") else model
+    for _p in enc.linear.parameters():          # inherited classifier, never trained
+        _p.requires_grad_(False)
+    if epoch == 0:
+        logging.info({"train_logit_mse": True, "frozen_head": True, "eps": st.eps})
+
+    for x, y in tqdm(train_loader):
+        x = x.cuda()
+        with torch.no_grad():
+            t_logits = origin_model(x).detach()
+
+        # inner maximization on the same quantity the outer problem minimizes
+        model.eval()
+        x_adv = x.detach() + 0.001 * torch.randn(x.shape).cuda().detach()
+        for _ in range(config.steps):
+            x_adv.requires_grad_()
+            with torch.enable_grad():
+                l_in = (model(x_adv) - t_logits).pow(2).sum(dim=1).mean()
+            grad = torch.autograd.grad(l_in, [x_adv])[0]
+            x_adv = x_adv.detach() + config.step_size * torch.sign(grad.detach())
+            x_adv = torch.min(torch.max(x_adv, x - st.eps), x + st.eps)
+            x_adv = torch.clamp(x_adv, 0.0, 1.0)
+        x_adv = x_adv.detach()
+        model.train()
+
+        def _loss(m, _xa=x_adv, _t=t_logits):
+            return (m(_xa) - _t).pow(2).sum(dim=1).mean()
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
 
 
 def train_trades(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):

@@ -32,7 +32,12 @@ def inner_loss_only_return(model,
                 step_size=0.003,
                 epsilon=0.031,
                 perturb_steps=10,
-                beta=6.0):
+                beta=6.0,
+                tau=1.0):
+    """tau (2026-09-08) scales the STUDENT's logits inside the attack, so that conventional KD --
+    the same temperature on both sides -- generates its adversarial examples with the objective it
+    trains on.  Default 1.0 leaves every existing call bit-identical, since the teacher-side
+    temperature is already folded into `teacher_logits` by the caller."""
     # define KL-loss
     criterion_kl = nn.KLDivLoss(size_average=False,reduce=False)
     model.eval()
@@ -43,7 +48,7 @@ def inner_loss_only_return(model,
     for _ in range(perturb_steps):
         x_adv.requires_grad_()
         with torch.enable_grad():
-            loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1),
+            loss_kl = criterion_kl(F.log_softmax(model(x_adv) / tau, dim=1),
                                        F.softmax(teacher_logits, dim=1))
             loss_kl = torch.sum(loss_kl)
         grad = torch.autograd.grad(loss_kl, [x_adv])[0]
