@@ -215,7 +215,10 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{The four published distillation objectives given the teacher they would have in our
   setting: our naturally trained network in place of the adversarially trained one they assume. Every
-  number is measured here, each method at its own published recipe. Blank cells are runs in progress.}
+  number is measured here. The first row of each method is its own published recipe; the indented
+  rows add what our own cells have and it does not --- initialization from the natural teacher, and
+  then our optimizer and schedule (AdamW at $0.021$ under one cycle, training radius $8.8/255$),
+  still without weight averaging or AWP. Blank cells are runs in progress.}
   \label{tab:natteacher}
   \begin{tabular}{lrrrcrrrl}
     \toprule
@@ -224,9 +227,17 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
     & Clean & AA & NRR & & Clean & AA & NRR & \\
     \midrule
     ARD                                  & 57.61 & 20.24 & 29.96 & & 84.58 & 43.75 & 57.67 &  \\
+    \quad + teacher initialization       & 57.96 & 20.22 & 29.98 & & -- & -- & -- &  \\
+    \quad + our optimizer and schedule   & -- & -- & -- & & -- & -- & -- & running \\
     RSLAD                                & 59.68 & 21.30 & 31.40 & & 85.15 & 42.91 & 57.06 &  \\
+    \quad + teacher initialization       & 59.87 & 20.71 & 30.77 & & -- & -- & -- &  \\
+    \quad + our optimizer and schedule   & 54.93 & 19.44 & 28.72 & & -- & -- & -- &  \\
     AdaAD                                & 59.79 & 23.19 & 33.42 & & 85.39 & 46.22 & 59.98 &  \\
+    \quad + teacher initialization       & -- & -- & -- & & -- & -- & -- & running \\
+    \quad + our optimizer and schedule   & 56.51 & 22.43 & 32.11 & & -- & -- & -- &  \\
     AdaAD + IGDM                     & 48.25 & 19.48 & 27.75 & & 85.01 & 45.50 & 59.27 &  \\
+    \quad + teacher initialization       & -- & -- & -- & & -- & -- & -- & running \\
+    \quad + our optimizer and schedule   & -- & -- & -- & & -- & -- & -- & running \\
     \midrule
     PGD-AT, initialized at the teacher   & 57.73 & \textbf{26.46} & 36.29 & & 82.23 & \textbf{50.72} & 62.74 &  \\
     CFA (ours), no WA/AWP                & 61.29 & 25.36 & 35.88 & & -- & -- & -- &  \\
@@ -238,6 +249,10 @@ All four objectives land below the row that does not distil at all, since plain 
 initialized from the same teacher beats every one of them on both datasets.
 The accuracy a natural teacher holds is therefore not recovered by treating that teacher as a logit
 target.
+The indented rows test whether the difference is instead something our cells have and theirs do not.
+Initializing from the natural teacher moves ARD by $0.02$ NRR and RSLAD by $-0.63$, and our optimizer
+and schedule move RSLAD by $-2.68$ and AdaAD by $-1.31$, so neither closes the gap and both are
+reported for the remaining methods as they finish.
 
 The IGDM row is reported at $\alpha = 1$ because its published $\alpha = 20$ does not train here at
 all, collapsing to chance accuracy on both datasets ($1.00$ on CIFAR-100 and $10.00$ on CIFAR-10).
