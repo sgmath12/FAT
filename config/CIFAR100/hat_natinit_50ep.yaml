@@ -1,0 +1,47 @@
+# HAT: OWN RECIPE, NATURAL-TEACHER INITIALIZATION (2026-09-08).
+#
+# Table 5 asks what each published method does when it is handed the natural teacher our cells use.
+# For the distillation family that means the teacher as a TARGET; for HAT the natural network is
+# not a target at all, so the only thing there is to hand over is the initialization -- which is
+# exactly the thing our own cells are accused of benefiting from.
+#
+# Changed from hat_50ep in one field: finetune False -> True. Everything else is the method's own
+# recipe (50 epochs, SGD 0.21 under one cycle, the authors' own schedule).
+#
+
+method : hat
+hat_gamma : 0.5
+hat_h : 2.0
+beta : 2.5
+dataset : CIFAR100
+arch : ResNet18
+optim : SGD
+lr : 0.21
+weight_decay : 0.0005
+nesterov : True
+cyclic : True
+pct_start : 0.25
+epochs : 50
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
