@@ -34,46 +34,36 @@ supervision of the representation provides an additional benefit.
 For a target of the form $\mathrm{softmax}(f_t(x)/\tau)$, the temperature $\tau$ controls the
 concentration of the predicted distribution, a consideration in adversarial distillation
 \citep{LTD, rslad, adr, bmtard}. \Cref{tab:targetcomparison} compares several temperatures with a
-feature target under the same training regime. The confidence measurements are included separately
-as context for the sharpness of the natural teacher's predictions.
+feature target under the same training regime. The mean maximum probability of the teacher's
+softened predictions is reported alongside student accuracy to show how target confidence changes
+with temperature.
 
 \begin{table}[!htbp]
   \centering
-  \caption{Distillation targets on CIFAR-100 with ResNet-18. Left: student accuracy (\%) after
-  50 epochs, without weight averaging or AWP, at $\epsilon=8/255$. The teacher is evaluated at the
-  clean input for all targets. Right: clean-data maximum softmax probabilities reported for the
-  natural teacher and adversarially trained student; these are reference measurements, not
-  per-temperature results. The natural teacher's clean accuracy is $77.66\%$.}
+  \caption{Distillation targets on CIFAR-100 with ResNet-18. Students are trained for 50 epochs
+  without weight averaging or AWP, at $\epsilon=8/255$. Mean max. probability is
+  $\mathbb{E}_x[\max_c\,\mathrm{softmax}(f_t(x)/\tau)_c]$ on clean test inputs.
+  Clean, AA, and NRR report student performance (\%). The teacher is evaluated at the clean input
+  for all targets and has $77.66\%$ clean accuracy. The feature target has no associated probability
+  distribution, so its confidence entry is not applicable.}
   \label{tab:targetcomparison}
-  \begin{minipage}[t]{0.59\linewidth}
-    \centering\small
-    \begin{tabular}{lrrr}
+    \small
+    \begin{tabular}{lrrrr}
       \toprule
-      Target & Clean & AA & NRR \\
+      Target & Mean max. probability & Clean & AA & NRR \\
       \midrule
-      Logits, $\tau=1$  & 58.26 & 20.84 & 30.70 \\
-      Logits, $\tau=4$  & 59.39 & 24.48 & 34.67 \\
-      Logits, $\tau=16$ & 57.78 & 24.00 & 33.91 \\
+      Logits, $\tau=1$  & 0.820  & 58.26 & 20.84 & 30.70 \\
+      Logits, $\tau=4$  & 0.154  & 59.39 & 24.48 & 34.67 \\
+      Logits, $\tau=16$ & 0.0196 & 57.78 & 24.00 & 33.91 \\
       \midrule
-      \textbf{Features} & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
+      \textbf{Features} & --- & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
       \bottomrule
     \end{tabular}
-  \end{minipage}\hfill
-  \begin{minipage}[t]{0.39\linewidth}
-    \centering\small
-    \begin{tabular}{lr}
-      \toprule
-      Model & Max. probability \\
-      \midrule
-      Natural teacher & 0.820 \\
-      AT student & 0.016 \\
-      \bottomrule
-    \end{tabular}
-  \end{minipage}
 \end{table}
 
-Softening improves AutoAttack accuracy up to an intermediate temperature, but clean accuracy changes
-little across the sweep and remains substantially below the teacher's. Feature matching improves
+As shown in \Cref{tab:targetcomparison}, softening improves AutoAttack accuracy up to an intermediate
+temperature, but clean accuracy changes little across the sweep and remains substantially below the
+teacher's. Feature matching improves
 both metrics over the best softened target in this comparison. These results motivate direct feature
 supervision as a way to retain more of the natural teacher's clean performance during adversarial
 training. The comparison concerns softened predictions; matching logits without a softmax, as in
@@ -149,15 +139,6 @@ anchor as the sole backbone objective: fidelity and local feature stability are 
 the same distance, without a coefficient between separate loss terms.
 The relation characterizes the objective in feature space; its implications and limitations are
 discussed in \Cref{app:anchor_scope}.
-
-\paragraph{The role of the fixed clean target.}
-Fixing the teacher target is essential to this argument. If the target were instead $\Phi_t(x')$,
-a student with $\Phi_s=\Phi_t$ would attain zero loss even when both networks were sensitive to
-perturbations. The corresponding control indeed gives $0.00\%$ AutoAttack accuracy
-(\Cref{tab:controls}). With a fixed clean target, such a copy incurs a loss whenever its features
-change within the ball. The objective therefore requires the student to learn consistency around
-the teacher's clean representation. Additional teacher diagnostics are given in
-\Cref{app:teacher_diagnostics}.
 
 \paragraph{Empirical check.}
 Under the evaluated perturbations, the trained student exhibits less feature variation than the

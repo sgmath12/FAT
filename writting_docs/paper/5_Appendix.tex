@@ -195,6 +195,11 @@ responses to perturbed inputs may be unsuitable as supervisory targets. Under $\
 the natural teacher's feature rotates by $63.8^\circ$ and its norm grows by a factor of $2.45$.
 Its representation can therefore change substantially within the perturbation ball.
 
+As a control, replacing the clean target $\Phi_t(x)$ with $\Phi_t(x')$ makes an exact copy of the
+teacher, $\Phi_s=\Phi_t$, a zero-loss solution even when the teacher is sensitive to perturbations.
+This variant yields $0.00\%$ AutoAttack accuracy (\Cref{tab:controls}). With a fixed clean target,
+copying the teacher instead incurs a loss wherever its features change within the ball.
+
 IGDM \citep{igdm} uses the finite difference $f_t(x+\delta)-f_t(x-\delta)$ to approximate the
 teacher's response along the perturbation direction. Its accuracy depends on local linearity.
 The reported Taylor remainder proportion is $0.012$ for adversarially trained teachers; we obtain
