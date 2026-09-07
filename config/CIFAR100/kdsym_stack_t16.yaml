@@ -1,0 +1,49 @@
+# CONVENTIONAL KD AT THE FULL STACK, tau = 16 (2026-09-08).
+#
+# tab:main's logit row (56.97 / 26.96) and the "the gap widens with the stack" reading in the
+# experiments section both come from TEACHER-ONLY softening, which the base-regime sweep has now
+# shown to be the weaker of the two KD setups by 2.09 NRR at tau = 16.  The headline comparison has
+# to be against the stronger one, so this is conventional KD -- the same temperature on both sides,
+# tau^2 scaled -- at the shipped recipe: 100 epochs, weight averaging, the AWP proxy, train_eps
+# 8.8/255.  Read against our 62.17 / 28.86.
+#
+# Changed from abl_kdswa_t16 in one field: kd_symmetric.
+#
+
+method : temperature
+kd_symmetric : True
+tau : 16
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
