@@ -184,12 +184,75 @@ correct at $x$. The certificate is vacuous at the scales we train at, but the ra
 tracks both axes across the teacher ladder of \Cref{tab:teacherladder}. What it does not do is predict
 the size of the effect, and it saturates before AutoAttack does.
 
+\section{Supplementary Analysis of the Clean-Feature Anchor}
+\label{app:anchor_analysis}
+
+\subsection{Teacher Evaluation on Perturbed Inputs}
+\label{app:teacher_diagnostics}
+
+The comparison in \Cref{sec:fragile} evaluates the teacher at clean inputs. Here we examine why its
+responses to perturbed inputs may be unsuitable as supervisory targets. Under $\epsilon=8/255$,
+the natural teacher's feature rotates by $63.8^\circ$ and its norm grows by a factor of $2.45$.
+Its representation can therefore change substantially within the perturbation ball.
+
+IGDM \citep{igdm} uses the finite difference $f_t(x+\delta)-f_t(x-\delta)$ to approximate the
+teacher's response along the perturbation direction. Its accuracy depends on local linearity.
+The reported Taylor remainder proportion is $0.012$ for adversarially trained teachers; we obtain
+$0.0111$ for an adversarially trained ResNet-18 and $0.4763$ for the natural teacher
+(\Cref{tab:linearity}). For the natural teacher, the finite difference has norm $14.14$, compared
+with $\lVert f_t(x)\rVert=18.36$, and its softmax assigns $0.917$ probability to one class.
+These measurements indicate a less accurate local linear approximation and a highly concentrated
+target distribution.
+
+We also evaluate published distillation objectives with the natural teacher replacing their robust
+teacher, using each method's published recipe (\Cref{tab:natteacher}). All evaluated objectives
+perform below adversarial training initialized from that teacher. This comparison complements the
+target sweep in \Cref{sec:fragile}, although differences among training recipes prevent it from
+isolating the target alone.
+
+\subsection{Measurements of Feature Fidelity and Variation}
+\label{app:anchor_measurements}
+
+On CIFAR-100 over $\epsilon=8/255$ balls, the measured anchor and clean discrepancy are $L=7.58$
+and $F=6.30$. The measured student variation is a lower bound $O_{\mathrm{lb}}=2.16$, compared
+with a teacher variation measurement of $6.68$ on the same balls. These observations indicate less
+student feature variation under the evaluated perturbations, together with a remaining clean
+discrepancy from the teacher. A lower bound on $O$ cannot establish worst-case stability or show
+that fidelity dominates the exact anchor at convergence.
+
+The classification benefit is evaluated in \Cref{sec:components}. Without weight averaging, AWP,
+or the sensitivity-matched radius, the anchor improves clean and AutoAttack accuracy over label
+cross-entropy by $6.69$ and $5.91$ points under the same training conditions. The gains are $4.63$
+and $4.45$ points when cross-entropy uses its own optimizer and schedule
+(\Cref{tab:controls}, \Cref{tab:recipe}). At the full training configuration, the AutoAttack gain
+over cross-entropy with weight averaging and AWP is $2.40$ points. Under a matched attack, the
+students exhibit similar relative feature displacement, while their class separation differs by a
+factor of $5.5$. This suggests a contribution from the learned geometry, but does not establish
+class separation as the sole cause of the robustness gain.
+
+\subsection{Scope of the Anchor Bound}
+\label{app:anchor_scope}
+
+\Cref{prop:decomp} concerns exact maxima over the perturbation set. A loss evaluated using a finite
+attack does not certify these maxima. The factor $3$ combines $F\le L$ with $O\le2L$; the latter
+bound is attained when two student features lie on opposite sides of the target, each at distance $L$.
+
+The argument applies to any fixed target in a normed space, including logits when matched using a
+norm distance. It explains how one anchor controls two quantities, but does not establish that
+features are superior to logits. The feature choice is motivated by \Cref{sec:fragile}. Likewise,
+the bound does not directly lower-bound robust classification accuracy: this requires information
+about the classifier and class margins, as discussed in \Cref{app:robustness}.
+
+Joint control also does not imply that fidelity and stability can both be made arbitrarily small
+over the dataset. When perturbation balls overlap but their teacher targets differ, they impose
+conflicting constraints on the same student feature. The proposition describes how the objective
+controls the two errors without eliminating this possible conflict.
+
 \section{Additional Results}
 \label{app:more}
 
-The tables below are referred to from the main text and are placed here for space. They are the
-same measurements under the same protocol; nothing is reported here that is not stated in the main
-body.
+The following tables provide additional results supporting the main experiments and supplementary
+analysis.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
