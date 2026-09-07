@@ -1,0 +1,49 @@
+# LEARNING-RATE SENSITIVITY: the shipped recipe at lr = 0.042 (2026-09-07).
+#
+# AdamW at 0.021 under OneCycle was chosen once and never swept, so the paper cannot say whether it
+# is a plateau or a tuned point.  Four cells at 1/3x, 2/3x, 1.4x and 2x of it, changing `lr` alone,
+# make the same argument tab:radius makes for the training radius.
+#
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_angeps_p : 1.0
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.042
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.03450980392156863
+epochs : 100
+wa_start : 0.2
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : True
+awp_style : proxy
+awp_gamma : 0.005
+awp_warmup : 10
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
