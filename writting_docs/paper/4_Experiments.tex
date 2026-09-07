@@ -233,7 +233,7 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
     \quad + teacher initialization       & 59.87 & 20.71 & 30.77 & & -- & -- & -- &  \\
     \quad + our optimizer and schedule   & 54.93 & 19.44 & 28.72 & & -- & -- & -- &  \\
     AdaAD                                & 59.79 & 23.19 & 33.42 & & 85.39 & 46.22 & 59.98 &  \\
-    \quad + teacher initialization       & -- & -- & -- & & -- & -- & -- & running \\
+    \quad + teacher initialization       & 59.75 & 22.78 & 32.98 & & -- & -- & -- &  \\
     \quad + our optimizer and schedule   & 56.51 & 22.43 & 32.11 & & -- & -- & -- &  \\
     AdaAD + IGDM                     & 48.25 & 19.48 & 27.75 & & 85.01 & 45.50 & 59.27 &  \\
     \quad + teacher initialization       & -- & -- & -- & & -- & -- & -- & running \\
@@ -250,9 +250,9 @@ initialized from the same teacher beats every one of them on both datasets.
 The accuracy a natural teacher holds is therefore not recovered by treating that teacher as a logit
 target.
 The indented rows test whether the difference is instead something our cells have and theirs do not.
-Initializing from the natural teacher moves ARD by $0.02$ NRR and RSLAD by $-0.63$, and our optimizer
-and schedule move RSLAD by $-2.68$ and AdaAD by $-1.31$, so neither closes the gap and both are
-reported for the remaining methods as they finish.
+Initializing from the natural teacher moves ARD by $0.02$ NRR, RSLAD by $-0.63$ and AdaAD by
+$-0.44$, and our optimizer and schedule move RSLAD by $-2.68$ and AdaAD by $-1.31$, so neither
+closes the gap and both are reported for the remaining methods as they finish.
 
 The IGDM row is reported at $\alpha = 1$ because its published $\alpha = 20$ does not train here at
 all, collapsing to chance accuracy on both datasets ($1.00$ on CIFAR-100 and $10.00$ on CIFAR-10).
