@@ -3029,7 +3029,7 @@ def train_hat(model, train_loader, optimizer, origin_model, epoch, config, sched
         out_clean, out_adv, out_help = model(x), model(x_adv), model(x_hr)
         loss = (F.cross_entropy(out_clean, y)
                 + beta * (1.0 / x.size(0)) * criterion_kl(F.log_softmax(out_adv, dim=1),
-                                                          F.softmax(out_clean, dim=1))
+                                                          _kl_target(F.softmax(out_clean, dim=1)))
                 + gamma * F.cross_entropy(out_help, y_hr))
         loss.backward()
         optimizer.step()
@@ -3085,7 +3085,7 @@ def train_lbgat(model, train_loader, optimizer, origin_model, epoch, config, sch
         out_t = origin_model(x)
         loss = (mse(out_adv, out_t) + F.cross_entropy(out_t, y)
                 + beta * (1.0 / out_t.size(0)) * criterion_kl(F.log_softmax(out_adv, dim=1),
-                                                              F.softmax(out_nat, dim=1)))
+                                                              _kl_target(F.softmax(out_nat, dim=1))))
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -4495,7 +4495,7 @@ def _adaad_inner_attack(model, teacher, x_natural, step_size, epsilon, perturb_s
         x_adv.requires_grad_()
         with torch.enable_grad():
             loss_kl = torch.sum(criterion_kl(F.log_softmax(model(x_adv), dim=1),
-                                             F.softmax(teacher(x_adv), dim=1)))
+                                             _kl_target(F.softmax(teacher(x_adv), dim=1))))
         grad = torch.autograd.grad(loss_kl, [x_adv])[0]
         x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
         x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
@@ -4530,7 +4530,7 @@ def train_ard(model, train_loader, optimizer, origin_model, epoch, config, sched
 
         def _loss(m, _x=x, _xa=x_adv, _y=y, _t=teacher_logits):
             l = alpha * temp * temp * criterion_kl(F.log_softmax(m(_xa) / temp, dim=1),
-                                                   F.softmax(_t / temp, dim=1))
+                                                   _kl_target(F.softmax(_t / temp, dim=1)))
             if alpha < 1.0:
                 l = l + (1.0 - alpha) * F.cross_entropy(m(_x), _y)
             return l
@@ -4606,10 +4606,11 @@ def train_adaad(model, train_loader, optimizer, origin_model, epoch, config, sch
             t_nat = origin_model(x).detach() if beta < 1.0 else None
 
         def _loss(m, _x=x, _xa=x_adv, _ta=t_adv, _tn=t_nat):
-            l = beta * F.kl_div(F.log_softmax(m(_xa), dim=1), F.softmax(_ta, dim=1),
+            l = beta * F.kl_div(F.log_softmax(m(_xa), dim=1), _kl_target(F.softmax(_ta, dim=1)),
                                 reduction='batchmean')
             if beta < 1.0:
-                l = l + (1.0 - beta) * F.kl_div(F.log_softmax(m(_x), dim=1), F.softmax(_tn, dim=1),
+                l = l + (1.0 - beta) * F.kl_div(F.log_softmax(m(_x), dim=1),
+                                                _kl_target(F.softmax(_tn, dim=1)),
                                                 reduction='batchmean')
             return l
 
@@ -4660,9 +4661,10 @@ def train_adaad_igdm(model, train_loader, optimizer, origin_model, epoch, config
         t_diff = F.softmax(t_plus - t_minus, dim=1)
 
         def _loss(m, _xa=x_adv, _xp=x_plus, _xm=x_minus, _ta=t_adv, _td=t_diff):
-            l = F.kl_div(F.log_softmax(m(_xa), dim=1), F.softmax(_ta, dim=1), reduction='batchmean')
+            l = F.kl_div(F.log_softmax(m(_xa), dim=1), _kl_target(F.softmax(_ta, dim=1)),
+                         reduction='batchmean')
             s_diff = m(_xp) - m(_xm)
-            return l + w_igdm * criterion_kl(F.log_softmax(s_diff, dim=1), _td)
+            return l + w_igdm * criterion_kl(F.log_softmax(s_diff, dim=1), _kl_target(_td))
 
         st.perturb(_loss)
         optimizer.zero_grad()
@@ -4684,6 +4686,21 @@ def train_adaad_igdm(model, train_loader, optimizer, origin_model, epoch, config
 # =====================================================================================================
 
 
+# KL TARGET FLOOR (2026-09-07).  PyTorch changed KLDivLoss in 1.13 (pytorch/pytorch#89558): where the
+# TARGET distribution holds an exact zero, the backward pass now produces NaN rather than the 0 the
+# limit p*log p -> 0 gives.  A softmax over a hundred classes underflows to exact zeros as soon as
+# the logits spread, which is why TRADES here diverged within five steps from a random
+# initialization at lr 0.1 -- the logits grew 5.6 -> 17 -> 32 -> 53 -> 95 and the weights went NaN,
+# with no NaN anywhere in the inputs or the attack.  The fix the TRADES issue thread settles on is to
+# floor the target, which is inert wherever the target is not already degenerate.
+_KL_EPS = 1e-8
+
+
+def _kl_target(p):
+    """Floor a probability target before it reaches kl_div; see _KL_EPS."""
+    return p.clamp(min=_KL_EPS)
+
+
 def _trades_inner_attack(model, x_natural, step_size, epsilon, perturb_steps):
     """TRADES inner maximization: maximize KL(f(x') || f(x)) with the CLEAN prediction as the fixed
     target for the duration of the attack (Zhang et al., ICML 2019, Eq. 6).  Unlike a label attack it
@@ -4692,7 +4709,7 @@ def _trades_inner_attack(model, x_natural, step_size, epsilon, perturb_steps):
     was_training = model.training
     model.eval()
     with torch.no_grad():
-        p_nat = F.softmax(model(x_natural), dim=1)
+        p_nat = _kl_target(F.softmax(model(x_natural), dim=1))
     x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
     for _ in range(perturb_steps):
         x_adv.requires_grad_()
@@ -4726,7 +4743,8 @@ def train_trades(model, train_loader, optimizer, origin_model, epoch, config, sc
             logits_nat = m(_x)
             return (F.cross_entropy(logits_nat, _y)
                     + beta * F.kl_div(F.log_softmax(m(_xa), dim=1),
-                                      F.softmax(logits_nat, dim=1), reduction='batchmean'))
+                                      _kl_target(F.softmax(logits_nat, dim=1)),
+                                      reduction='batchmean'))
 
         st.perturb(_loss)
         optimizer.zero_grad()
@@ -4758,7 +4776,7 @@ def train_mart(model, train_loader, optimizer, origin_model, epoch, config, sche
         def _loss(m, _x=x, _xa=x_adv, _y=y):
             logits_adv, logits_nat = m(_xa), m(_x)
             p_adv = F.softmax(logits_adv, dim=1)
-            p_nat = F.softmax(logits_nat, dim=1)
+            p_nat = _kl_target(F.softmax(logits_nat, dim=1))
             # strongest wrong class under the attack
             tmp = torch.argsort(p_adv, dim=1, descending=True)[:, :2]
             other = torch.where(tmp[:, 0] == _y, tmp[:, 1], tmp[:, 0])
