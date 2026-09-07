@@ -42,28 +42,33 @@ with temperature.
   \centering
   \caption{Distillation targets on CIFAR-100 with ResNet-18. Students are trained for 50 epochs
   without weight averaging or AWP, at $\epsilon=8/255$. Mean max. probability is
-  $\mathbb{E}_x[\max_c\,\mathrm{softmax}(f_t(x)/\tau)_c]$ on clean test inputs.
-  Clean, AA, and NRR report student performance (\%). The teacher is evaluated at the clean input
-  for all targets and has $77.66\%$ clean accuracy. The feature target has no associated probability
-  distribution, so its confidence entry is not applicable.}
+  $\mathbb{E}_x[\max_c\,\mathrm{softmax}(f_t(x)/\tau)_c]$ and entropy is
+  $\mathbb{E}_x[H(\mathrm{softmax}(f_t(x)/\tau))]$ in nats, both on clean test inputs; the maximum
+  is $\log C = 4.61$. Clean, AA, and NRR report student performance (\%). The teacher is evaluated at
+  the clean input for all targets and has $77.66\%$ clean accuracy. The feature target has no
+  associated probability distribution, so its confidence and entropy entries are not applicable.}
   \label{tab:targetcomparison}
     \small
-    \begin{tabular}{lrrrr}
+    \begin{tabular}{lrrrrr}
       \toprule
-      Target & Mean max. probability & Clean & AA & NRR \\
+      Target & Mean max. probability & Entropy & Clean & AA & NRR \\
       \midrule
-      Logits, $\tau=1$  & 0.820  & 58.26 & 20.84 & 30.70 \\
-      Logits, $\tau=4$  & 0.154  & 59.39 & 24.48 & 34.67 \\
-      Logits, $\tau=16$ & 0.0196 & 57.78 & 24.00 & 33.91 \\
+      Logits, $\tau=1$  & 0.820  & 0.76 & 58.26 & 20.84 & 30.70 \\
+      Logits, $\tau=2$  & 0.533  & 2.40 & 59.33 & 22.79 & 32.93 \\
+      Logits, $\tau=4$  & 0.154  & 4.20 & 59.39 & 24.48 & 34.67 \\
+      Logits, $\tau=8$  & 0.040  & 4.56 & 59.47 & 25.19 & 35.39 \\
+      Logits, $\tau=16$ & 0.0196 & 4.60 & 57.78 & 24.00 & 33.91 \\
       \midrule
-      \textbf{Features} & --- & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
+      \textbf{Features} & --- & --- & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
       \bottomrule
     \end{tabular}
 \end{table}
 
-As shown in \Cref{tab:targetcomparison}, softening improves AutoAttack accuracy up to an intermediate
-temperature, but clean accuracy changes little across the sweep and remains substantially below the
-teacher's. Feature matching improves
+As shown in \Cref{tab:targetcomparison}, softening improves AutoAttack accuracy up to $\tau=8$ and
+then declines, while clean accuracy varies by $1.7$ points across the whole sweep and stays
+approximately $18$ points below the teacher's. The two ends of the grid also bound the effect: at
+$\tau=1$ the target is close to one-hot, and by $\tau=8$ its entropy is within $1\%$ of uniform, so a
+temperature outside this range removes either the softening or the target. Feature matching improves
 both metrics over the best softened target in this comparison. These results motivate direct feature
 supervision as a way to retain more of the natural teacher's clean performance during adversarial
 training. The comparison concerns softened predictions; matching logits without a softmax, as in
