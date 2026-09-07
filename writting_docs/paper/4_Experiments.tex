@@ -236,7 +236,7 @@ here, including the ones we did not run, are collected in \Cref{tab:published}.
     \quad + teacher initialization       & 59.75 & 22.78 & 32.98 & & -- & -- & -- &  \\
     \quad + our optimizer and schedule   & 56.51 & 22.43 & 32.11 & & -- & -- & -- &  \\
     AdaAD + IGDM                     & 48.25 & 19.48 & 27.75 & & 85.01 & 45.50 & 59.27 &  \\
-    \quad + teacher initialization       & -- & -- & -- & & -- & -- & -- & running \\
+    \quad + teacher initialization       & 49.67 & 20.15 & 28.67 & & -- & -- & -- &  \\
     \quad + our optimizer and schedule   & -- & -- & -- & & -- & -- & -- & running \\
     \midrule
     PGD-AT, initialized at the teacher   & 57.73 & \textbf{26.46} & 36.29 & & 82.23 & \textbf{50.72} & 62.74 &  \\
@@ -250,9 +250,10 @@ initialized from the same teacher beats every one of them on both datasets.
 The accuracy a natural teacher holds is therefore not recovered by treating that teacher as a logit
 target.
 The indented rows test whether the difference is instead something our cells have and theirs do not.
-Initializing from the natural teacher moves ARD by $0.02$ NRR, RSLAD by $-0.63$ and AdaAD by
-$-0.44$, and our optimizer and schedule move RSLAD by $-2.68$ and AdaAD by $-1.31$, so neither
-closes the gap and both are reported for the remaining methods as they finish.
+Initializing from the natural teacher moves the four objectives by $+0.02$, $-0.63$, $-0.44$ and
+$+0.92$ NRR, and our optimizer and schedule move RSLAD by $-2.68$ and AdaAD by $-1.31$. Neither
+change closes the gap: the largest of them leaves AdaAD $2.8$ points of NRR below the anchor run
+without weight averaging or AWP.
 
 The IGDM row is reported at $\alpha = 1$ because its published $\alpha = 20$ does not train here at
 all, collapsing to chance accuracy on both datasets ($1.00$ on CIFAR-100 and $10.00$ on CIFAR-10).
