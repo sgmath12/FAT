@@ -43,7 +43,7 @@ log : True
 load : True
 finetune : True
 evaluate : True
-reformation : True
+reformation : False
 student_norm : False
 teacher_norm : False
 cyclic : True
