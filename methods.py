@@ -1654,8 +1654,11 @@ def train_temperature(model, train_loader, optimizer, origin_model, epoch, confi
         # better target" from "asymmetric temperature created an initial mismatch".
         _kd_sym = bool(getattr(config, "kd_symmetric", False))
         _tau_s = float(config.tau) if _kd_sym else 1.0
-        x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size,
-                                       _eps_train_tmp, perturb_steps=config.steps, tau=_tau_s)
+        if bool(getattr(config, "attack_ce", False)):
+            x_pgd = _pgd_attack_true_label(model, x, y, config.step_size, _eps_train_tmp, config.steps)
+        else:
+            x_pgd = inner_loss_only_return(model, target, x, y, optimizer, config.step_size,
+                                           _eps_train_tmp, perturb_steps=config.steps, tau=_tau_s)
 
         def _step_loss():
             pl = model(x_pgd)
@@ -4761,6 +4764,22 @@ def train_logit_mse(model, train_loader, optimizer, origin_model, epoch, config,
         x = x.cuda()
         with torch.no_grad():
             t_logits = origin_model(x).detach()
+
+        # attack_ce (2026-09-08): generate x_adv with a plain true-label CE-PGD instead of this
+        # objective's own inner maximization.  Holding the attack fixed across the anchor, this
+        # cell, and both KD variants separates "which quantity is supervised" from "which quantity
+        # the attack ascends", which otherwise change together.
+        if bool(getattr(config, "attack_ce", False)):
+            x_adv = _pgd_attack_true_label(model, x, y.cuda(), config.step_size, st.eps, config.steps)
+            def _loss_ce(m, _xa=x_adv, _t=t_logits):
+                return (m(_xa) - _t).pow(2).sum(dim=1).mean()
+            st.perturb(_loss_ce)
+            optimizer.zero_grad()
+            _loss_ce(model).backward()
+            optimizer.step()
+            st.restore()
+            st.after_step(scheduler, exp_avg)
+            continue
 
         # inner maximization on the same quantity the outer problem minimizes
         model.eval()

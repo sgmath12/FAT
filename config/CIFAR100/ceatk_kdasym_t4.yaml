@@ -1,0 +1,44 @@
+# SHARED ATTACK CONTROL: teacher-only KD, tau = 4, adversarial examples from plain true-label CE-PGD (2026-09-08).
+#
+# The anchor, logit MSE and both KD variants each generate x_adv from their own objective, so the
+# training loss and the attack change together and neither can be credited on its own.  These four
+# cells hold the attack fixed at a true-label CE-PGD and vary only what is supervised.  Same base
+# regime throughout: 50 epochs, AdamW 0.021 under one cycle, natural warm start, eps 8/255, no
+# weight averaging, no AWP.
+#
+# Read against the same four objectives with their own attacks:
+#   anchor 62.72 / 25.88, logit MSE 62.59 / 25.69, symmetric KD (tau 16) 61.85 / 25.39,
+#   teacher-only KD (tau 4) 59.39 / 24.48.
+#
+
+method : temperature
+attack_ce : True
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 4
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data

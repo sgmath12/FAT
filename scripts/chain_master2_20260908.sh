@@ -6,10 +6,10 @@
 set -u
 cd "$(dirname "$0")/.."
 PY=/home/seungju/miniforge3/envs/advTrain/bin/python
-PID=1705660
+PID=1705490
 while kill -0 "$PID" 2>/dev/null; do sleep 60; done
 for cfg in kdsym_t32 kdsym_t64 kdsym_stack_t16 \
-           logitmse_fh_lr0p007 logitmse_fh_lr0p042 \
+           logitmse_fh_lr0p042 \
            adaadigdm_ourrecipe_100ep trades_ourrecipe_100ep mart_ourrecipe_100ep \
            trades_100ep mart_100ep trades_natinit_100ep mart_natinit_100ep hat_natinit_50ep \
            clean_5ep clean_10ep clean_20ep clean_40ep \
