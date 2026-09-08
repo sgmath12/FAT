@@ -1,0 +1,48 @@
+# WARM-START CONTROL AT THE 300-EPOCH TEACHER (2026-09-09).
+#
+# The teacher-epoch effect has to be separated from an initialization effect: the student both starts
+# from the teacher and is trained against its features, so a ladder trend could be either.  This cell
+# keeps the teacher's feature target and inherited classifier and randomizes the student backbone
+# only (finetune False), at three rungs of the ladder.  If the trend survives, the geometry reading
+# is much stronger; abl_scratch_init already showed the warm start is worth 0.22 NRR at the 200-epoch
+# teacher.
+#
+
+method : feat_direction
+featdir_freeze_head : True
+featdir_span : random
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : False
+evaluate : True
+reformation : False   # dead flag: only a fallback when student_norm is absent (utils.py:459); student_norm is explicit below
+student_norm : False
+teacher_norm : False
+teacher_cos_head : False
+featdir_normfeat_target : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_head_ce : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean_300ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_300ep/clean_last.pkl
+data_root : ./data
