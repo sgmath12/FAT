@@ -1,0 +1,47 @@
+# FULL FACTORIAL, CIFAR10: kdsym, 50-epoch teacher, with WA + AWP (2026-09-08).
+#
+# One cell of targets x teacher x stack x dataset.  The base regime is held fixed at 50 student
+# epochs, AdamW 0.021 under one cycle, warm start from the same teacher the target reads, eps 8/255.
+# `stack` means weight averaging (kappa 0.999 from 20% of the run) and the AWP proxy (gamma 0.005,
+# warmup 10) and nothing else -- the training radius stays at 8/255 so that the only thing separating
+# this cell from its no-stack twin is those two components.
+#
+# The question the block answers: the anchor and the frozen-head logit MSE tie without the stack, and
+# the ranking of targets changes with the teacher, so neither result can be stated until both are
+# shown to hold or fail under the stack and on both datasets.
+#
+
+method : temperature
+kd_symmetric : True
+weight_avg : True
+wa_start : 0.2
+awp_gamma : 0.005
+awp_warmup : 10
+dataset : CIFAR10
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR10/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean/clean_last.pkl
+data_root : ./data

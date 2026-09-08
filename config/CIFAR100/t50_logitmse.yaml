@@ -1,0 +1,45 @@
+# TARGET COMPARISON WITH THE 50-EPOCH TEACHER: FROZEN-HEAD LOGIT MSE (2026-09-08).
+#
+# Every cell of the target comparison uses the 200-epoch natural teacher, which is the NRR peak of
+# tab:teacherladder rather than the point that maximizes the student's clean accuracy (the 50-epoch
+# teacher does that, 64.28 against 62.72).  So the comparison between targets has only ever been made
+# on one rung of the teacher ladder, and a weaker teacher is a different target distribution: less
+# confident, less separated (Sw/Sb 1.100 against 0.808).
+#
+# These four repeat the comparison on the 50-epoch teacher (clean accuracy 75.81), changing the
+# checkpoint alone.  Same base regime: 50 epochs, AdamW 0.021 under one cycle, warm start from that
+# same teacher, eps 8/255, no weight averaging, no AWP.
+#
+
+method : logit_mse
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 1
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+teacher_cos_head : False
+cyclic : True
+weight_avg : False
+checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean/clean_last.pkl
+data_root : ./data

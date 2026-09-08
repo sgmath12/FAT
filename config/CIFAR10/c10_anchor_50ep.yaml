@@ -1,0 +1,47 @@
+# CLEAN-FEATURE ANCHOR, CIFAR-10 (2026-09-08).
+#
+# The target comparison repeated on the second dataset.  CIFAR-10 is the sharper test of the
+# logits-versus-features question: a logit target carries at most $C-1 = 9$ numbers per example
+# against the feature's 512, where on CIFAR-100 it carries 99, so if the projection through the
+# classifier is what costs the logit route anything, the cost should be larger here.
+#
+# Same base regime as the CIFAR-100 cells: 50 epochs, AdamW 0.021 under one cycle, warm start from
+# the natural teacher, eps 8/255, no weight averaging, no AWP, classifier inherited and frozen.
+#
+
+method : feat_direction
+featdir_freeze_head : True
+weight_avg : False
+featdir_rawteacher : True
+featdir_rawstudent : True
+featdir_span : random
+gain_head : False
+dataset : CIFAR10
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 16
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+epochs : 50
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : True
+student_norm : False
+teacher_norm : False
+cyclic : True
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
