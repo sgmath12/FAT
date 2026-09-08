@@ -162,3 +162,169 @@ teacher-only curve turns over at $\tau = 16$ while the conventional one plateaus
    targets depends on the teacher, which is the more interesting half of that claim.
 3. Table 1 should report conventional KD, with the teacher-only variant kept as the ADR / B-MTARD
    setting rather than dropped.
+
+## 새로운 의견 (2026-09-09)
+
+### Revised central claim
+
+Feature distillation alone cannot be presented as the main novelty because ARREST already preserves
+the representation of a naturally pretrained network during adversarial fine-tuning. The more
+substantive distinction is the role assigned to that representation. ARREST retains adversarial
+cross-entropy as the primary objective and uses representation matching as a weighted regularizer;
+its adversarial examples are also generated using cross-entropy. CFA instead elevates the clean
+representation from an auxiliary constraint to the sole target of adversarial training. The same
+feature discrepancy is maximized to generate adversarial examples and minimized to train the
+backbone, while the teacher's classifier is inherited and kept fixed.
+
+The central message should therefore be:
+
+> Rather than constructing a softened predictive distribution from a natural teacher and balancing
+> it against a label loss, CFA uses the teacher's clean representation directly as a fixed target.
+> This replaces target calibration and loss balancing with a single feature-space anchor.
+
+Under this formulation, CFA requires neither a distillation temperature nor a coefficient balancing
+teacher and label supervision. The proposition $L\le F+O\le3L$ explains why one anchor can serve two
+roles: it bounds clean feature discrepancy and local student variation through the same distance.
+It does not establish that features are intrinsically superior to logits.
+
+### How to interpret the logit-MSE result
+
+The near tie between frozen-head logit MSE and feature anchoring should be reported rather than
+minimized. It shows that most of the improvement comes from direct metric regression instead of
+temperature tuning or probability-space matching. Accordingly, the paper should not claim that
+only feature targets can work. The appropriate interpretation is:
+
+> Direct regression accounts for most of the gain, and CFA instantiates this principle at the
+> feature layer, where the teacher's representation remains directly compatible with the inherited
+> classifier.
+
+Thus, logit MSE is a control supporting the claim that softmax calibration and temperature search
+are unnecessary, whereas the feature anchor is the concrete method developed in the paper.
+
+### Why the teacher-epoch analysis belongs in the paper
+
+Once the clean representation becomes the entire supervisory target, the choice of teacher checkpoint
+is no longer incidental. This yields a testable prediction: if CFA simply transfers teacher accuracy,
+a more accurate natural teacher should produce a more accurate student. The teacher ladder contradicts
+this prediction. Increasing the teacher's training length raises its clean accuracy while moving the
+student in the opposite direction on clean accuracy and changing its robustness.
+
+This counterintuitive result should be developed as an empirical analysis of what the anchor transfers.
+The class-geometry measurements can support the restrained conclusion that student behavior tracks the
+teacher's class geometry more closely than its scalar clean accuracy. They should not be used to claim
+that geometry has been established as the unique causal mechanism. The practical conclusion is that
+teacher training length controls the student's clean--robust operating point, and maximum teacher
+accuracy is not necessarily the appropriate checkpoint-selection criterion.
+
+The exact correlation $r=-0.999$ should not carry the claim by itself because it is computed from a
+small teacher ladder. The paper should emphasize the trend, matched student training, geometry
+measurements, and replication across datasets or seeds when available.
+
+### Why sensitivity-matched epsilon is part of the same story
+
+Sensitivity-matched $\epsilon$ should not be introduced as an additional optimization trick. It follows
+from making feature distance the sole training objective. The perturbation budget is specified in pixel
+space, whereas the loss measures displacement in feature space; consequently, a uniform pixel radius
+can induce very different changes in the anchor across samples. To first order,
+
+$$
+\Delta\mathcal L_i \approx \epsilon_i\lVert\nabla_x\mathcal L_i\rVert_1.
+$$
+
+This motivates allocating the fixed batch budget according to the input sensitivity of the anchor.
+The conceptual statement is:
+
+> Once representation distance becomes the training objective, the perturbation budget should be
+> allocated according to the geometry induced by that objective.
+
+The teacher-epoch analysis and sensitivity-matched radius therefore address two complementary questions:
+
+* teacher training length determines **what geometry the anchor supplies**;
+* sensitivity-matched $\epsilon$ determines **how that anchor is enforced across samples**.
+
+They are consequences of treating the clean representation as the sole target, not independent modules
+added to distinguish CFA from prior work.
+
+### Recommended paper structure
+
+1. **Preliminaries.** Define the teacher, student, threat set, feature map, and classifier.
+2. **Do Natural Teachers Need Softened Targets?** Contrast teacher-only temperature, conventional
+   shared-temperature KD, direct logit regression, and feature anchoring. Analyze why the two
+   temperature formulations behave differently. Avoid presenting the rows as an additive sequence
+   of improvements.
+3. **A Clean Representation as the Sole Target.** Introduce the fixed clean-feature anchor and contrast
+   its role with ARREST: sole objective rather than a regularizer, feature-based rather than CE-based
+   attack generation, no label term, and an inherited fixed classifier.
+4. **What the Anchor Controls.** Present $L\le F+O\le3L$ as a characterization of the fixed-target
+   objective. Connect feature fidelity to the inherited classifier without claiming a classification
+   certificate or feature superiority.
+5. **What Does the Natural Teacher Transfer?** Present the teacher-epoch ladder and class-geometry
+   measurements as an empirical analysis. Conclude that teacher accuracy alone does not predict the
+   resulting student and that teacher training controls the operating point.
+6. **Method: Clean Feature Anchoring.** State the full objective and implementation selected by the
+   analysis.
+7. **Method: Sensitivity-Matched Epsilon.** Derive the radius allocation from the mismatch between
+   pixel-space budgets and feature-space loss sensitivity.
+8. **Experiments and ablations.** Place the label-loss sweep, shared CE-attack control, alternative
+   target comparisons, and other implementation controls here rather than making all of them equal
+   steps in the Analysis narrative.
+
+### Narrative discipline
+
+The paper should not read as if CFA were discovered by eliminating every available alternative.
+The design principle must precede the ablations:
+
+> A non-robust teacher supplies a fixed reference at the clean input, while robustness is learned by
+> constraining the student over the perturbation set.
+
+Each main-text experiment should test one prediction of this principle. Temperature experiments test
+whether a calibrated probability target is necessary; the adversarial-read control tests why the
+teacher target must remain fixed; the label-loss sweep tests whether additional supervised loss is
+needed; the teacher ladder tests what property of the natural teacher is transferred. Detailed variants
+and exhaustive sweeps should remain in the experimental ablations or appendix.
+
+The resulting high-level positioning is:
+
+> CFA elevates the natural representation from an auxiliary regularizer to the sole adversarial
+> training target, then adapts both teacher selection and perturbation allocation to the geometry of
+> that target.
+
+## 합의된 구조 (2026-09-09)
+
+The revised claim above is adopted. Two things are added to it, and the page budget is deliberately
+ignored for now: everything needed goes in, and the trimming happens afterwards.
+
+### 1. The ladder keeps its spine
+
+The four rows should not be sold as an additive sequence of improvements, but they are not four
+arbitrary alternatives either: the middle two are connected by a limit. With the same temperature on
+both sides the KD gradient decays as $1/\tau^2$, the conventional $\tau^2$ factor gives a finite
+limit, and that limit is mean-removed logit regression -- measured at 0.00439 for both at
+$\tau \ge 32$, and visible in the sweep as a plateau at $\tau = 16$ to $32$ (NRR 36.00, 36.11) just
+below the logit MSE cell (36.43). With the teacher softened alone the gradient is $O(1)$ in $\tau$
+and the target converges to the uniform distribution instead (maximum probability 0.0122 at
+$\tau = 64$ against $1/C = 0.01$), which is why that curve turns over at $\tau = 16$ while the
+conventional one does not.
+
+So the section can say what the progression *is* -- raising the temperature on both sides is
+linearising the softmax into a regression, and the last step removes it outright -- without claiming
+each row is a contribution. That statement is what makes the ordering explanatory rather than a
+ranking.
+
+### 2. The attack objective is one of the four axes, not an implementation detail
+
+Treating the clean representation as the sole target predicts that the same distance should generate
+the adversarial examples, and ARREST is the natural contrast: it matches a representation but
+generates its perturbations from cross-entropy alone. The 4x2 control measures what that choice is
+worth -- the anchor loses 0.61 AutoAttack when the attack is taken away from it, the logit MSE 0.91,
+conventional KD 0.74, teacher-only KD 0.25 -- and the ordering of objectives is unchanged under both
+attacks, so the axis is separable from the target axis. This belongs in the section that contrasts
+roles with ARREST (label term, attack objective, inherited classifier), not in the ablation dump.
+
+### 3. Queue consequence
+
+The factorial's stack half is dropped. The ladder does not need to be repeated under weight averaging
+and AWP to make its point, and the cells that do matter for the main table are kept: conventional KD
+and frozen-head logit MSE at the shipped recipe, which replace the teacher-only KD row currently
+reported there. Roughly twenty hours of GPU return to the teacher-quality ladder, the table-5
+remainder, and the epoch and learning-rate sensitivity cells.
