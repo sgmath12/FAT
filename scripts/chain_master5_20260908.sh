@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 PY=/home/seungju/miniforge3/envs/advTrain/bin/python
 PID=1708996
 while kill -0 "$PID" 2>/dev/null; do sleep 60; done
-for cfg in c10_ceatk_logitmse c10_ceatk_kdsym_t16 c10_ceatk_kdasym_t4 \
+for cfg in c10_ceatk_kdasym_t4 \
            c100_t200_anchor_stack c100_t200_logitmse_stack c100_t200_kdsym_stack c100_t200_kdasym_stack \
            c100_t50_anchor_stack c100_t50_logitmse_stack c100_t50_kdsym_stack c100_t50_kdasym_stack \
            c10_t50_anchor c10_t50_logitmse c10_t50_kdsym c10_t50_kdasym \
