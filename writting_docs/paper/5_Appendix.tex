@@ -215,15 +215,13 @@ perform below adversarial training initialized from that teacher. This compariso
 target sweep in \Cref{sec:fragile}, although differences among training recipes prevent it from
 isolating the target alone.
 
-\subsection{Measurements of Feature Fidelity and Variation}
+\subsection{Additional Evidence for the Anchor Objective}
 \label{app:anchor_measurements}
 
-On CIFAR-100 over $\epsilon=8/255$ balls, the measured anchor and clean discrepancy are $L=7.58$
-and $F=6.30$. The measured student variation is a lower bound $O_{\mathrm{lb}}=2.16$, compared
-with a teacher variation measurement of $6.68$ on the same balls. These observations indicate less
-student feature variation under the evaluated perturbations, together with a remaining clean
-discrepancy from the teacher. A lower bound on $O$ cannot establish worst-case stability or show
-that fidelity dominates the exact anchor at convergence.
+% The former L/F/O diagnostic paragraph is withheld pending corrected evaluation.
+% Its source, settings, and network-mode mismatch are recorded in
+% notes/analysis_review_20260908.md; do not restore the threefold-stability claim
+% from logs/measure_FLO.log without remeasurement.
 
 The classification benefit is evaluated in \Cref{sec:components}. Without weight averaging, AWP,
 or the sensitivity-matched radius, the anchor improves clean and AutoAttack accuracy over label

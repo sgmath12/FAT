@@ -4,20 +4,12 @@
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
-Adversarial training requires the model to be confidently correct at every point of a ball around every
-training example, and that requirement is the source of its cost in standard accuracy.
-Methods that address the trade-off keep the requirement and soften the target it is imposed on, whereas
-we replace the target itself.
-The backbone is trained against a single fixed vector, namely the feature that a naturally trained
-network of the same architecture assigns to the clean image.
-The perturbation ball is then asked to map onto that vector rather than onto a confident label.
-The network supplying the vector is not robust, which is a deliberate choice: it provides a target that
-is accurate, and the robustness is produced by the maximization that finds $x_{\mathrm{adv}}$.
-Such a division of labour is only coherent once the label loss is removed, because a label loss and an
-inaccurate-but-robust signal would otherwise compete for the same parameters.
-The remainder of this subsection states the objective and three properties that follow from its form
-rather than from measurement, and \Cref{sec:angeps} treats the one quantity that is left to choose,
-namely how large a ball each example receives.
+Motivated by \Cref{sec:analysis}, clean feature anchoring (CFA) trains the student feature extractor
+against the natural teacher's clean representations while retaining the teacher's classifier.
+The anchor provides the sole supervision for the student backbone, and adversarial examples are
+generated using the same feature discrepancy that training minimizes. We first specify this
+objective and the roles of initialization and classifier inheritance, before introducing the
+sample-dependent perturbation radii in \Cref{sec:angeps}.
 
 Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
 same data, and let $h_t$ be its classifier. The student's feature map is initialized at

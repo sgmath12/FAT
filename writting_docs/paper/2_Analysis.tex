@@ -1,68 +1,82 @@
 \section{Analysis}
 \label{sec:analysis}
 
-We examine how a naturally trained teacher can help preserve clean accuracy during adversarial
-training. Prior work motivates the use of soft targets in place of one-hot labels
-\citep{ard, rslad, LTD, adr}, but it remains unclear whether softening the predictions of a natural
-teacher is sufficient to recover its clean accuracy. We therefore examine feature distillation as
-an alternative, focusing on the choice of teacher target. Our analysis shows how distilling the
-teacher's clean features into the student's adversarial features can jointly control fidelity to the
-teacher and stability under input perturbations through a single objective.
+A naturally trained teacher learns discriminative representations of clean inputs, yet these
+representations need not be stable under perturbations. We investigate whether they can
+nevertheless serve as the sole supervision for adversarial training. We first examine how the
+choice between softened predictions and feature targets affects clean and robust accuracy.
+The feature-based results then motivate a closer analysis of the objective: a single clean-feature
+anchor constrains both agreement with the teacher and local variation of the student's
+representation, providing a basis for the training scheme in \Cref{sec:method}.
 
 \subsection{Preliminaries}
 
-Let $f=h\circ\Phi$ be a classifier with feature map $\Phi$ and linear head $h$. Adversarial training
-\citep{PGD} solves
+Let $x\in\mathcal{X}=[0,1]^D$ denote a vectorized image and $y\in\{1,\ldots,C\}$ its class label,
+with $(x,y)\sim\mathcal{P}$. We write a network as $f=h\circ\Phi$, where
+$\Phi:\mathcal{X}\to\mathbb{R}^d$ is the feature map and $h(z)=Wz+b$ maps features to
+$C$-dimensional logits. For a perturbation radius $\epsilon\ge0$, define
+$B(x,\epsilon)=\{x'\in\mathcal{X}:\lVert x'-x\rVert_\infty\le\epsilon\}$.
+Standard adversarial training \citep{PGD} minimizes the worst-case cross-entropy loss over this set:
 \begin{equation}
-\min_\theta\ \mathbb{E}_{(x,y)}\ \max_{x'\in B(x,\epsilon)}\ \ell\big(f_\theta(x'),y\big),
-\qquad B(x,\epsilon)=\{x':\lVert x'-x\rVert_\infty\le\epsilon\}.
+\min_\theta\ \mathbb{E}_{(x,y)\sim\mathcal{P}}\!
+\left[\max_{x'\in B(x,\epsilon)}\ell\big(f_\theta(x'),y\big)\right],
 \label{eqn:at}
 \end{equation}
-The inner maximization finds a perturbation that maximizes the supervised loss, and the outer
-minimization updates the classifier on that perturbed input.
-We write $f_t = h_t \circ \Phi_t$ for a network of the same architecture trained naturally on the same
-data, frozen and used as the teacher throughout, with feature $\Phi_t(x)$ and logits $f_t(x)$.
+where $\theta$ denotes the trainable parameters and $\ell$ is cross-entropy.
+
+We denote the teacher and student by $f_t=h_t\circ\Phi_t$ and $f_s=h_s\circ\Phi_s$, respectively.
+The teacher is trained on clean examples from the same dataset, using the same architecture as the
+student, and its parameters are held fixed during distillation. Throughout the analysis, feature
+distances use the Euclidean norm, and feature maps are assumed continuous with network statistics
+held fixed. The maxima over the compact set $B(x,\epsilon)$ are therefore well defined.
 
 \subsection{Choosing the Distillation Target}
 \label{sec:fragile}
 
-A naturally trained teacher provides accurate but highly confident predictions, raising the question
-of whether target softening can make them suitable for adversarial training. Prior work highlights
-the importance of soft supervisory distributions for robustness \citep{rslad, adr} and uses predictive
-entropy to adjust guidance from natural and robust teachers \citep{bmtard}. Increasing temperature
-produces less concentrated predictions, with higher entropy and lower maximum class probability.
-We use these two statistics to quantify target softness throughout the comparison.
+We begin by examining how much of the student's clean--robust accuracy trade-off can be improved
+by softening the natural teacher's predictions. This is motivated by the role of soft supervision
+in robust distillation \citep{rslad, adr}, including the use of predictive entropy to adjust
+guidance from natural and robust teachers \citep{bmtard}. A natural teacher's predictions can be
+highly concentrated, and increasing temperature redistributes probability mass toward alternative
+classes. We therefore measure target entropy and maximum class probability alongside student
+accuracy to examine how the two accuracy measures respond to this change in supervision.
 
-We test this by distilling targets $q_t^\tau(x)=\mathrm{softmax}(f_t(x)/\tau)$ from a fixed natural
-teacher using $D_{\mathrm{KL}}(q_t^\tau(x)\,\|\,\mathrm{softmax}(f_s(x_{\mathrm{adv}})))$, where
-$\tau$ is applied only to the teacher target, leaving the student's softmax temperature at one
-throughout the sweep, unlike conventional KD with a shared temperature for both distributions
-\citep{hinton2015distilling}.
-The same KL loss is maximized over $B(x,\epsilon)$ to generate adversarial examples and minimized
-to train the student, without an additional ground-truth label loss.
+Specifically, we use teacher targets $q_t^\tau(x)=\mathrm{softmax}(f_t(x)/\tau)$ and train the
+student by minimizing
+$D_{\mathrm{KL}}(q_t^\tau(x)\,\|\,\mathrm{softmax}(f_s(x_{\mathrm{adv}})))$, where $\tau>0$
+is applied only to the teacher target while the student's softmax temperature remains fixed at one
+across the sweep. Unlike conventional KD with a shared temperature for both distributions
+\citep{hinton2015distilling}, this formulation varies the softness of the supervision without
+rescaling the student's logits. The same KL loss generates adversarial examples through
+maximization over $B(x,\epsilon)$ and updates the student backbone and classifier through
+minimization, with no additional ground-truth label loss.
 
-For comparison, we distill the teacher's clean features by minimizing the clean-feature anchor
+Whereas temperature scaling changes the distribution derived from the teacher's logits, feature
+distillation directly supervises the representation on which its classifier operates. We therefore
+consider matching $\Phi_s(x')$ to $\Phi_t(x)$ through the clean-feature anchor
 \begin{equation}
-\mathcal{L}(x) \;=\; \max_{x' \in B(x,\epsilon)} \big\lVert \Phi_s(x') - \Phi_t(x) \big\rVert^2 .
+\mathcal{L}(x) \;=\; \max_{x' \in B(x,\epsilon)} \big\lVert \Phi_s(x') - \Phi_t(x) \big\rVert_2^2 .
 \label{eqn:anchor_percell}
 \end{equation}
-Adversarial examples maximize the feature distance, and the classifier $h_t$ is kept fixed during
-student training. We evaluate both forms of supervision on CIFAR-100 with ResNet-18, using a
-natural teacher with $77.66\%$ clean accuracy.
-Student performance is reported alongside the maximum probability and entropy of $q_t^\tau(x)$
-averaged over clean test inputs.
+In this case, adversarial examples maximize the feature distance, and only the student backbone is
+updated, with the inherited classifier $h_s=h_t$ held fixed.
+
+We compare these two forms of supervision on CIFAR-100 with ResNet-18 and a natural teacher
+with $77.66\%$ clean accuracy.
+All students are initialized from this teacher and trained for 50 epochs at $\epsilon=8/255$
+with the same optimizer and schedule. Alongside student accuracy, we report the teacher targets'
+maximum probability and entropy averaged over clean test inputs.
 
 \begin{table}[!htbp]
   \centering
-  \caption{Target softening and feature matching on CIFAR-100 with ResNet-18.
-  All students are trained for 50 epochs at $\epsilon=8/255$.
-  Max. probability and entropy (nats) describe the teacher targets; Clean, AA, and NRR describe
-  student performance (\%). Dashes denote quantities not defined for feature targets.}
+  \caption{Teacher-target statistics and student accuracy on CIFAR-100 (ResNet-18).
+  Entropy is in nats. AA$_2$ uses APGD-CE and APGD-T from AutoAttack; NRR is the harmonic mean
+  of Clean and AA$_2$ (all accuracies in \%).}
   \label{tab:targetcomparison}
     \small
     \begin{tabular}{lrrrrr}
       \toprule
-      Target & Mean max. prob. & Entropy & Clean & AA & NRR \\
+      Target & Mean max. prob. & Entropy & Clean & AA$_2$ & NRR \\
       \midrule
       Logits, $\tau=1$  & 0.820  & 0.76 & 58.26 & 20.84 & 30.70 \\
       Logits, $\tau=2$  & 0.533  & 2.40 & 59.33 & 22.79 & 32.93 \\
@@ -75,39 +89,41 @@ averaged over clean test inputs.
     \end{tabular}
 \end{table}
 
-As shown in \Cref{tab:targetcomparison}, increasing temperature raises target entropy and reduces
-the maximum class probability, accompanied by improved AutoAttack accuracy up to $\tau=8$.
-Further softening brings the targets closer to a uniform distribution but reduces robustness.
-Clean accuracy, however, changes little across the sweep and remains substantially below that of
-the teacher, indicating that target softening alone is insufficient to close the clean-accuracy gap.
-On the other hand, feature matching achieves higher clean and AutoAttack accuracy than all logit
-targets tested. This result motivates examining how feature supervision can preserve agreement
-with the teacher while encouraging stability under perturbations.
+\Cref{tab:targetcomparison} shows that target softening affects clean and robust accuracy
+differently. As entropy increases and the maximum class probability decreases, AA$_2$ accuracy
+improves up to $\tau=8$; further softening toward a uniform target reduces this gain. Clean
+accuracy, however, remains within a narrow range throughout the sweep. Thus, softer targets
+improve robustness over the unsoftened target without a comparable improvement in clean accuracy.
+On the other hand, feature matching achieves higher clean and AA$_2$ accuracy than every logit
+configuration tested. In this comparison, directly supervising the representation therefore
+offers a more favorable clean--robust accuracy balance than adjusting prediction confidence alone.
 
 \subsection{What a Clean-Feature Anchor Controls}
 \label{sec:decomp}
 
-The anchor in \Cref{eqn:anchor_percell} uses the teacher's clean representation directly as
-supervision, without temperature adjustment or target rectification. To understand how this single
-loss supports adversarial training, we examine its relationship to fidelity to the teacher and
-local feature stability. \Cref{prop:decomp} shows that the anchor controls both properties by
-bounding the student's clean feature discrepancy and its feature variation over the perturbation
-set.
+The preceding comparison motivates using clean features as targets; we now examine what this
+choice implies for the training objective. The anchor in \Cref{eqn:anchor_percell} uses the
+teacher's representation directly, without adjusting a supervisory distribution. Although it
+contains only one distance, minimizing its worst-case value constrains two aspects of the student:
+agreement with the teacher at the clean input and variation across perturbed inputs.
+\Cref{prop:decomp} makes this connection precise by relating the anchor to clean fidelity error
+and local feature variation.
 
-Fix $x$, write $B = B(x,\epsilon)$, and define
+Let $x\in\mathcal{X}$ be a clean input and $\epsilon\ge0$ a perturbation radius. Writing
+$B=B(x,\epsilon)$ and suppressing the dependence on $x$ and $\epsilon$, define
 \begin{align}
-L &= \max_{x' \in B} \lVert \Phi_s(x') - \Phi_t(x) \rVert , \label{eqn:L}\\
-F &= \lVert \Phi_s(x) - \Phi_t(x) \rVert , \label{eqn:F}\\
-O &= \max_{x', x'' \in B} \lVert \Phi_s(x') - \Phi_s(x'') \rVert . \label{eqn:O}
+L &= \max_{x' \in B} \lVert \Phi_s(x') - \Phi_t(x) \rVert_2 , \label{eqn:L}\\
+F &= \lVert \Phi_s(x) - \Phi_t(x) \rVert_2 , \label{eqn:F}\\
+O &= \max_{x', x'' \in B} \lVert \Phi_s(x') - \Phi_s(x'') \rVert_2 . \label{eqn:O}
 \end{align}
-Here $L$ is the square root of \Cref{eqn:anchor_percell}. The fidelity error $F$ measures how closely
-the student matches the teacher at the clean input. The oscillation $O$ measures the largest
-distance between any two student features in the ball, and thus describes local stability in feature
-space.
+Here $L=\sqrt{\mathcal{L}(x)}$ is the worst-case distance to the clean teacher target, $F$ is the
+clean fidelity error, and $O$ is the diameter of the student's feature set $\Phi_s(B)$. Thus, $F$
+measures departure from the teacher's clean representation, whereas $O$ measures local feature
+variation independently of the teacher.
 
 \begin{proposition}
 \label{prop:decomp}
-For every $x$ and every $\epsilon \ge 0$,
+For any $x\in\mathcal{X}$ and $\epsilon\ge0$, the quantities defined above satisfy
 \begin{equation}
 L \;\le\; F + O \;\le\; 3L .
 \label{eqn:decomp}
@@ -115,45 +131,38 @@ L \;\le\; F + O \;\le\; 3L .
 \end{proposition}
 
 \begin{proof}
-For the right-hand inequality, $F \le L$ because $x \in B$, so the maximum in \Cref{eqn:L} is at least
-the value at $x$. For $O$, insert $\Phi_t(x)$ between the two student features: for any
-$x', x'' \in B$,
+For any $x'\in B$, the triangle inequality gives
 \begin{equation*}
-\lVert \Phi_s(x') - \Phi_s(x'') \rVert
-\;\le\; \lVert \Phi_s(x') - \Phi_t(x) \rVert + \lVert \Phi_t(x) - \Phi_s(x'') \rVert
-\;\le\; 2L ,
+\lVert\Phi_s(x')-\Phi_t(x)\rVert_2
+\le\lVert\Phi_s(x')-\Phi_s(x)\rVert_2+\lVert\Phi_s(x)-\Phi_t(x)\rVert_2
+\le O+F.
 \end{equation*}
-and taking the maximum over $x', x''$ gives $O \le 2L$. Adding the two bounds gives $F + O \le 3L$.
-For the left-hand inequality, insert $\Phi_s(x)$ instead: for any $x' \in B$,
+Taking the maximum over $x'$ yields $L\le F+O$. Conversely, $F\le L$ because $x\in B$, and
+for any $x',x''\in B$,
 \begin{equation*}
-\lVert \Phi_s(x') - \Phi_t(x) \rVert
-\;\le\; \lVert \Phi_s(x') - \Phi_s(x) \rVert + \lVert \Phi_s(x) - \Phi_t(x) \rVert
-\;\le\; O + F ,
+\lVert\Phi_s(x')-\Phi_s(x'')\rVert_2
+\le\lVert\Phi_s(x')-\Phi_t(x)\rVert_2+\lVert\Phi_s(x'')-\Phi_t(x)\rVert_2
+\le2L.
 \end{equation*}
-and taking the maximum over $x'$ gives $L \le F + O$.
+Hence $O\le2L$, which together with $F\le L$ gives $F+O\le3L$.
 \end{proof}
 
-The result uses only the triangle inequality. Its direct consequence is that a small anchor
-simultaneously bounds both the clean fidelity error and local feature variation.
+The bound explains how a single anchor can serve both fidelity and stability: for any
+$\delta\ge0$, $\mathcal{L}(x)\le\delta^2$ implies $F\le\delta$ and $O\le2\delta$.
+Thus, keeping the anchor small limits both clean disagreement with the teacher and variation
+among the student's perturbed features, without a coefficient between separate penalties.
+Importantly, this control does not assume that the teacher's own features are stable under
+perturbations. It follows from constraining the student around the clean target, rather than
+from a bound on the teacher's local variation. The scope of this statement is discussed in
+\Cref{app:anchor_scope}.
 
-\begin{corollary}
-\label{cor:both}
-If the anchor is driven to $L \le \delta$ at $x$, then $F \le \delta$ and $O \le 2\delta$ at $x$.
-\end{corollary}
-
-The inequalities show that the anchor and $F+O$ are equivalent up to a constant factor. Thus,
-keeping every adversarial feature close to the teacher's clean feature also limits the student's
-clean discrepancy and its variation under perturbations. This gives a rationale for using the
-anchor as the sole backbone objective: fidelity and local feature stability are controlled through
-the same distance, without a coefficient between separate loss terms.
-The relation characterizes the objective in feature space; its implications and limitations are
-discussed in \Cref{app:anchor_scope}.
-
-\paragraph{Empirical check.}
-Under the evaluated perturbations, the trained student exhibits less feature variation than the
-natural teacher, while retaining a nonzero clean discrepancy from it
-(\Cref{app:anchor_measurements}). This indicates that the student can learn a less sensitive
-representation from a natural teacher without reproducing its response to those perturbations.
-These observations are consistent with the role of the fixed anchor in the analysis.
-The resulting classification performance and the geometry of the learned representation are
-examined in \Cref{sec:components}.
+Because the anchor aligns the student with the teacher's feature representation, retaining the
+teacher's classifier provides a direct way to convert this alignment into predictions.
+With the shared head $h_t(z)=W_tz+b_t$, every $x'\in B$ satisfies
+$\lVert f_s(x')-f_t(x)\rVert_2\le\lVert W_t\rVert_{2\to2}L$, where
+$\lVert W_t\rVert_{2\to2}$ is the spectral norm. The anchor therefore also bounds departure
+from the teacher's clean logits under this classifier, although preserving the predicted class
+additionally depends on the teacher's logit margins. Together, these observations motivate
+training the student feature extractor against the clean-feature anchor while leaving the
+teacher's classifier unchanged. \Cref{sec:method} specifies the resulting optimization procedure
+and extends it to sample-dependent perturbation radii.
