@@ -80,47 +80,28 @@ same discrepancy that is subsequently minimized.
 We compare these targets on CIFAR-100 with ResNet-18. The natural teacher attains $77.66\%$ clean
 accuracy, and all students share its initialization, a 50-epoch schedule, and
 $\epsilon=8/255$. The KL objectives update the entire student, whereas both direct-regression
-controls retain the inherited classifier. To make the degree of softening explicit, we report the
+controls retain the inherited classifier. To make the degree of softening explicit, we measure the
 entropy of $q_t^\tau$; for $C=100$, the entropy of a uniform target is $\log C=4.61$. AA$_2$
-comprises APGD-CE and APGD-T from AutoAttack, and NRR is the harmonic mean of clean and AA$_2$
-accuracy.
+comprises APGD-CE and APGD-T from AutoAttack. Exact values are reported in
+\Cref{tab:targetcomparison_values}.
 
-\begin{table}[!htbp]
+\begin{figure}[!htbp]
   \centering
-  \caption{Distillation targets on CIFAR-100 with ResNet-18. $H(q_t^\tau)$ is measured in nats.}
-  \label{tab:targetcomparison}
-  \small
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{lcrrrr}
-    \toprule
-    Target & $\tau$ & $H(q_t^\tau)$ & Clean & AA$_2$ & NRR \\
-    \midrule
-    \multicolumn{6}{l}{\emph{Teacher-only temperature}} \\
-    KL & 1  & 0.76 & 58.26 & 20.84 & 30.70 \\
-    KL & 2  & 2.40 & 59.33 & 22.79 & 32.93 \\
-    KL & 4  & 4.20 & 59.39 & 24.48 & 34.67 \\
-    KL & 8  & 4.56 & 59.47 & 25.19 & 35.39 \\
-    KL & 16 & 4.60 & 57.78 & 24.00 & 33.91 \\
-    \midrule
-    \multicolumn{6}{l}{\emph{Shared-temperature KD}} \\
-    KL & 4  & 4.20 & 60.83 & 25.05 & 35.49 \\
-    KL & 8  & 4.56 & 60.99 & 25.25 & 35.71 \\
-    KL & 16 & 4.60 & 61.85 & 25.39 & 36.00 \\
-    KL & 32 & 4.60 & 61.81 & 25.50 & 36.11 \\
-    \midrule
-    Logit regression, fixed head  & --- & --- & 62.59 & 25.69 & 36.43 \\
-    \textbf{Feature anchor, fixed head} & --- & --- & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+  \includegraphics[width=\linewidth]{figure/analysis_targets.pdf}
+  \caption{From target softening to metric regression on CIFAR-100 with ResNet-18.
+  (a)~The teacher-target entropy approaches that of the uniform distribution as $\tau$ increases.
+  (b)~Clean--AA$_2$ trajectories for teacher-only and shared-temperature KL. Numbers annotate
+  $\tau$; L and F denote fixed-head logit regression and feature anchoring, respectively.}
+  \label{fig:targetcomparison}
+\end{figure}
 
-\Cref{tab:targetcomparison} exhibits the two limiting behaviors above. When only the teacher is
+\Cref{fig:targetcomparison} exhibits the two limiting behaviors above. When only the teacher is
 softened, robustness improves until $\tau=8$, but the clean accuracy changes little;
 pushing the already near-uniform target further degrades both metrics. Shared-temperature KD avoids
 this turnover and recovers more clean accuracy, but its gains saturate as it approaches logit
 regression. Removing the probability parameterization altogether closes most of the remaining gap:
-logit regression nearly matches the feature anchor, which improves NRR by only a further $0.21$
-points. The experiment therefore does not imply that features are intrinsically superior to logits.
+the feature anchor improves on logit regression by only $0.13$ clean and $0.19$ AA$_2$ points. The
+experiment therefore does not imply that features are intrinsically superior to logits.
 Instead, it shows that target softening improves prediction-space distillation, while direct metric
 regression yields a better clean--robust balance without requiring a calibrated predictive
 distribution.
@@ -143,7 +124,7 @@ both adversarial-example generation and backbone training. Adding a label object
 a second target and a coefficient governing its influence; the anchor is designed to make neither
 necessary. The frozen classifier then converts feature alignment into predictions without an
 auxiliary head objective. This construction is the particular feature-space realization we pursue,
-while the logit-regression control in \Cref{tab:targetcomparison} makes clear that temperature-free
+while the logit-regression control in \Cref{fig:targetcomparison} makes clear that temperature-free
 regression is the broader principle.
 
 \subsection{What the Anchor Controls}
@@ -214,6 +195,7 @@ Accordingly, \Cref{prop:decomp} characterizes the objective rather than proving 
 outperform logit targets or that a small anchor alone guarantees robust classification; these points
 are discussed further in \Cref{app:anchor_scope,app:robustness}.
 
+\FloatBarrier
 \subsection{What Does the Natural Teacher Transfer?}
 \label{sec:teacher_transfer}
 \label{sec:geometry}
@@ -227,26 +209,15 @@ To track representation structure, we measure the ratio $S_w/S_b$ of within-clas
 scatter on unit-normalized clean features, for which a smaller value indicates stronger class
 separation.
 
-\begin{table}[!htbp]
+\begin{figure}[t]
   \centering
-  \caption{Teacher checkpoints and their anchored students on CIFAR-100 with ResNet-18.}
-  \label{tab:teacherladder}
-  \small
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{lrrrrr}
-    \toprule
-    & \multicolumn{2}{c}{Teacher} & \multicolumn{3}{c}{Student} \\
-    \cmidrule(lr){2-3}\cmidrule(lr){4-6}
-    Checkpoint & Clean & $S_w/S_b$ & Clean & $S_w/S_b$ & AA$_2$ \\
-    \midrule
-    50 epochs  & 75.81 & 1.100 & \textbf{64.28} & 0.955 & 24.38 \\
-    100 epochs & 76.62 & 0.982 & 63.65 & 0.900 & 25.20 \\
-    150 epochs & 77.52 & 0.887 & 62.93 & 0.875 & 25.78 \\
-    200 epochs & 77.66 & 0.808 & 62.72 & 0.850 & \textbf{25.88} \\
-    300 epochs & \textbf{78.32} & \textbf{0.712} & 62.24 & \textbf{0.829} & 25.80 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+  \includegraphics[width=\linewidth]{figure/teacher_checkpoint_trends.pdf}
+  \caption{Teacher-checkpoint effects on CIFAR-100 with ResNet-18. (a)~Accuracy changes relative to
+  the 50-epoch checkpoint reveal opposing teacher-clean and student-clean trends, while student
+  robustness initially rises. (b)~The class-scatter ratio decreases for both networks. Exact values
+  are reported in \Cref{tab:teacherladder_values}.}
+  \label{fig:teacherladder}
+\end{figure}
 
 The result contradicts accuracy-only transfer. Across the ladder, the teacher gains $2.51$ points of
 clean accuracy, whereas the student loses $2.04$ points. Robust accuracy moves in the opposite

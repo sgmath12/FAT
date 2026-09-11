@@ -4,110 +4,63 @@
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
-Motivated by \Cref{sec:analysis}, clean feature anchoring (CFA) trains the student feature extractor
-against the natural teacher's clean representations while retaining the teacher's classifier.
-The anchor provides the sole supervision for the student backbone, and adversarial examples are
-generated using the same feature discrepancy that training minimizes. We first specify this
-objective and the roles of initialization and classifier inheritance, before introducing the
-sample-dependent perturbation radii in \Cref{sec:angeps}.
-
-Let $\Phi_t$ be the frozen feature map of a network of the same architecture trained naturally on the
-same data, and let $h_t$ be its classifier. The student's feature map is initialized at
-$\Phi_s \leftarrow \Phi_t$ and trained with
+Clean feature anchoring (CFA) turns the clean representation studied in \Cref{sec:analysis} into the
+training target. Let $\Phi_t$ and $h_t$ denote the frozen feature map and classifier of the natural
+teacher. The student inherits both components, $\Phi_s \leftarrow \Phi_t$ and $h_s=h_t$, after which
+only $\Phi_s$ is optimized. For a clean example $x$, define
 \begin{equation}
-\mathcal{L} \;=\; \mathbb{E}_x \big\lVert \Phi_s(x_{\mathrm{adv}}) - \Phi_t(x) \big\rVert^2 ,
-\qquad
-x_{\mathrm{adv}} \;=\; \operatorname*{arg\,max}_{x' \in B(x,\epsilon)}
-  \big\lVert \Phi_s(x') - \Phi_t(x) \big\rVert ,
+\begin{aligned}
+\ell_{\mathrm{anc}}(x';x)
+&= \big\lVert \Phi_s(x')-\Phi_t(x) \big\rVert_2^2,
+\qquad &
+x_{\mathrm{adv}}
+&= \operatorname*{arg\,max}_{x'\in B(x,\epsilon)}\ell_{\mathrm{anc}}(x';x),\\
+\mathcal{L}_{\mathrm{CFA}}
+&= \mathbb{E}_x\!\left[\ell_{\mathrm{anc}}(x_{\mathrm{adv}};x)\right].
+\end{aligned}
 \label{eqn:anchor}
 \end{equation}
-where the inner maximization is realized by $K$ steps of projected gradient ascent on the same
-quantity the outer problem minimizes,
+The target $\Phi_t(x)$ is evaluated once at the clean input and held fixed while the adversarial
+example is generated. We approximate the inner maximum using $K$ projected gradient-ascent steps,
 \begin{equation}
-x^{(k+1)} \;=\; \Pi_{B(x,\epsilon)}\!\left(
-  x^{(k)} + a \cdot \mathrm{sign}\, \nabla_{x}
-  \big\lVert \Phi_s(x^{(k)}) - \Phi_t(x) \big\rVert^2 \right),
-\qquad x^{(0)} = x + \eta ,
+x^{(k+1)}
+= \Pi_{B(x,\epsilon)}\!\left(
+  x^{(k)} + a\,\mathrm{sign}\!\left[
+  \nabla_{x^{(k)}}\ell_{\mathrm{anc}}(x^{(k)};x)\right]\right),
+\qquad x^{(0)}=x+\eta,
 \label{eqn:pgd}
 \end{equation}
-with $\eta$ a small random initialization and $\Pi$ the projection onto the ball.
-The target $\Phi_t(x)$ is a constant of this ascent, since it is computed once at the clean input and
-does not move as $x^{(k)}$ does.
-The inner and outer problems therefore optimize the same quantity, as they do in standard adversarial
-training and unlike methods whose attack is generated against a different objective from the one being
-trained.
-\Cref{eqn:anchor} is the entire objective for the backbone, without a label term, a logit term or a
-coefficient joining them, and the three properties below are consequences of that form.
+where $\eta$ is a random start and $\Pi$ projects onto the perturbation set. Thus, adversarial-example
+generation and backbone training use the same feature discrepancy. At inference the student is
+$h_t\circ\Phi_s$; the classifier remains frozen, and training uses neither a label loss nor a logit
+loss.
 
-\paragraph{(i) The teacher never enters the perturbation ball.}
-The teacher is evaluated at $x$ alone in both \Cref{eqn:anchor} and \Cref{eqn:pgd}, so the objective
-depends on $\Phi_t$ only through the single vector $\Phi_t(x)$.
-Two teachers that agree at $x$ and differ arbitrarily on $B(x,\epsilon) \setminus \{x\}$ consequently
-induce the same optimization problem, and the rotation that the teacher undergoes under attack
-(\Cref{sec:analysis}) is exactly such a difference.
-The same argument runs in the other direction as well, because a quantity the objective cannot observe
-cannot serve as a source of robustness either.
-The restriction is load-bearing rather than convenient.
-Evaluating $\Phi_t$ at $x'$ instead would make $\Phi_s = \Phi_t$ a global minimizer of
-\Cref{eqn:anchor}, and that minimizer is a natural model; the student trained this way collapses onto
-the teacher and reaches $0.00$ AutoAttack accuracy (\Cref{tab:controls}).
-Restricting the teacher to $x$ therefore keeps the fragility of the teacher out of the objective and
-keeps the objective from admitting a degenerate solution.
-
-\paragraph{(ii) The anchor is exactly zero at the clean point at initialization.}
-The initialization $\Phi_s \leftarrow \Phi_t$ gives $\lVert \Phi_s(x) - \Phi_t(x) \rVert = 0$ for every
-$x$, so the loss is nonzero only because of the perturbation.
-Every gradient the backbone receives at the start of training is thus attributable to the attack, which
-is the quantity we intend to train against.
-A logit target has the same property only at temperature $1$, where it carries no dark knowledge.
-The property is also used by \Cref{sec:angeps}: the per-sample sensitivities are identical at the first
-step, so the radius allocation begins uniform and differentiates only as the student moves away from
-its teacher.
-
-\paragraph{(iii) The classifier is inherited, which is what a feature target buys.}
-The student at test time is $h_t \circ \Phi_s$, and the head is never trained.
-Inheriting the head is possible because the target is written on the feature.
-A loss written on logits constrains only the composition $W\Phi$, and it therefore determines the
-pair $(\Phi, W)$ only up to the gauge
-\begin{equation}
-(\Phi, W) \;\longmapsto\; (A\Phi,\; W A^{-1}), \qquad A \in \mathrm{GL}(d),
-\label{eqn:gauge}
-\end{equation}
-so that the same logits are reachable from a continuum of representations, none of which the teacher's
-classifier is calibrated for.
-Fixing the target at the feature removes this freedom and pins $\Phi_s$ to $\Phi_t$ itself, which is
-what keeps $h_t$ the correct classifier for it.
-\Cref{tab:ablation} shows that inheriting the head is preferred rather than merely permissible, since
-every alternative we tried scores below leaving the classifier alone, including the best head
-temperature.
-Inheritance also removes the last two hyperparameters, as a head distillation term would reintroduce
-both a temperature and a weight.
+\Cref{eqn:anchor} specifies the feature-space target but still assigns every example the same
+pixel-space radius $\epsilon$. Because an equal input displacement need not induce an equal change in
+$\ell_{\mathrm{anc}}$, we next allocate the fixed perturbation budget according to the local input
+sensitivity of this loss.
 
 \subsection{Sensitivity-Matched $\epsilon$}
 \label{sec:angeps}
 
-\paragraph{The problem a uniform radius creates.}
-\Cref{eqn:anchor} is optimized over a pixel ball while the quantity it measures is a feature
-displacement, and the two are not proportional.
-A single $\epsilon$ therefore moves the objective by an amount that varies substantially across the
-dataset, and the coefficient of variation of $\lVert \nabla_x \mathcal{L} \rVert$ within a minibatch is
-$0.64$ when logged over training.
-Examples that receive the same pixel budget are consequently attacked with very different force in the
-geometry the loss is written in, which is not something \Cref{eqn:anchor} asks for.
-
-\paragraph{Equalizing the movement.}
-We assign the radius per sample in order to equalize how far the attack moves the objective rather than
-how far it moves the input.
-The first-order change of a differentiable loss inside an $\ell_\infty$ ball of radius $e$ is
+Under a uniform radius, the local sensitivity of the anchor varies substantially across examples
+(\Cref{app:box}). We therefore choose a per-sample radius that approximately equalizes the
+first-order change in the anchor loss while preserving the total perturbation budget. For an example
+$x_i$, define its clean-point sensitivity as
 \begin{equation}
-\max_{\lVert \delta \rVert_\infty \le e} \langle \nabla_x \mathcal{L}, \delta \rangle
-\;=\; e \, \lVert \nabla_x \mathcal{L} \rVert_1 ,
+g_i
+= \left.\left\lVert\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\right\rVert_1\right|_{x'=x_i},
+\qquad
+\max_{\lVert \delta \rVert_\infty \le e}
+\left\langle
+\left.\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\right|_{x'=x_i},\delta
+\right\rangle
+\;=\; e\,g_i .
 \label{eqn:firstorder}
 \end{equation}
-since $\ell_1$ is the dual norm of $\ell_\infty$.
-Writing $g_i = \lVert \nabla_x \mathcal{L}(x_i) \rVert_1$, the movement induced at example $i$ by a
-radius $\epsilon_i$ is $\epsilon_i g_i$ to first order.
-Equalizing that movement across a minibatch of $N$ examples amounts to imposing
+The equality follows from the duality of $\ell_\infty$ and $\ell_1$.
+The predicted loss change under radius $\epsilon_i$ is therefore $\epsilon_i g_i$. Equalizing this
+quantity across a minibatch of $N$ examples amounts to imposing
 \begin{equation}
 \epsilon_i \, g_i \;=\; c \quad \text{for all } i ,
 \qquad \text{subject to} \qquad
@@ -133,8 +86,9 @@ What the rule gains over a uniform radius is preserved in direction under either
 the clean axis than on the robust one, and \Cref{app:box} reports both settings.
 
 \paragraph{Keeping the radii in range.}
-\Cref{eqn:angeps_ideal} assigns unbounded radii where $g_i \to 0$, which is the situation at the start
-of training by property (ii).
+\Cref{eqn:angeps_ideal} assigns unbounded radii where $g_i \to 0$. In particular, the clean anchor
+discrepancy is zero for every sample immediately after the student is initialized from the teacher, so
+the allocation begins uniformly and differentiates as training proceeds.
 We therefore constrain $\epsilon_i / \epsilon \in [0.5, 1.5]$ and solve the budget constraint inside
 that box, which \Cref{app:box} states exactly and which reduces to restoring the mean when no clip is
 active.
@@ -170,13 +124,8 @@ Replacing the signal outright by difficulty magnitude or by the logit margin of 
 than allocating nothing (\Cref{tab:allocation}).
 Among the signals we tested, only the input sensitivity of the loss improves on a uniform radius.
 
-\Cref{alg:cfa} states the procedure in full.
-Training the natural teacher is ordinary supervised training and is the only place where labels
-appear.
-The anchored phase uses no labels at all, because the teacher vector $\phi_i$ read once per example at
-the clean input is the entire supervisory signal, and the classifier is carried through untouched.
-The method introduces no loss weight, no temperature and no auxiliary head, and the teacher checkpoint
-is the only quantity we vary between datasets.
+\Cref{alg:cfa} summarizes both training stages. The natural teacher is the only component trained with
+labels; the anchored stage introduces no loss weight, temperature, or auxiliary head.
 
 \paragraph{Caveats.}
 \Cref{eqn:firstorder} is derived for the $\ell_1$ norm while our runs read the gradient in $\ell_2$,

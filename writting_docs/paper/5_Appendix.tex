@@ -181,7 +181,7 @@ lives. It is a statement about the free half only.
 Writing $\gamma_t(x)$ for the teacher's margin at $x$ and $D_y$ for the relevant decision-boundary
 constant, Cauchy--Schwarz gives that $\gamma_t(x) > D_y \cdot L(x)$ implies the student is robustly
 correct at $x$. The certificate is vacuous at the scales we train at, but the ratio $D L/\gamma_t$
-tracks both axes across the teacher ladder of \Cref{tab:teacherladder}. What it does not do is predict
+tracks both axes across the teacher ladder of \Cref{fig:teacherladder}. What it does not do is predict
 the size of the effect, and it saturates before AutoAttack does.
 
 \section{Supplementary Analysis of the Clean-Feature Anchor}
@@ -233,7 +233,7 @@ students exhibit similar relative feature displacement, while their class separa
 factor of $5.5$. This suggests a contribution from the learned geometry, but does not establish
 class separation as the sole cause of the robustness gain.
 
-The checkpoint ladder in \Cref{tab:teacherladder} further separates within-class concentration from
+The checkpoint ladder in \Cref{fig:teacherladder} further separates within-class concentration from
 between-class separation on unit-normalized features. From the 50-epoch to the 300-epoch teacher,
 the mean angle from a sample to its class centroid decreases from $34.6^\circ$ to $30.9^\circ$,
 whereas the angle to the nearest class centroid increases from $35.7^\circ$ to $44.9^\circ$. The
@@ -241,8 +241,56 @@ corresponding students reproduce the latter change---their nearest-centroid sepa
 $25.4^\circ$ to $29.8^\circ$---while their mean within-class angle remains nearly unchanged
 ($27.9^\circ$ to $28.2^\circ$). These measurements motivate interpreting the ladder through
 between-class geometry, but they remain observational because the teacher's accuracy and geometry
-change together.
+change together. The numerical values underlying the two analysis figures are collected below.
 
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4pt}
+  \caption{Numerical values for the target comparison in \Cref{fig:targetcomparison}.
+  $H(q_t^\tau)$ is measured in nats, and NRR is the harmonic mean of clean and AA$_2$ accuracy.}
+  \label{tab:targetcomparison_values}
+  \begin{tabular}{lcrrrr}
+    \toprule
+    Target & $\tau$ & $H(q_t^\tau)$ & Clean & AA$_2$ & NRR \\
+    \midrule
+    \multicolumn{6}{l}{\emph{Teacher-only temperature}} \\
+    KL & 1  & 0.76 & 58.26 & 20.84 & 30.70 \\
+    KL & 2  & 2.40 & 59.33 & 22.79 & 32.93 \\
+    KL & 4  & 4.20 & 59.39 & 24.48 & 34.67 \\
+    KL & 8  & 4.56 & 59.47 & 25.19 & 35.39 \\
+    KL & 16 & 4.60 & 57.78 & 24.00 & 33.91 \\
+    \midrule
+    \multicolumn{6}{l}{\emph{Shared-temperature KD}} \\
+    KL & 4  & 4.20 & 60.83 & 25.05 & 35.49 \\
+    KL & 8  & 4.56 & 60.99 & 25.25 & 35.71 \\
+    KL & 16 & 4.60 & 61.85 & 25.39 & 36.00 \\
+    KL & 32 & 4.60 & 61.81 & 25.50 & 36.11 \\
+    \midrule
+    Logit regression, fixed head  & --- & --- & 62.59 & 25.69 & 36.43 \\
+    \textbf{Feature anchor, fixed head} & --- & --- & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4pt}
+  \caption{Numerical values for the checkpoint trends in \Cref{fig:teacherladder}.}
+  \label{tab:teacherladder_values}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    & \multicolumn{2}{c}{Teacher} & \multicolumn{3}{c}{Student} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-6}
+    Checkpoint & Clean & $S_w/S_b$ & Clean & $S_w/S_b$ & AA$_2$ \\
+    \midrule
+    50 epochs  & 75.81 & 1.100 & \textbf{64.28} & 0.955 & 24.38 \\
+    100 epochs & 76.62 & 0.982 & 63.65 & 0.900 & 25.20 \\
+    150 epochs & 77.52 & 0.887 & 62.93 & 0.875 & 25.78 \\
+    200 epochs & 77.66 & 0.808 & 62.72 & 0.850 & \textbf{25.88} \\
+    300 epochs & \textbf{78.32} & \textbf{0.712} & 62.24 & \textbf{0.829} & 25.80 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\FloatBarrier
 \subsection{Scope of the Anchor Bound}
 \label{app:anchor_scope}
 
@@ -455,7 +503,7 @@ rate $0.1$ under a one-cycle schedule, batch size $128$, no augmentation beyond 
 flip: $200$ epochs on CIFAR-10 and CIFAR-100, $80$ on Tiny-ImageNet-200. The resulting teachers reach
 $95.33$ (CIFAR-10), $77.66$ (CIFAR-100) and the Tiny-ImageNet figure quoted in \Cref{tab:tin}. The
 teacher's own robustness is $0$ --- it is never attacked and is not meant to survive attack;
-\Cref{tab:teacherladder} is the ablation over how long it is trained.
+\Cref{fig:teacherladder} is the ablation over how long it is trained.
 
 \paragraph{Student.} The three shipped cells differ only where the dataset forces them to.
 
@@ -510,7 +558,7 @@ The teacher has to be counted, since calling it free would otherwise hide a trai
 free, but it is cheap: a clean epoch has no inner maximization, so it costs $6.8$ seconds against
 $74.5$ for an adversarial one, and $200$ clean epochs come to $0.39$ hours. The teacher is therefore
 $19\%$ of one student run and is amortized over every cell that reads it, the teacher ladder of
-\Cref{tab:teacherladder} included. \Cref{tab:compute} puts the total against the baselines measured
+\Cref{fig:teacherladder} included. \Cref{tab:compute} puts the total against the baselines measured
 on the same machine.
 
 \begin{table}[!htbp]
