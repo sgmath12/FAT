@@ -233,6 +233,16 @@ students exhibit similar relative feature displacement, while their class separa
 factor of $5.5$. This suggests a contribution from the learned geometry, but does not establish
 class separation as the sole cause of the robustness gain.
 
+The checkpoint ladder in \Cref{tab:teacherladder} further separates within-class concentration from
+between-class separation on unit-normalized features. From the 50-epoch to the 300-epoch teacher,
+the mean angle from a sample to its class centroid decreases from $34.6^\circ$ to $30.9^\circ$,
+whereas the angle to the nearest class centroid increases from $35.7^\circ$ to $44.9^\circ$. The
+corresponding students reproduce the latter change---their nearest-centroid separation increases from
+$25.4^\circ$ to $29.8^\circ$---while their mean within-class angle remains nearly unchanged
+($27.9^\circ$ to $28.2^\circ$). These measurements motivate interpreting the ladder through
+between-class geometry, but they remain observational because the teacher's accuracy and geometry
+change together.
+
 \subsection{Scope of the Anchor Bound}
 \label{app:anchor_scope}
 
@@ -341,24 +351,6 @@ analysis.
     Difficulty magnitude (IAAT, CAT)        & 0.39 & 61.27 & 32.45 & 30.14 & 28.12 & 38.55 \\
     Difficulty, same weights permuted       & 0.32 & 60.90 & 32.32 & 29.94 & 28.06 & 38.42 \\
     Logit margin (MMA)                      & 0.42 & 61.07 & 32.46 & 29.75 & 27.79 & 38.20 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Only the teacher checkpoint changes; the student configuration is untouched. CIFAR-100,
-  ResNet-18. $S_w/S_b$ is the ratio of within-class to between-class scatter on the unit sphere.}
-  \label{tab:teacherladder}
-  \begin{tabular}{lrrrrr}
-    \toprule
-    Teacher & Teacher clean & Teacher $S_w/S_b$ & Student clean & Student AA & NRR \\
-    \midrule
-    50 epochs  & 75.81 & 1.100 & \textbf{64.28} & 24.38 & 35.35 \\
-    100 epochs & 76.62 & 0.982 & 63.65 & 25.20 & 36.11 \\
-    150 epochs & 77.52 & 0.887 & 62.93 & 25.78 & 36.51 \\
-    200 epochs & 77.65 & 0.808 & 62.72 & \textbf{25.88} & \textbf{36.64} \\
-    300 epochs & 78.32 & 0.712 & 62.24 & 25.80 & 36.48 \\
     \bottomrule
   \end{tabular}
 \end{table}

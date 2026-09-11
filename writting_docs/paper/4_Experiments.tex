@@ -434,7 +434,7 @@ $21.6^\circ$ against $45.4^\circ$.
 The geometry of the anchored student degrades under attack, from $0.898$ to $2.681$, and even then
 remains better than the undisturbed geometry of the cross-entropy student.
 
-Class separation is the same quantity that \Cref{sec:geometry} finds varying along the teacher
+Class separation is the same quantity that \Cref{sec:teacher_transfer} finds varying along the teacher
 ladder, measured here within a single pair of runs instead of across teachers.
 A perturbation has to carry a feature across a decision boundary and separation determines how far
 that is, and the anchored student inherits the separation of a teacher that was never asked to be flat
@@ -450,9 +450,8 @@ $8.16$ points.
 Not overfitting is itself a property of the objective here, and it is the property that weight
 averaging is normally bought to supply.
 
-\subsection{Training Radius, Teacher Length, and Larger Architectures}
+\subsection{Training Radius and Larger Architectures}
 \label{sec:radius}
-\label{sec:geometry}
 \label{sec:wrn}
 
 \paragraph{The training radius is a plateau, not a tuned point.} Sweeping
@@ -465,15 +464,5 @@ $8.8/255$ to the last decimal on both datasets while standard accuracy falls by 
 points, which is the $\epsilon$-independence that \Cref{app:robustness} predicts above the
 threshold.
 
-\paragraph{What the teacher transfers is geometry, not accuracy.} Changing only the teacher checkpoint
-and leaving the student configuration untouched (\Cref{tab:teacherladder}), teacher accuracy and
-student accuracy are anti-correlated at $r = -0.999$ across five teachers trained for 50 to 300
-epochs, so that the teacher gains $2.51$ points while the student loses $2.04$.
-NRR peaks in the middle of the ladder, which makes the training length of the teacher a control on the
-operating point, and locating that peak costs five natural-training runs and no adversarial ones. The effect reproduces on Tiny-ImageNet where teacher
-accuracy is controlled to $0.32$ points, so accuracy cannot be the cause; what varies monotonically is
-the teacher's class separation.
-
 \paragraph{Larger architectures.} WideResNet-34-10 at the same recipe on both CIFAR datasets is
 reported in \Cref{tab:wrn}, alongside the published WideResNet rows.
-
