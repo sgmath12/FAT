@@ -1,0 +1,55 @@
+# LBGAT WITH EVERYTHING OUR ROW HAS (2026-09-11).
+#
+# tab:main's second question, after the natural-teacher initialization cells: what happens when a
+# baseline is also given our optimizer, our schedule and our stack.  The four distillation objectives
+# already have this cell (ARD 58.04 / 26.44, RSLAD 59.82 / 25.04, AdaAD 58.37 / 26.71, AdaAD+IGDM
+# 52.89 / 25.04); these fill it for the methods that do not consume a teacher.
+#
+#   optimizer / schedule   AdamW 0.021, OneCycle
+#   initialization         the natural teacher
+#   training radius        8.8/255
+#   weight averaging       kappa 0.999, from 20% of the run
+#   AWP proxy              gamma 0.005, warmup 10
+#
+# Read against our shipped 62.17 / 28.86 and against this method's own-recipe row.
+#
+# LBGAT trains its natural branch jointly, so the warm start here initializes the student only;
+# the branch still starts from scratch and is optimized with the same AdamW group.
+
+method : lbgat
+weight_decay : 0.0002
+dataset : CIFAR100
+arch : ResNet18
+optim : AdamW
+lr : 0.021
+cyclic : True
+train_eps : 0.03450980392156863
+epochs : 100
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : True
+wa_start : 0.2
+awp_gamma : 0.005
+awp_warmup : 10
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : False
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+joint_teacher : True
