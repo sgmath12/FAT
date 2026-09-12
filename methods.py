@@ -3370,8 +3370,11 @@ def _jensen_shannon_div(logit1, logit2, T=1.0):
     prob2 = F.softmax(logit2 / T, dim=1)
     mean_prob = 0.5 * (prob1 + prob2)
     logsoftmax = torch.log(mean_prob.clamp(min=1e-8))
-    jsd = F.kl_div(logsoftmax, prob1, reduction='batchmean')
-    jsd += F.kl_div(logsoftmax, prob2, reduction='batchmean')
+    # The targets are raw softmax outputs, and at T = 0.5 they are sharpened before that, so exact zeros
+    # are routine: the KLDivLoss NaN of pytorch/pytorch#89558 (see _KL_EPS) took consistency_100ep to
+    # chance at epoch 0.  This site was missed when the other eleven were floored on 2026-09-07.
+    jsd = F.kl_div(logsoftmax, _kl_target(prob1), reduction='batchmean')
+    jsd += F.kl_div(logsoftmax, _kl_target(prob2), reduction='batchmean')
     return jsd * 0.5
 
 
@@ -5103,17 +5106,45 @@ def train_arrest(model, train_loader, optimizer, origin_model, epoch, config, sc
         logging.info({"train_arrest": True, "lambda": lam, "phi_deg": phi,
                       "nr_until_epoch": nr_until, "eps": st.eps})
 
+    _first = True
     for x, y in tqdm(train_loader):
         x, y = x.cuda(), y.cuda()
         with torch.no_grad():
             t_feat = _feat(origin_model, x).detach()
 
-        x_adv = _pgd_attack_true_label(model, x, y, config.step_size, st.eps, config.steps)
+        # ARREST + OUR PER-SAMPLE RADIUS (arrest_angeps_p, 2026-09-13).  ARREST's objective differs
+        # from ours in the kept label loss, the CE attack and the angular distance; what it lacks
+        # entirely is the sensitivity-matched radius.  This grafts our rule on unchanged: the signal
+        # is the input gradient of OUR anchor ||h_s(x) - h_t(x)||^2 (L2 norm, as in the shipped row),
+        # eps_i ~ (gbar / g_i)^p clipped to [lo, hi] and rescaled to mean 1, step scaled alongside.
+        # p = 0 (default) is the plain port, bit-identical.
+        eps_use, step_use = st.eps, config.step_size
+        _ap = float(getattr(config, "arrest_angeps_p", 0.0) or 0.0)
+        if _ap > 0:
+            _lo = float(getattr(config, "featdir_angeps_lo", 0.5) or 0.5)
+            _hi = float(getattr(config, "featdir_angeps_hi", 1.5) or 1.5)
+            model.eval()
+            _xg = x.clone().detach().requires_grad_(True)
+            with torch.enable_grad():
+                _l0 = (_feat(model, _xg) - t_feat).pow(2).sum()
+            _gn = torch.autograd.grad(_l0, [_xg])[0].detach().flatten(1).norm(dim=1).clamp(min=1e-12)
+            model.train()
+            _w = ((_gn.mean() / _gn).pow(_ap)).clamp(_lo, _hi)
+            _w = _w * (_w.numel() / _w.sum())
+            eps_use = st.eps * _w.view(-1, 1, 1, 1)
+            step_use = config.step_size * _w.view(-1, 1, 1, 1)
+            if _first:
+                logging.info({"arrest_angeps_p": _ap, "w_min": round(_w.min().item(), 3),
+                              "w_max": round(_w.max().item(), 3), "w_std": round(_w.std().item(), 3),
+                              "epoch": epoch})
+                _first = False
+
+        x_adv = _pgd_attack_true_label(model, x, y, step_use, eps_use, config.steps)
 
         if epoch < nr_until:
             with torch.no_grad():
                 drift = _ang(_feat(model, x), t_feat)
-            noisy = (x + (torch.rand_like(x) * 2 - 1) * st.eps).clamp(0.0, 1.0)
+            noisy = (x + (torch.rand_like(x) * 2 - 1) * eps_use).clamp(0.0, 1.0)
             x_in = torch.where((drift > (1.0 - cos_phi)).view(-1, 1, 1, 1), noisy, x_adv)
         else:
             x_in = x_adv

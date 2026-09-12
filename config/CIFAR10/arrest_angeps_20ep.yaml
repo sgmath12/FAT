@@ -1,0 +1,39 @@
+# arrest_20ep + our sensitivity-matched per-sample radius (arrest_angeps_p 1.0, [0.5,1.5], mean 1), 2026-09-13.
+# Everything else identical to arrest_20ep.
+arrest_angeps_p : 1.0
+
+method : arrest
+arrest_lambda : 50.0
+arrest_phi : 30.0
+weight_decay : 0.0005
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.025
+lr_schedule : arrest
+cyclic : False
+epochs : 20
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
