@@ -390,6 +390,51 @@ Handing our recipe to a baseline does not help it, since AdaAD given our optimiz
 warm start and our training radius falls to $56.51 / 22.43$ from the $59.79 / 23.19$ it reaches at its
 own recipe.
 
+\Cref{tab:fullmatch} carries that last control out for every baseline, adding our weight averaging
+and AWP proxy on top: each method keeps its own objective and receives our optimizer, our one-cycle
+schedule, our natural warm start, our training radius and our stack.
+Eight of the ten improve, by $1.66$ to $6.37$ points of NRR, so the stack is worth having to almost any
+objective and \Cref{tab:main}'s per-method recipes are not hiding a handicap.
+Two do not: HAT loses $5.94$ and LBGAT collapses to chance, both being methods whose construction is
+tied to their own schedule rather than to a distillation loss, which is why the per-method protocol is
+the right default.
+None of the ten reaches the anchor at the same allocation, though the margin is small: ARREST, the
+closest of them, ends $0.27$ NRR behind the uniform-radius anchor, and the comparison is read against
+that row rather than the shipped one because the radius rule is ours alone.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{Every baseline given our recipe and our stack. CIFAR-100, ResNet-18. \emph{Own recipe} is
+  the method's published configuration, measured here; \emph{ours} adds AdamW at $0.021$ under one
+  cycle, initialization from our natural teacher, training radius $8.8/255$, weight averaging
+  ($\kappa = 0.999$ from $20\%$) and the AWP proxy ($\gamma = 0.005$ after epoch $10$), leaving each
+  objective untouched. The epoch count becomes ours as well, which for ARREST ($20$) and HAT ($50$)
+  also changes the budget. The anchor row uses a uniform radius, since the allocation rule of
+  \Cref{sec:angeps} has no counterpart in these objectives; the shipped row is listed for scale.}
+  \label{tab:fullmatch}
+  \begin{tabular}{lrrrcrrrr}
+    \toprule
+    & \multicolumn{3}{c}{own recipe} & & \multicolumn{3}{c}{+ ours} & \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    Method & Clean & AA & NRR & & Clean & AA & NRR & $\Delta$NRR \\
+    \midrule
+    PGD-AT      & 57.36 & 20.34 & 30.03 & & 57.73 & 26.46 & 36.29 & $+6.26$ \\
+    TRADES      & 55.28 & 23.55 & 33.03 & & 55.33 & 25.26 & 34.69 & $+1.66$ \\
+    MART        & 53.86 & 22.72 & 31.96 & & 50.48 & 25.74 & 34.09 & $+2.14$ \\
+    ARD         & 57.61 & 20.24 & 29.96 & & 58.04 & 26.44 & 36.33 & $+6.37$ \\
+    RSLAD       & 59.68 & 21.30 & 31.40 & & 59.82 & 25.04 & 35.30 & $+3.91$ \\
+    AdaAD       & 59.79 & 23.19 & 33.42 & & 58.37 & 26.71 & 36.65 & $+3.23$ \\
+    AdaAD + IGDM & 48.25 & 19.48 & 27.75 & & 52.89 & 25.04 & 33.99 & $+6.23$ \\
+    ARREST      & \textbf{66.44} & 22.99 & 34.16 & & 63.65 & 27.48 & \textbf{38.39} & $+4.23$ \\
+    HAT         & 60.67 & 24.45 & 34.85 & & 55.42 & 19.56 & 28.91 & $-5.94$ \\
+    LBGAT       & 56.46 & 26.02 & 35.62 & & \multicolumn{3}{c}{\emph{collapses to chance}} & --- \\
+    \midrule
+    \textbf{Anchor}, uniform radius & \multicolumn{3}{c}{---} & & 60.42 & \textbf{28.42} & \textbf{38.66} & \\
+    \quad + sensitivity-matched $\epsilon$ & \multicolumn{3}{c}{---} & & 62.17 & 28.86 & 39.42 & \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \paragraph{Is the robustness real?}
 Our objective reads neither labels nor logits, which makes obscured gradients a natural suspicion, and
 the reported AutoAttack number is decided by two white-box attacks.
