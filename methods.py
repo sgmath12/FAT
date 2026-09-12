@@ -2050,6 +2050,238 @@ def _featdir_class_proto(origin_model, train_loader, config):
     return C
 
 
+def _featdir_geometry_diag(origin_model, train_loader, config, raw_teacher=True):
+    """Build a fixed diagonal feature metric from the natural teacher's class scatter.
+
+    The teacher and its classifier are left untouched.  Only the metric used by the matched
+    inner/outer feature-anchor objective changes:
+
+        ||A (Phi_s(x') - Phi_t(x))||_2^2,
+
+    where A is diagonal.  Coordinate j is weighted by a regularized Fisher ratio
+    ((S_b,j + ridge) / (S_w,j + ridge)) ** (gamma / 2).  gamma=0 is the identity metric.
+    The RMS normalization removes a global loss-scale change, and clipping prevents a small number
+    of nearly constant coordinates from dominating the attack.  Statistics are computed once on
+    the clean training set.  RNG state is restored afterwards so this diagnostic pass does not
+    change the subsequent minibatch order or augmentation stream.
+    """
+    gamma = float(getattr(config, "featdir_geom_gamma", 0.0) or 0.0)
+    lo = float(getattr(config, "featdir_geom_lo", 0.5) or 0.5)
+    hi = float(getattr(config, "featdir_geom_hi", 2.0) or 2.0)
+    ridge_rel = float(getattr(config, "featdir_geom_ridge", 0.01) or 0.01)
+    if not (0.0 < lo <= 1.0 <= hi):
+        raise ValueError("featdir geometry metric requires 0 < lo <= 1 <= hi")
+
+    n_cls = 200 if config.dataset == "TinyImageNet" else (100 if config.dataset == "CIFAR100" else 10)
+    dev = next(origin_model.parameters()).device
+
+    import random as _random
+    _torch_rng = torch.get_rng_state()
+    _cuda_rng = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    _numpy_rng = np.random.get_state()
+    _python_rng = _random.getstate()
+    sums = sqs = None
+    cnt = torch.zeros(n_cls, dtype=torch.float64, device=dev)
+    try:
+        with torch.no_grad():
+            for xb, yb in train_loader:
+                xb, yb = xb.to(dev), yb.to(dev)
+                f, _ = origin_model(xb, feat=True)
+                f = f if raw_teacher else F.normalize(f, dim=1)
+                f = f.double()
+                if sums is None:
+                    sums = torch.zeros(n_cls, f.shape[1], dtype=torch.float64, device=dev)
+                    sqs = torch.zeros_like(sums)
+                sums.index_add_(0, yb, f)
+                sqs.index_add_(0, yb, f.square())
+                cnt.index_add_(0, yb, torch.ones_like(yb, dtype=torch.float64))
+    finally:
+        torch.set_rng_state(_torch_rng)
+        if _cuda_rng is not None:
+            torch.cuda.set_rng_state_all(_cuda_rng)
+        np.random.set_state(_numpy_rng)
+        _random.setstate(_python_rng)
+
+    if sums is None or (cnt == 0).any():
+        raise RuntimeError("could not estimate teacher class scatter for geometry metric")
+    n = cnt.sum()
+    mu = sums / cnt.unsqueeze(1)
+    global_mu = sums.sum(dim=0) / n
+    sw = (sqs - sums.square() / cnt.unsqueeze(1)).sum(dim=0) / n
+    sb = (cnt.unsqueeze(1) * (mu - global_mu).square()).sum(dim=0) / n
+    ridge = ridge_rel * sw.mean().clamp_min(torch.finfo(sw.dtype).eps)
+    fisher = (sb + ridge) / (sw + ridge)
+
+    log_scale = 0.5 * gamma * torch.log(fisher.clamp_min(torch.finfo(fisher.dtype).eps))
+    log_scale = log_scale - log_scale.mean()
+    scale = torch.exp(log_scale)
+    scale = scale / scale.square().mean().sqrt().clamp_min(torch.finfo(scale.dtype).eps)
+    scale = scale.clamp(lo, hi).float()
+
+    q = torch.quantile(scale, torch.tensor([0.05, 0.5, 0.95], device=dev))
+    base_ratio = sw.sum() / sb.sum().clamp_min(torch.finfo(sb.dtype).eps)
+    shaped_ratio = (scale.double().square() * sw).sum() / \
+        (scale.double().square() * sb).sum().clamp_min(torch.finfo(sb.dtype).eps)
+    logging.info({"featdir_geometry_diag": True,
+                  "gamma": gamma, "ridge_rel": ridge_rel, "lo": lo, "hi": hi,
+                  "scale_min": round(scale.min().item(), 4),
+                  "scale_p05": round(q[0].item(), 4),
+                  "scale_p50": round(q[1].item(), 4),
+                  "scale_p95": round(q[2].item(), 4),
+                  "scale_max": round(scale.max().item(), 4),
+                  "scatter_ratio_before": round(base_ratio.item(), 4),
+                  "scatter_ratio_after": round(shaped_ratio.item(), 4)})
+    return torch.diag(scale)
+
+
+def _featdir_robust_geometry_diag(origin_model, train_loader, config, raw_teacher=True):
+    """Build a teacher-only diagonal metric from useful signal and local stability.
+
+    The signal is selected by ``featdir_robgeom_signal``.  ``relevance`` uses
+
+        E[|W_t[p_t(x), j] Phi_t(x)_j|],
+
+    while ``separation`` uses the between-pseudo-class scatter of unit teacher features.  The
+    latter is the coordinate-wise counterpart of the teacher centroid gap measured in the epoch
+    ladder.  In both cases, local cost is
+
+        drift_j = E[(hat(Phi)_t(x_adv)_j - hat(Phi)_t(x)_j)^2]
+
+    where p_t(x) is the teacher prediction and x_adv is a CE-PGD perturbation against that
+    prediction.  The feature error is then weighted by
+
+        ((signal_j + ridge) / (drift_j + ridge)) ** gamma.
+
+    ``separation`` therefore favors centroid margin per unit angular drift, directly matching the
+    margin-versus-rotation quantity that explains the teacher-epoch sweep.  Ground-truth labels are
+    not used: teacher predictions define the pseudo-classes and the attack labels.  The scale is
+    RMS-normalized, clipped, and computed once while fully restoring RNG state.
+    """
+    gamma = float(getattr(config, "featdir_robgeom_gamma", 1.0) or 1.0)
+    lo = float(getattr(config, "featdir_robgeom_lo", 0.5) or 0.5)
+    hi = float(getattr(config, "featdir_robgeom_hi", 2.0) or 2.0)
+    ridge_rel = float(getattr(config, "featdir_robgeom_ridge", 0.05) or 0.05)
+    steps = int(getattr(config, "featdir_robgeom_steps", 5) or 5)
+    max_batches = int(getattr(config, "featdir_robgeom_batches", 0) or 0)
+    signal_mode = str(getattr(config, "featdir_robgeom_signal", "relevance") or "relevance")
+    if signal_mode not in ("relevance", "separation"):
+        raise ValueError("featdir robust geometry signal must be relevance or separation")
+    if gamma < 0:
+        raise ValueError("featdir robust geometry gamma must be non-negative")
+    if not (0.0 < lo <= 1.0 <= hi):
+        raise ValueError("featdir robust geometry metric requires 0 < lo <= 1 <= hi")
+    if steps < 1:
+        raise ValueError("featdir robust geometry metric requires at least one PGD step")
+
+    dev = next(origin_model.parameters()).device
+    t_enc = origin_model.encoder if hasattr(origin_model, "encoder") else origin_model
+    Wt = t_enc.linear.weight.detach()
+    eps = float(config.eps)
+    step_size = float(config.step_size)
+
+    import random as _random
+    _torch_rng = torch.get_rng_state()
+    _cuda_rng = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    _numpy_rng = np.random.get_state()
+    _python_rng = _random.getstate()
+    was_training = origin_model.training
+    relevance_sum = drift_sum = class_sums = None
+    class_cnt = torch.zeros(Wt.shape[0], dtype=torch.float64, device=dev)
+    n_seen = 0
+    try:
+        origin_model.eval()
+        for batch_idx, (xb, _) in enumerate(train_loader):
+            if max_batches > 0 and batch_idx >= max_batches:
+                break
+            xb = xb.to(dev)
+            with torch.no_grad():
+                feat_clean_raw, logits_clean = origin_model(xb, feat=True)
+                pred = logits_clean.argmax(dim=1)
+                feat_clean = feat_clean_raw if raw_teacher else F.normalize(feat_clean_raw, dim=1)
+                feat_clean_unit = F.normalize(feat_clean_raw, dim=1)
+
+            x_adv = xb.detach().clone()
+            for _ in range(steps):
+                x_adv.requires_grad_(True)
+                logits_adv = origin_model(x_adv)
+                loss_adv = F.cross_entropy(logits_adv, pred)
+                grad = torch.autograd.grad(loss_adv, x_adv, only_inputs=True)[0]
+                x_adv = x_adv.detach() + step_size * grad.sign()
+                x_adv = torch.min(torch.max(x_adv, xb - eps), xb + eps).clamp(0.0, 1.0)
+
+            with torch.no_grad():
+                feat_adv_raw, _ = origin_model(x_adv, feat=True)
+                feat_adv = feat_adv_raw if raw_teacher else F.normalize(feat_adv_raw, dim=1)
+                feat_adv_unit = F.normalize(feat_adv_raw, dim=1)
+                relevance = (Wt[pred] * feat_clean).abs()
+                drift = ((feat_adv_unit - feat_clean_unit).square() if signal_mode == "separation"
+                         else (feat_adv - feat_clean).square())
+                if relevance_sum is None:
+                    relevance_sum = torch.zeros(feat_clean.shape[1], dtype=torch.float64, device=dev)
+                    drift_sum = torch.zeros_like(relevance_sum)
+                    class_sums = torch.zeros(Wt.shape[0], feat_clean.shape[1],
+                                             dtype=torch.float64, device=dev)
+                relevance_sum += relevance.double().sum(dim=0)
+                drift_sum += drift.double().sum(dim=0)
+                class_sums.index_add_(0, pred, feat_clean_unit.double())
+                class_cnt.index_add_(0, pred, torch.ones_like(pred, dtype=torch.float64))
+                n_seen += xb.shape[0]
+    finally:
+        origin_model.train(was_training)
+        torch.set_rng_state(_torch_rng)
+        if _cuda_rng is not None:
+            torch.cuda.set_rng_state_all(_cuda_rng)
+        np.random.set_state(_numpy_rng)
+        _random.setstate(_python_rng)
+
+    if relevance_sum is None or n_seen == 0:
+        raise RuntimeError("could not estimate robust teacher geometry")
+    relevance = relevance_sum / n_seen
+    drift = drift_sum / n_seen
+    if signal_mode == "separation":
+        present = class_cnt > 0
+        class_mu = class_sums[present] / class_cnt[present].unsqueeze(1)
+        global_mu = class_sums.sum(dim=0) / n_seen
+        signal = (class_cnt[present].unsqueeze(1) *
+                  (class_mu - global_mu).square()).sum(dim=0) / n_seen
+    else:
+        signal = relevance
+    signal_rel = signal / signal.mean().clamp_min(torch.finfo(signal.dtype).eps)
+    drift_rel = drift / drift.mean().clamp_min(torch.finfo(drift.dtype).eps)
+    score = (signal_rel + ridge_rel) / (drift_rel + ridge_rel)
+
+    log_scale = 0.5 * gamma * torch.log(score.clamp_min(torch.finfo(score.dtype).eps))
+    log_scale = log_scale - log_scale.mean()
+    scale = torch.exp(log_scale)
+    scale = scale / scale.square().mean().sqrt().clamp_min(torch.finfo(scale.dtype).eps)
+    scale = scale.clamp(lo, hi).float()
+
+    q = torch.quantile(scale, torch.tensor([0.05, 0.5, 0.95], device=dev))
+    w = scale.double().square()
+    weighted_signal = (w * signal_rel).sum() / w.sum()
+    weighted_drift = (w * drift_rel).sum() / w.sum()
+    lr = torch.log(signal_rel + ridge_rel)
+    ld = torch.log(drift_rel + ridge_rel)
+    corr = ((lr - lr.mean()) * (ld - ld.mean())).mean() / \
+        ((lr.std(unbiased=False) * ld.std(unbiased=False)).clamp_min(torch.finfo(lr.dtype).eps))
+    logging.info({"featdir_robust_geometry_diag": True,
+                  "signal": signal_mode, "gamma": gamma, "ridge_rel": ridge_rel,
+                  "pgd_steps": steps,
+                  "batches": max_batches if max_batches > 0 else len(train_loader),
+                  "scale_min": round(scale.min().item(), 4),
+                  "scale_p05": round(q[0].item(), 4),
+                  "scale_p50": round(q[1].item(), 4),
+                  "scale_p95": round(q[2].item(), 4),
+                  "scale_max": round(scale.max().item(), 4),
+                  "clip_low_frac": round((scale <= lo + 1e-6).float().mean().item(), 4),
+                  "clip_high_frac": round((scale >= hi - 1e-6).float().mean().item(), 4),
+                  "log_signal_drift_corr": round(corr.item(), 4),
+                  "weighted_signal": round(weighted_signal.item(), 4),
+                  "weighted_drift": round(weighted_drift.item(), 4),
+                  "weighted_quality": round((weighted_signal / weighted_drift).item(), 4)})
+    return torch.diag(scale)
+
+
 def _featdir_etf_frame(origin_model, train_loader, config):
     """TRICK B: simplex-ETF replacement for the teacher's CLASS geometry.
 
@@ -2225,7 +2457,25 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
         # 'random' mode, --eta overrides the subspace dim (default = num_classes). Existing
         # curve points: k=100 pgd 30.12/30.50, k=512 (= plain featdir) 28.91.
         k = int(config.eta) if (span_mode != "teacher" and getattr(config, "eta", None)) else Wt.shape[0]
-        ck = (span_mode, k)
+        if span_mode == "geometry_diag":
+            ck = (span_mode, k,
+                  float(getattr(config, "featdir_geom_gamma", 0.0) or 0.0),
+                  float(getattr(config, "featdir_geom_lo", 0.5) or 0.5),
+                  float(getattr(config, "featdir_geom_hi", 2.0) or 2.0),
+                  float(getattr(config, "featdir_geom_ridge", 0.01) or 0.01),
+                  raw_t)
+        elif span_mode == "robust_geometry_diag":
+            ck = (span_mode, k,
+                  str(getattr(config, "featdir_robgeom_signal", "relevance") or "relevance"),
+                  float(getattr(config, "featdir_robgeom_gamma", 1.0) or 1.0),
+                  float(getattr(config, "featdir_robgeom_lo", 0.5) or 0.5),
+                  float(getattr(config, "featdir_robgeom_hi", 2.0) or 2.0),
+                  float(getattr(config, "featdir_robgeom_ridge", 0.05) or 0.05),
+                  int(getattr(config, "featdir_robgeom_steps", 5) or 5),
+                  int(getattr(config, "featdir_robgeom_batches", 0) or 0),
+                  raw_t)
+        else:
+            ck = (span_mode, k)
         # featdir_span_resample (2026-07-19, user q): every prior "which k dims" experiment
         # (teacher-span, pca_natural, pca_robust, oracle) tied-or-lost to plain random -- content
         # doesn't matter, only the count (dimensionality bottleneck). This is a DIFFERENT axis: a
@@ -2240,6 +2490,12 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
             Q = Qm.float().cuda()
             logging.info({"featdir_span": span_mode, "span_k": k, "resample_epoch": epoch})
         else:
+            if ck not in train_feat_direction._Q_cache and span_mode == "geometry_diag":
+                train_feat_direction._Q_cache[ck] = _featdir_geometry_diag(
+                    origin_model, train_loader, config, raw_teacher=raw_t)
+            if ck not in train_feat_direction._Q_cache and span_mode == "robust_geometry_diag":
+                train_feat_direction._Q_cache[ck] = _featdir_robust_geometry_diag(
+                    origin_model, train_loader, config, raw_teacher=raw_t)
             if ck not in train_feat_direction._Q_cache and span_mode == "decorr":
                 # decorr span (2026-07-19, user q): every content-based subspace pick (teacher/PCA/
                 # oracle) tied-or-lost to random -- but a DIFFERENT (per-dim, not per-direction)
@@ -2680,7 +2936,7 @@ def train_feat_direction(model, train_loader, optimizer, origin_model, epoch, co
                     za_ = F.linear(scale * fh_, W_det, b_det)
                     dl_ = criterion_kl(F.log_softmax(za_, dim=1), F.softmax(z_tdir, dim=1)).sum(dim=1)
                 elif Q is not None:
-                    dl_ = ((fh_ - _phi_t_hat) @ Q).pow(2).sum(dim=1)
+                    dl_ = ((fd_ - _phi_t_hat) @ Q).pow(2).sum(dim=1)
                 else:
                     dl_ = (fh_ - _phi_t_hat).pow(2).sum(dim=1)
                 l_ = dl_.mean()
@@ -4797,6 +5053,73 @@ def train_logit_mse(model, train_loader, optimizer, origin_model, epoch, config,
 
         def _loss(m, _xa=x_adv, _t=t_logits):
             return (m(_xa) - _t).pow(2).sum(dim=1).mean()
+
+        st.perturb(_loss)
+        optimizer.zero_grad()
+        _loss(model).backward()
+        optimizer.step()
+        st.restore()
+        st.after_step(scheduler, exp_avg)
+
+
+def train_arrest(model, train_loader, optimizer, origin_model, epoch, config, scheduler, exp_avg):
+    """ARREST (Suzuki et al., arXiv:2308.16454), ported from the paper's description (2026-09-12).
+
+    The closest published method to ours by construction: the student starts from a naturally
+    pretrained network, and a representation-distance term pulls its ADVERSARIAL representation toward
+    that frozen network's CLEAN representation,
+
+        L = CE(f(x + d), y) + lam * ang( h_r(x + d), h_t(x) ),
+
+    with three differences from our anchor that this port keeps, so the comparison is with ARREST and
+    not with a variant of us: the label cross-entropy stays and carries weight lam = 50; the attack is
+    a plain true-label CE-PGD, their PGD objective excluding the representation term; and the distance
+    is angular, 1 - |u.v| / (||u|| ||v||), hence magnitude-free, where ours is a raw squared l2.
+
+    Noisy Replay.  For the first half of the schedule, an example whose CLEAN representation has
+    drifted more than phi = 30 degrees from the teacher's receives uniform noise instead of its
+    adversarial perturbation; afterwards every example is perturbed.
+
+    Their representation is the penultimate layer read before global pooling, and we use the
+    post-pooling 512-d feature that the head, the anchor and every geometry measurement in this paper
+    are defined on.  That is the one deviation.
+    """
+    model.train()
+    origin_model.eval()
+    st = _DistillStack(train_arrest, model, epoch, config)
+    lam = float(getattr(config, "arrest_lambda", 50.0) or 50.0)
+    phi = float(getattr(config, "arrest_phi", 30.0) or 30.0)
+    _nr = getattr(config, "arrest_nr_epochs", None)
+    nr_until = int(config.epochs // 2 if _nr is None else _nr)
+    cos_phi = math.cos(math.radians(phi))
+
+    def _feat(m, z):
+        return m.extract_feature(z)[0] if hasattr(m, "extract_feature") else m(z, feat=True)[0]
+
+    def _ang(u, v):
+        return 1.0 - F.cosine_similarity(u, v, dim=1).abs()
+
+    if epoch == 0:
+        logging.info({"train_arrest": True, "lambda": lam, "phi_deg": phi,
+                      "nr_until_epoch": nr_until, "eps": st.eps})
+
+    for x, y in tqdm(train_loader):
+        x, y = x.cuda(), y.cuda()
+        with torch.no_grad():
+            t_feat = _feat(origin_model, x).detach()
+
+        x_adv = _pgd_attack_true_label(model, x, y, config.step_size, st.eps, config.steps)
+
+        if epoch < nr_until:
+            with torch.no_grad():
+                drift = _ang(_feat(model, x), t_feat)
+            noisy = (x + (torch.rand_like(x) * 2 - 1) * st.eps).clamp(0.0, 1.0)
+            x_in = torch.where((drift > (1.0 - cos_phi)).view(-1, 1, 1, 1), noisy, x_adv)
+        else:
+            x_in = x_adv
+
+        def _loss(m, _xi=x_in, _y=y, _t=t_feat):
+            return F.cross_entropy(m(_xi), _y) + lam * _ang(_feat(m, _xi), _t).mean()
 
         st.perturb(_loss)
         optimizer.zero_grad()

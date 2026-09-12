@@ -222,6 +222,19 @@ def main(config,npt):
             return 1.0
 
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, _lbgat_lr)
+    elif str(getattr(config, "lr_schedule", None) or "") == "arrest":
+        # ARREST's adversarial-finetuning schedule (arXiv:2308.16454): 0.025 for the first 11 epochs,
+        # 0.02 from epoch 11, then halved every two epochs.  Expressed as a factor on config.lr so the
+        # base stays in the config where every other schedule keeps it.
+        steps_per_epoch = len(train_loader)
+
+        def _arrest_lr(step):
+            t = step / steps_per_epoch
+            if t < 11:
+                return 1.0
+            return 0.8 * (0.5 ** int((t - 11) // 2))
+
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, _arrest_lr)
     elif str(getattr(config, "lr_schedule", None) or "") == "piecewise":
         steps_per_epoch = len(train_loader)
         stage1 = int(getattr(config, "stage1", None) or config.epochs // 2)

@@ -1,0 +1,49 @@
+# ARREST, CIFAR-10: AT ITS OWN RECIPE (arXiv:2308.16454), 2026-09-12.
+#
+# Every training hyperparameter below is theirs: SGD with momentum 0.9 and weight decay 5e-4, batch
+# 128, 20 adversarial-finetuning epochs, learning rate 0.025 falling to 0.02 at epoch 11 and halving
+# every two epochs after that, lambda = 50, the Noisy Replay threshold phi = 30 degrees applied over
+# the first half of the schedule, and a 10-step CE-PGD at 2/255 with eps 8/255.  Only the evaluation is
+# ours, as with every other baseline.
+#
+# Two deviations, both stated in train_arrest: the representation is our post-pooling 512-d feature
+# rather than the pre-pooling map they read, and the teacher is our 200-epoch natural network rather
+# than their 100-epoch pretraining, so that this row shares its teacher with every other row of
+# tab:main.
+#
+
+method : arrest
+arrest_lambda : 50.0
+arrest_phi : 30.0
+weight_decay : 0.0005
+dataset : CIFAR10
+arch : ResNet18
+optim : SGD
+lr : 0.025
+lr_schedule : arrest
+cyclic : False
+epochs : 20
+batch_size : 128
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+weight_avg : False
+kappa : 0.999
+alpha : 1.0
+beta : 6.0
+lamda : 0.0
+tau : 16
+eta : 512
+aug : none
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
