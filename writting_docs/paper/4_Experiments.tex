@@ -398,9 +398,12 @@ objective and \Cref{tab:main}'s per-method recipes are not hiding a handicap.
 Two do not: HAT loses $5.94$ and LBGAT collapses to chance, both being methods whose construction is
 tied to their own schedule rather than to a distillation loss, which is why the per-method protocol is
 the right default.
-None of the ten reaches the anchor at the same allocation, though the margin is small: ARREST, the
-closest of them, ends $0.27$ NRR behind the uniform-radius anchor, and the comparison is read against
-that row rather than the shipped one because the radius rule is ours alone.
+None of the ten reaches CFA, and the closest is ARREST at $1.03$ NRR behind.
+That margin should be read with the dial in mind, since both methods move along the frontier -- ours
+with the training radius, ARREST with the weight on its label term.
+At matched clean accuracy the margin is smaller and still ours: the $8/255$ row of \Cref{tab:radius}
+reaches $63.89 / 27.78$ against ARREST's $63.65 / 27.48$, so $+0.30$ AutoAttack at the same standard
+accuracy.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
@@ -409,8 +412,7 @@ that row rather than the shipped one because the radius rule is ours alone.
   cycle, initialization from our natural teacher, training radius $8.8/255$, weight averaging
   ($\kappa = 0.999$ from $20\%$) and the AWP proxy ($\gamma = 0.005$ after epoch $10$), leaving each
   objective untouched. The epoch count becomes ours as well, which for ARREST ($20$) and HAT ($50$)
-  also changes the budget. The anchor row uses a uniform radius, since the allocation rule of
-  \Cref{sec:angeps} has no counterpart in these objectives; the shipped row is listed for scale.}
+  also changes the budget.}
   \label{tab:fullmatch}
   \begin{tabular}{lrrrcrrrr}
     \toprule
@@ -429,8 +431,7 @@ that row rather than the shipped one because the radius rule is ours alone.
     HAT         & 60.67 & 24.45 & 34.85 & & 55.42 & 19.56 & 28.91 & $-5.94$ \\
     LBGAT       & 56.46 & 26.02 & 35.62 & & \multicolumn{3}{c}{\emph{collapses to chance}} & --- \\
     \midrule
-    \textbf{Anchor}, uniform radius & \multicolumn{3}{c}{---} & & 60.42 & \textbf{28.42} & \textbf{38.66} & \\
-    \quad + sensitivity-matched $\epsilon$ & \multicolumn{3}{c}{---} & & 62.17 & 28.86 & 39.42 & \\
+    \textbf{CFA (ours)} & \multicolumn{3}{c}{---} & & 62.17 & \textbf{28.86} & \textbf{39.42} & \\
     \bottomrule
   \end{tabular}
 \end{table}
