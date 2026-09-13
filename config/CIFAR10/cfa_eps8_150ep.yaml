@@ -1,4 +1,4 @@
-# champ_eps8 at 75 epochs (awp_warmup 8 = 10%; wa_start 0.2 and OneCycle scale with epochs), 2026-09-14.
+# champ_eps8 at 150 epochs (awp_warmup 15 = 10%; wa_start 0.2 and OneCycle scale with epochs), 2026-09-14.
 
 method : feat_direction
 featdir_freeze_head : True
@@ -20,7 +20,7 @@ eps : 8/255
 train_eps : 0.031372549019607843
 steps : 10
 step_size : 2/255/1
-epochs : 75
+epochs : 150
 wa_start : 0.2
 batch_size : 128
 interval : 5
@@ -36,7 +36,7 @@ cyclic : True
 weight_avg : True
 awp_style : proxy
 awp_gamma : 0.005
-awp_warmup : 8
+awp_warmup : 15
 checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
 finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
 data_root : ./data
