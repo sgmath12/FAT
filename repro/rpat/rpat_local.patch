@@ -1,0 +1,179 @@
+diff --git a/RPAT_SOTAs/attacks.py b/RPAT_SOTAs/attacks.py
+index 026c566..caa67fe 100644
+--- a/RPAT_SOTAs/attacks.py
++++ b/RPAT_SOTAs/attacks.py
+@@ -46,16 +46,18 @@ class AttackerPolymer:
+         adv_acc_dict = {}
+ 
+         adv_acc_dict['NAT'] = self.NAT(model, img, gt, return_acc=return_acc)
++        adv_acc_dict['PGD_10'] = self.PGD(model, img, gt, num_steps=10, category='Madry', return_acc=return_acc)
+         adv_acc_dict['PGD_20'] = self.PGD(model, img, gt, num_steps=20, category='Madry', return_acc=return_acc)
++        adv_acc_dict['PGD_50'] = self.PGD(model, img, gt, num_steps=50, category='Madry', return_acc=return_acc)
++        adv_acc_dict['CW'] = self.CW(model, img, gt, num_steps=20, return_acc=return_acc)
+         # adv_acc_dict['PGD_100'] = self.PGD(model, img, gt, num_steps=100, category='Madry', return_acc=return_acc)
+         # adv_acc_dict['MIM'] = self.MIM(model, img, gt, return_acc=return_acc)
+-        # adv_acc_dict['CW'] = self.CW(model, img, gt, return_acc=return_acc)
+         # adv_acc_dict['APGD_ce'] = self.AA(model, img, gt, attacks_to_run=['apgd-ce'], return_acc=return_acc)
+         # adv_acc_dict['APGD_dlr'] = self.AA(model, img, gt, attacks_to_run=['apgd-dlr'], return_acc=return_acc)
+         # adv_acc_dict['APGD_t'] = self.AA(model, img, gt, attacks_to_run=['apgd-t'], return_acc=return_acc)
+         # adv_acc_dict['FAB_t'] = self.AA(model, img, gt, attacks_to_run=['fab-t'], return_acc=return_acc)
+         # adv_acc_dict['Square'] = self.AA(model, img, gt, attacks_to_run=['square'], return_acc=return_acc)
+-        adv_acc_dict['AA'] = self.AA(model, img, gt, return_acc=return_acc, norm='L2')
++        adv_acc_dict['AA'] = self.AA(model, img, gt, return_acc=return_acc, norm='Linf')
+ 
+         return adv_acc_dict
+ 
+@@ -98,7 +100,7 @@ class AttackerPolymer:
+         else:
+             raise NotImplementedError
+ 
+-        for k in range(self.num_steps):
++        for k in range(num_steps if num_steps is not None else self.num_steps):
+             x_adv.requires_grad_()
+             output = model(x_adv)
+ 
+@@ -154,14 +156,14 @@ class AttackerPolymer:
+             return adv_acc
+         return x_adv
+ 
+-    def CW(self, model, img, gt, margin=50, return_acc=False):
++    def CW(self, model, img, gt, margin=50, num_steps=None, return_acc=False):
+         model.eval()
+         x_adv = Variable(img.data, requires_grad=True)
+         random_noise = torch.FloatTensor(*x_adv.shape).uniform_(-self.epsilon, self.epsilon).to(self.device)
+         x_adv = Variable(x_adv.data + random_noise, requires_grad=True)
+-        onehot_targets = torch.eye(self.num_classes)[gt].to(self.device)
++        onehot_targets = torch.eye(self.num_classes, device=gt.device)[gt].to(self.device)
+ 
+-        for _ in range(self.num_steps):
++        for _ in range(num_steps if num_steps is not None else self.num_steps):
+             opt = optim.SGD([x_adv], lr=1e-3)
+             opt.zero_grad()
+ 
+diff --git a/RPAT_SOTAs/train_cifar_ra.py b/RPAT_SOTAs/train_cifar_ra.py
+index 707320c..461054d 100644
+--- a/RPAT_SOTAs/train_cifar_ra.py
++++ b/RPAT_SOTAs/train_cifar_ra.py
+@@ -19,6 +19,7 @@ from networks.vgg import VGG16
+ from networks.mobilenetv2 import MobileNetV2 as MobileV2
+ from networks.wideresnet import WideResNet
+ from networks.preactresnet import PreActResNet18
++from networks.resnet import ResNet18
+ 
+ parser = argparse.ArgumentParser()
+ 
+@@ -35,7 +36,8 @@ parser.add_argument('--eval-online', action='store_true')
+ parser.add_argument('--eval-train-robust', action='store_true')
+ 
+ # model
+-parser.add_argument('--model', default='PreActResNet18', choices=['PreActResNet18', 'WideResNet', 'VGG16', 'MobileNet'])
++parser.add_argument('--model', default='PreActResNet18',
++                    choices=['PreActResNet18', 'ResNet18', 'WideResNet', 'VGG16', 'MobileNet'])
+ parser.add_argument('--width-factor', default=10, type=int)  # for WRN
+ parser.add_argument('--resume', default=0, type=int)  # resume from this epoch
+ parser.add_argument('--load-folder', default=None,
+@@ -146,6 +148,8 @@ def main():
+     # ------------------ model ------------------
+     if args.model == 'PreActResNet18':
+         model = PreActResNet18(num_classes=args.num_classes)
++    elif args.model == 'ResNet18':  # the post-activation ResNet-18 used by our own experiments
++        model = ResNet18(num_classes=args.num_classes)
+     elif args.model == 'WideResNet':
+         model = WideResNet(34, 10, widen_factor=args.width_factor, dropRate=0.0)
+     elif args.model == 'VGG16':
+@@ -508,7 +512,8 @@ def main():
+ 
+     # ------------------ final evaluation ------------------
+     print("Evaluating best and last...")
+-    logger.info(' \t '.join(['Mode', 'clean', 'PGD20', 'AA']))
++    logger.info(' \t '.join(['Mode'] + [name for name, _ in EVAL_METRICS]))
++    res_fmt = '%s \t ' + '%.4f \t ' * (len(EVAL_METRICS) - 1) + '%.4f'
+ 
+     # last
+     if not args.eval_best_only:
+@@ -518,7 +523,7 @@ def main():
+         else:
+             model_wa.load_state_dict(torch.load(os.path.join(args.fname, f'wa_model_{args.epochs - 1}.pth')))
+         res_list = attack_all(model_wa, test_batches, Attackers)
+-        logger.info('%s \t ' + '%.4f \t ' * 2 + '%.4f', '[last wa]', *res_list)
++        logger.info(res_fmt, '[last wa]', *res_list)
+ 
+     # best
+     if not args.eval_last_only:
+@@ -528,7 +533,7 @@ def main():
+         else:
+             model_wa.load_state_dict(torch.load(os.path.join(args.fname, f'wa_model_best.pth')))
+         res_list = attack_all(model_wa, test_batches, Attackers)
+-        logger.info('%s \t ' + '%.4f \t ' * 2 + '%.4f', '[best wa]', *res_list)
++        logger.info(res_fmt, '[best wa]', *res_list)
+ 
+ 
+ # ------------------ evaluation functions ------------------
+@@ -566,21 +571,16 @@ class NormInputModel(nn.Module):
+         return self.model(normalize(X))
+ 
+ 
++# reported metrics, in table order: (column name, key returned by Attackers.run_all)
++EVAL_METRICS = [('clean', 'NAT'), ('PGD10', 'PGD_10'), ('PGD20', 'PGD_20'), ('PGD50', 'PGD_50'),
++                ('CW', 'CW'), ('AA', 'AA')]
++
++
+ def attack_all(model, test_loader, Attackers):
+     model = NormInputModel(model)
+     model.eval()
+ 
+-    clean_accuracy = AverageMeter()
+-    pgd20_accuracy = AverageMeter()
+-    # pgd100_accuracy = AverageMeter()
+-    # mim_accuracy = AverageMeter()
+-    # cw_accuracy = AverageMeter()
+-    # APGD_ce_accuracy = AverageMeter()
+-    # APGD_dlr_accuracy = AverageMeter()
+-    # APGD_t_accuracy = AverageMeter()
+-    # FAB_t_accuracy = AverageMeter()
+-    # Square_accuracy = AverageMeter()
+-    aa_accuracy = AverageMeter()
++    meters = {name: AverageMeter() for name, _ in EVAL_METRICS}
+     from tqdm import tqdm
+     from collections import OrderedDict
+     pbar = tqdm(test_loader)
+@@ -592,35 +592,12 @@ def attack_all(model, test_loader, Attackers):
+ 
+         acc_dict = Attackers.run_all(model, inputs, targets)
+ 
+-        clean_accuracy.update(acc_dict['NAT'][0].item(), inputs.size(0))
+-        pgd20_accuracy.update(acc_dict['PGD_20'][0].item(), inputs.size(0))
+-        # pgd100_accuracy.update(acc_dict['PGD_100'][0].item(), inputs.size(0))
+-        # mim_accuracy.update(acc_dict['MIM'][0].item(), inputs.size(0))
+-        # cw_accuracy.update(acc_dict['CW'][0].item(), inputs.size(0))
+-        # APGD_ce_accuracy.update(acc_dict['APGD_ce'][0].item(), inputs.size(0))
+-        # APGD_dlr_accuracy.update(acc_dict['APGD_dlr'][0].item(), inputs.size(0))
+-        # APGD_t_accuracy.update(acc_dict['APGD_t'][0].item(), inputs.size(0))
+-        # FAB_t_accuracy.update(acc_dict['FAB_t'][0].item(), inputs.size(0))
+-        # Square_accuracy.update(acc_dict['Square'][0].item(), inputs.size(0))
+-        aa_accuracy.update(acc_dict['AA'][0].item(), inputs.size(0))
+-
+-        pbar_dic['clean'] = '{:.2f}'.format(clean_accuracy.mean)
+-        pbar_dic['PGD20'] = '{:.2f}'.format(pgd20_accuracy.mean)
+-        # pbar_dic['PGD100'] = '{:.2f}'.format(pgd100_accuracy.mean)
+-        # pbar_dic['MIM'] = '{:.2f}'.format(mim_accuracy.mean)
+-        # pbar_dic['CW'] = '{:.2f}'.format(cw_accuracy.mean)
+-        # pbar_dic['APGD_ce'] = '{:.2f}'.format(APGD_ce_accuracy.mean)
+-        # pbar_dic['APGD_dlr'] = '{:.2f}'.format(APGD_dlr_accuracy.mean)
+-        # pbar_dic['APGD_t'] = '{:.2f}'.format(APGD_t_accuracy.mean)
+-        # pbar_dic['FAB_t'] = '{:.2f}'.format(FAB_t_accuracy.mean)
+-        # pbar_dic['Square'] = '{:.2f}'.format(Square_accuracy.mean)
+-        pbar_dic['AA'] = '{:.2f}'.format(aa_accuracy.mean)
++        for name, key in EVAL_METRICS:
++            meters[name].update(acc_dict[key][0].item(), inputs.size(0))
++            pbar_dic[name] = '{:.2f}'.format(meters[name].mean)
+         pbar.set_postfix(pbar_dic)
+ 
+-    # return [clean_accuracy.mean, pgd20_accuracy.mean, pgd100_accuracy.mean, mim_accuracy.mean, cw_accuracy.mean,
+-    #         APGD_ce_accuracy.mean, APGD_dlr_accuracy.mean, APGD_t_accuracy.mean, FAB_t_accuracy.mean,
+-    #         Square_accuracy.mean, aa_accuracy.mean]
+-    return [clean_accuracy.mean, pgd20_accuracy.mean, aa_accuracy.mean]
++    return [meters[name].mean for name, _ in EVAL_METRICS]
+ 
+ 
+ if __name__ == "__main__":
