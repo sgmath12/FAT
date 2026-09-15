@@ -104,8 +104,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Tiny-ImageNet-200, ResNet-18. Same rows and protocol as \Cref{tab:main}; the baselines are
-  being produced on separate hardware. Rows marked \ddg{} are the values ADR reports on this dataset
-  (HAT's is its PreActResNet-18 entry). Our row uses the 200-epoch teacher and is above every published
+  being produced on separate hardware. Our row uses the 200-epoch teacher and is above every published
   ResNet-18 result on this dataset on \emph{both} axes; \Cref{tab:published_tin} collects those and
   \Cref{app:baselines} the details.}
   \label{tab:tin}
@@ -113,7 +112,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     \toprule
     Method & Teacher & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT\ddg                       & --    & 45.87 & 18.06 & 31.96 & 25.92 \\
+    PGD-AT                           & --    & 45.87 & 18.06 & 31.96 & 25.92 \\
     TRADES                           & --    & -- & -- & -- & -- \\
     MART                             & --    & -- & -- & -- & -- \\
     Consistency-AT                   & --    & -- & -- & -- & -- \\
@@ -130,8 +129,8 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     LBGAT                            & nat. & -- & -- & -- & -- \\
     ARREST                           & nat.  & -- & -- & -- & -- \\
     \midrule
-    HAT\ddg                          & nat. & 52.60 & 18.14 & 35.37 & 26.98 \\
-    ADR\ddg                          & self  & 48.55 & 20.23 & 34.39 & 28.56 \\
+    HAT                              & nat. & 52.60 & 18.14 & 35.37 & 26.98 \\
+    ADR                              & self  & 48.55 & 20.23 & 34.39 & 28.56 \\
     CURE                             & self  & -- & -- & -- & -- \\
     RPAT++                           & --    & -- & -- & -- & -- \\
     \midrule
@@ -144,9 +143,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{WideResNet-34-10, $\ell_\infty$, $\epsilon = 8/255$. Same rows and protocol as
   \Cref{tab:main}; this architecture is being run on separate hardware, our CIFAR-100 row included.
-  Rows marked \ddg{} are the values reported by ARREST (CIFAR-10 LBGAT, ARREST), RPAT (CIFAR-10 CURE,
-  ADR, RPAT++), ADR (CIFAR-100 LBGAT, ARREST, ADR) and F\textsuperscript{2}AT (CIFAR-100 PGD-AT);
-  `--' is a cell that source does not report. Further comparison lines are in \Cref{tab:published}.}
+  Comparison lines are in \Cref{tab:published}.}
   \label{tab:wrn}
   \begin{tabular}{llrrrrrr}
     \toprule
@@ -154,7 +151,7 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     \cmidrule(lr){3-5}\cmidrule(lr){6-8}
     Method & T. & Clean & AA & NRR & Clean & AA & NRR \\
     \midrule
-    PGD-AT\ddg                       & --    & -- & -- & -- & 53.64 & 21.01 & 30.19 \\
+    PGD-AT                           & --    & -- & -- & -- & 53.64 & 21.01 & 30.19 \\
     TRADES                           & --    & -- & -- & -- & -- & -- & -- \\
     MART                             & --    & -- & -- & -- & -- & -- & -- \\
     Consistency-AT                   & --    & -- & -- & -- & -- & -- & -- \\
@@ -168,13 +165,13 @@ training; \textbf{(b)} adversarial distillation from an \emph{adversarially trai
     AdaAD + IGDM                     & nat.  & -- & -- & -- & -- & -- & -- \\
     \midrule
     Logit anchor + our stack & nat.  & -- & -- & -- & -- & -- & -- \\
-    LBGAT\ddg                        & nat. & 88.22 & 52.18 & 65.57 & 70.25 & 26.73 & 38.73 \\
-    ARREST\ddg                       & nat.  & 90.24 & 50.20 & 64.51 & 73.05 & 24.32 & 36.49 \\
+    LBGAT                            & nat. & 88.22 & 52.18 & 65.57 & 70.25 & 26.73 & 38.73 \\
+    ARREST                           & nat.  & 90.24 & 50.20 & 64.51 & 73.05 & 24.32 & 36.49 \\
     \midrule
     HAT                              & nat. & -- & -- & -- & -- & -- & -- \\
-    ADR\ddg                          & self  & 84.67 & 53.25 & 65.38 & 62.21 & 31.60 & 41.91 \\
-    CURE\ddg                         & self  & 87.05 & 52.10 & 65.19 & -- & -- & -- \\
-    RPAT++\ddg                       & --    & 86.76 & 54.97 & 67.30 & -- & -- & -- \\
+    ADR                              & self  & 84.67 & 53.25 & 65.38 & 62.21 & 31.60 & 41.91 \\
+    CURE                             & self  & 87.05 & 52.10 & 65.19 & -- & -- & -- \\
+    RPAT++                           & --    & 86.76 & 54.97 & 67.30 & -- & -- & -- \\
     \midrule
     \textbf{CFA (ours)}              & nat.  & \textbf{88.67} & \textbf{55.29} & \textbf{68.11} & \multicolumn{3}{c}{\emph{in progress}} \\
     \bottomrule
