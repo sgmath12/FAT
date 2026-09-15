@@ -66,6 +66,8 @@ CHKPT_ITERS=${CHKPT_ITERS:-10}
 # with warmup at 10% of epochs, i.e. AWP_GAMMA=0.005 AWP_WARMUP=20 for 200 epochs.
 AWP_GAMMA=${AWP_GAMMA:-0}
 AWP_WARMUP=${AWP_WARMUP:-0}
+# Warm start at FAT's naturally trained teacher (2026-09-16); empty = upstream random init.
+NATURAL_INIT=${NATURAL_INIT:-}
 
 RESUME=${RESUME:-0}
 EVAL_ONLY=${EVAL_ONLY:-0}
@@ -136,6 +138,7 @@ CMD=(python train_cifar_ra.py \
     --chkpt-iters "$CHKPT_ITERS" \
     --awp-gamma "$AWP_GAMMA" \
     --awp-warmup "$AWP_WARMUP" \
+    --natural-init "$NATURAL_INIT" \
     "${EXTRA_ARGS[@]}")
 
 if [[ "$BACKGROUND" == "1" ]]; then

@@ -22,3 +22,8 @@ copied from FAT `utils.py:AdvWeightPerturb`), exposed in `run.sh` as `AWP_GAMMA`
 RPAT/BoAT term is refactored into a function of the network so AWP evaluates the method's full loss
 on its proxy; with gamma 0 the step is the upstream one.  RPAT++ + AWP is run with
 `AWP_GAMMA=0.005 AWP_WARMUP=20` (10% of 200 epochs), its own WA unchanged.
+
+2026-09-16: `--natural-init <FAT checkpoint>` (`NATURAL_INIT` in `run.sh`) warm-starts from our
+naturally trained teacher, stripping the `encoder.` prefix and switching input normalization to the
+statistics that checkpoint was trained with (the script hardcodes CIFAR-10's on both datasets; with
+the teacher's own, a loaded CIFAR-100 teacher measures 77.25% clean against 36.30%).

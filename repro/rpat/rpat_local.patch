@@ -51,7 +51,7 @@ index 026c566..caa67fe 100644
              opt.zero_grad()
  
 diff --git a/RPAT_SOTAs/train_cifar_ra.py b/RPAT_SOTAs/train_cifar_ra.py
-index 707320c..a046d6e 100644
+index 707320c..893981e 100644
 --- a/RPAT_SOTAs/train_cifar_ra.py
 +++ b/RPAT_SOTAs/train_cifar_ra.py
 @@ -19,6 +19,45 @@ from networks.vgg import VGG16
@@ -110,7 +110,7 @@ index 707320c..a046d6e 100644
  parser.add_argument('--width-factor', default=10, type=int)  # for WRN
  parser.add_argument('--resume', default=0, type=int)  # resume from this epoch
  parser.add_argument('--load-folder', default=None,
-@@ -84,6 +124,13 @@ parser.add_argument('--stronger-epsilon', default=10, type=int)
+@@ -84,6 +124,22 @@ parser.add_argument('--stronger-epsilon', default=10, type=int)
  parser.add_argument('--stronger-attack-iters', default=12, type=int)
  parser.add_argument('--stronger-eval', action='store_true')  # also use stronger attack during evaluation
  
@@ -121,10 +121,19 @@ index 707320c..a046d6e 100644
 +parser.add_argument('--awp-warmup', type=int, default=0)
 +parser.add_argument('--awp-proxy-lr', type=float, default=0.01)
 +
++# Natural warm start (2026-09-16), so RPAT++ gets the same three things every other baseline in the
++# paper's stack table gets: its own recipe, initialization at our naturally trained network, and the
++# stack.  The checkpoint is a FAT state dict: its keys carry an `encoder.` prefix, and the network is
++# wrapped there in a Converter that normalizes with the CIFAR-100/10 channel statistics below, which
++# are NOT the ones this script hardcodes (it uses CIFAR-10's on both datasets).  Passing a checkpoint
++# therefore also switches the normalization to the one the loaded weights were trained with; measured
++# 77.25% clean on a CIFAR-100 sample with these statistics against 36.30% with the script's own.
++parser.add_argument('--natural-init', type=str, default='')
++
  # BoAT regularization
  parser.add_argument('--use-reg-schedule',
                      action='store_true')  # if set to False, by default it stays constant as args.beta
-@@ -146,6 +193,8 @@ def main():
+@@ -146,6 +202,8 @@ def main():
      # ------------------ model ------------------
      if args.model == 'PreActResNet18':
          model = PreActResNet18(num_classes=args.num_classes)
@@ -133,7 +142,29 @@ index 707320c..a046d6e 100644
      elif args.model == 'WideResNet':
          model = WideResNet(34, 10, widen_factor=args.width_factor, dropRate=0.0)
      elif args.model == 'VGG16':
-@@ -287,33 +336,43 @@ def main():
+@@ -155,6 +213,21 @@ def main():
+     else:
+         raise ValueError("Unknown model")
+ 
++    if args.natural_init:
++        import utils as _rpat_utils
++        sd = torch.load(args.natural_init, map_location='cpu')
++        sd = {k[len('encoder.'):] if k.startswith('encoder.') else k: v for k, v in sd.items()}
++        missing, unexpected = model.load_state_dict(sd, strict=False)
++        fat_mean = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
++        fat_std = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
++        _rpat_utils.mu = torch.tensor(fat_mean).view(3, 1, 1).to(_rpat_utils.mu)
++        _rpat_utils.std = torch.tensor(fat_std).view(3, 1, 1).to(_rpat_utils.std)
++        globals()['mu'] = _rpat_utils.mu
++        globals()['std'] = _rpat_utils.std
++        logger.info(f'natural init from {args.natural_init} '
++                    f'(missing {list(missing)}, unexpected {list(unexpected)}); '
++                    f'normalization switched to the teacher\'s {fat_mean} / {fat_std}')
++
+     model.train()
+     model.to(device)
+ 
+@@ -287,33 +360,43 @@ def main():
              elif args.attack == 'none':  # standard training
                  delta = torch.zeros_like(X)
  
@@ -198,7 +229,7 @@ index 707320c..a046d6e 100644
  
              reg_loss = torch.tensor(0.).cuda()
  
-@@ -325,6 +384,8 @@ def main():
+@@ -325,6 +408,8 @@ def main():
              opt.zero_grad()
              robust_loss.backward()
              opt.step()
@@ -207,7 +238,7 @@ index 707320c..a046d6e 100644
  
              output = model(normalize(X))
              if args.cutmix:
-@@ -508,7 +569,8 @@ def main():
+@@ -508,7 +593,8 @@ def main():
  
      # ------------------ final evaluation ------------------
      print("Evaluating best and last...")
@@ -217,7 +248,7 @@ index 707320c..a046d6e 100644
  
      # last
      if not args.eval_best_only:
-@@ -518,7 +580,7 @@ def main():
+@@ -518,7 +604,7 @@ def main():
          else:
              model_wa.load_state_dict(torch.load(os.path.join(args.fname, f'wa_model_{args.epochs - 1}.pth')))
          res_list = attack_all(model_wa, test_batches, Attackers)
@@ -226,7 +257,7 @@ index 707320c..a046d6e 100644
  
      # best
      if not args.eval_last_only:
-@@ -528,7 +590,7 @@ def main():
+@@ -528,7 +614,7 @@ def main():
          else:
              model_wa.load_state_dict(torch.load(os.path.join(args.fname, f'wa_model_best.pth')))
          res_list = attack_all(model_wa, test_batches, Attackers)
@@ -235,7 +266,7 @@ index 707320c..a046d6e 100644
  
  
  # ------------------ evaluation functions ------------------
-@@ -566,21 +628,16 @@ class NormInputModel(nn.Module):
+@@ -566,21 +652,16 @@ class NormInputModel(nn.Module):
          return self.model(normalize(X))
  
  
@@ -263,7 +294,7 @@ index 707320c..a046d6e 100644
      from tqdm import tqdm
      from collections import OrderedDict
      pbar = tqdm(test_loader)
-@@ -592,35 +649,12 @@ def attack_all(model, test_loader, Attackers):
+@@ -592,35 +673,12 @@ def attack_all(model, test_loader, Attackers):
  
          acc_dict = Attackers.run_all(model, inputs, targets)
  
