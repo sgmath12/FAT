@@ -62,6 +62,10 @@ BETA=${BETA:-1.0}
 DECAY_RATE=${DECAY_RATE:-0.999}
 WARMUP_EPOCHS=${WARMUP_EPOCHS:-105}
 CHKPT_ITERS=${CHKPT_ITERS:-10}
+# AWP on top of the WA RPAT++ already has (2026-09-15); 0 = upstream recipe.  FAT uses gamma 0.005
+# with warmup at 10% of epochs, i.e. AWP_GAMMA=0.005 AWP_WARMUP=20 for 200 epochs.
+AWP_GAMMA=${AWP_GAMMA:-0}
+AWP_WARMUP=${AWP_WARMUP:-0}
 
 RESUME=${RESUME:-0}
 EVAL_ONLY=${EVAL_ONLY:-0}
@@ -130,6 +134,8 @@ CMD=(python train_cifar_ra.py \
     --decay-rate "$DECAY_RATE" \
     --warmup-epochs "$WARMUP_EPOCHS" \
     --chkpt-iters "$CHKPT_ITERS" \
+    --awp-gamma "$AWP_GAMMA" \
+    --awp-warmup "$AWP_WARMUP" \
     "${EXTRA_ARGS[@]}")
 
 if [[ "$BACKGROUND" == "1" ]]; then

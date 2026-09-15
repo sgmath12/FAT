@@ -51,18 +51,56 @@ index 026c566..caa67fe 100644
              opt.zero_grad()
  
 diff --git a/RPAT_SOTAs/train_cifar_ra.py b/RPAT_SOTAs/train_cifar_ra.py
-index 707320c..461054d 100644
+index 707320c..a046d6e 100644
 --- a/RPAT_SOTAs/train_cifar_ra.py
 +++ b/RPAT_SOTAs/train_cifar_ra.py
-@@ -19,6 +19,7 @@ from networks.vgg import VGG16
+@@ -19,6 +19,45 @@ from networks.vgg import VGG16
  from networks.mobilenetv2 import MobileNetV2 as MobileV2
  from networks.wideresnet import WideResNet
  from networks.preactresnet import PreActResNet18
 +from networks.resnet import ResNet18
++import copy
++
++
++class AdvWeightPerturb:
++    """AWP proxy form, copied from FAT utils.py (AdvWeightPerturb, _awp_diff_in_weights,
++    _awp_add_into_weights): one ascent step on a proxy copy, norm-scaled per >=2D weight tensor,
++    added with coefficient gamma before the training step and removed after it."""
++    def __init__(self, model, gamma=5e-3, proxy_lr=0.01):
++        self.model, self.gamma = model, gamma
++        self.proxy = copy.deepcopy(model)
++        self.proxy_optim = torch.optim.SGD(self.proxy.parameters(), lr=proxy_lr)
++
++    def calc_awp(self, loss_fn):
++        self.proxy.load_state_dict(self.model.state_dict())
++        self.proxy.train()
++        loss = -loss_fn(self.proxy)
++        self.proxy_optim.zero_grad()
++        loss.backward()
++        self.proxy_optim.step()
++        diff = {}
++        for (k, w_old), (_, w_new) in zip(self.model.state_dict().items(), self.proxy.state_dict().items()):
++            if len(w_old.size()) <= 1 or 'weight' not in k:
++                continue
++            d = w_new - w_old
++            diff[k] = w_old.norm() / (d.norm() + 1e-20) * d
++        return diff
++
++    def _add(self, diff, coeff):
++        with torch.no_grad():
++            for name, param in self.model.named_parameters():
++                if name in diff:
++                    param.add_(coeff * diff[name])
++
++    def perturb(self, diff):
++        self._add(diff, self.gamma)
++
++    def restore(self, diff):
++        self._add(diff, -self.gamma)
  
  parser = argparse.ArgumentParser()
  
-@@ -35,7 +36,8 @@ parser.add_argument('--eval-online', action='store_true')
+@@ -35,7 +74,8 @@ parser.add_argument('--eval-online', action='store_true')
  parser.add_argument('--eval-train-robust', action='store_true')
  
  # model
@@ -72,7 +110,21 @@ index 707320c..461054d 100644
  parser.add_argument('--width-factor', default=10, type=int)  # for WRN
  parser.add_argument('--resume', default=0, type=int)  # resume from this epoch
  parser.add_argument('--load-folder', default=None,
-@@ -146,6 +148,8 @@ def main():
+@@ -84,6 +124,13 @@ parser.add_argument('--stronger-epsilon', default=10, type=int)
+ parser.add_argument('--stronger-attack-iters', default=12, type=int)
+ parser.add_argument('--stronger-eval', action='store_true')  # also use stronger attack during evaluation
+ 
++# AWP (Wu et al., NeurIPS 2020), proxy form, added 2026-09-15 to give RPAT++ the same stack as every
++# other baseline: its own WA stays as it is, and AWP is added with the gamma, proxy lr and warmup
++# fraction (10% of epochs) used across the FAT experiments.  gamma 0 (default) = upstream behaviour.
++parser.add_argument('--awp-gamma', type=float, default=0.0)
++parser.add_argument('--awp-warmup', type=int, default=0)
++parser.add_argument('--awp-proxy-lr', type=float, default=0.01)
++
+ # BoAT regularization
+ parser.add_argument('--use-reg-schedule',
+                     action='store_true')  # if set to False, by default it stays constant as args.beta
+@@ -146,6 +193,8 @@ def main():
      # ------------------ model ------------------
      if args.model == 'PreActResNet18':
          model = PreActResNet18(num_classes=args.num_classes)
@@ -81,7 +133,81 @@ index 707320c..461054d 100644
      elif args.model == 'WideResNet':
          model = WideResNet(34, 10, widen_factor=args.width_factor, dropRate=0.0)
      elif args.model == 'VGG16':
-@@ -508,7 +512,8 @@ def main():
+@@ -287,33 +336,43 @@ def main():
+             elif args.attack == 'none':  # standard training
+                 delta = torch.zeros_like(X)
+ 
+-            robust_output = model(normalize(torch.clamp(X + delta[:X.size(0)], min=lower_limit, max=upper_limit)))
+-            if args.cutmix:
+-                robust_loss = mixup_criterion(criterion, robust_output, y_a, y_b, lam)
+-            else:
+-                robust_loss = criterion(robust_output, y)
+-
+-            ### Robust Perception Adversarial Training ###
+-
++            # The RPAT/BoAT targets come from the frozen WA model and do not depend on the trained
++            # weights, so they are computed once; the loss below is then a function of the network
++            # alone, which is what AWP needs to evaluate it on its proxy copy.
+             interpolation_rate = 0.5
+-            if beta > 0:  # apply with BoAT loss
++            x_adv_in = normalize(torch.clamp(X + delta[:X.size(0)], min=lower_limit, max=upper_limit))
++            if beta > 0:
+                 with torch.no_grad():
+                     benign_output = model_wa(
+                         normalize(torch.clamp(X, min=lower_limit, max=upper_limit)))
+                     interpolation_output = model_wa(
+                         normalize(torch.clamp(X + interpolation_rate * delta[:X.size(0)], min=lower_limit, max=upper_limit)))
+-
+-                ra_loss = F.kl_div(
+-                    F.log_softmax(interpolation_rate * robust_output, dim=1),
+-                    F.softmax(interpolation_output - (1 - interpolation_rate) * benign_output, dim=1),
+-                    reduction='batchmean')
+-
+-                if ra_loss < 1e10:
+-                    if args.use_reg_schedule:
+-                        beta = reg_schedule(epoch + (i + 1) / len(train_batches))
+-                    robust_loss += ra_loss * beta
+-
+-            ###################
++                ra_target = F.softmax(interpolation_output - (1 - interpolation_rate) * benign_output, dim=1)
++                if args.use_reg_schedule:
++                    beta = reg_schedule(epoch + (i + 1) / len(train_batches))
++
++            def _rpat_loss(net):
++                out = net(x_adv_in)
++                if args.cutmix:
++                    l = mixup_criterion(criterion, out, y_a, y_b, lam)
++                else:
++                    l = criterion(out, y)
++                ### Robust Perception Adversarial Training ###
++                if beta > 0:  # apply with BoAT loss
++                    ra_loss = F.kl_div(F.log_softmax(interpolation_rate * out, dim=1), ra_target,
++                                       reduction='batchmean')
++                    if ra_loss < 1e10:
++                        l = l + ra_loss * beta
++                return l, out
++
++            use_awp = args.awp_gamma > 0 and epoch >= args.awp_warmup
++            if use_awp:
++                if not hasattr(main, '_awp'):
++                    main._awp = AdvWeightPerturb(model, gamma=args.awp_gamma, proxy_lr=args.awp_proxy_lr)
++                awp_diff = main._awp.calc_awp(lambda net: _rpat_loss(net)[0])
++                main._awp.perturb(awp_diff)
++
++            robust_loss, robust_output = _rpat_loss(model)
+ 
+             reg_loss = torch.tensor(0.).cuda()
+ 
+@@ -325,6 +384,8 @@ def main():
+             opt.zero_grad()
+             robust_loss.backward()
+             opt.step()
++            if use_awp:
++                main._awp.restore(awp_diff)
+ 
+             output = model(normalize(X))
+             if args.cutmix:
+@@ -508,7 +569,8 @@ def main():
  
      # ------------------ final evaluation ------------------
      print("Evaluating best and last...")
@@ -91,7 +217,7 @@ index 707320c..461054d 100644
  
      # last
      if not args.eval_best_only:
-@@ -518,7 +523,7 @@ def main():
+@@ -518,7 +580,7 @@ def main():
          else:
              model_wa.load_state_dict(torch.load(os.path.join(args.fname, f'wa_model_{args.epochs - 1}.pth')))
          res_list = attack_all(model_wa, test_batches, Attackers)
@@ -100,7 +226,7 @@ index 707320c..461054d 100644
  
      # best
      if not args.eval_last_only:
-@@ -528,7 +533,7 @@ def main():
+@@ -528,7 +590,7 @@ def main():
          else:
              model_wa.load_state_dict(torch.load(os.path.join(args.fname, f'wa_model_best.pth')))
          res_list = attack_all(model_wa, test_batches, Attackers)
@@ -109,7 +235,7 @@ index 707320c..461054d 100644
  
  
  # ------------------ evaluation functions ------------------
-@@ -566,21 +571,16 @@ class NormInputModel(nn.Module):
+@@ -566,21 +628,16 @@ class NormInputModel(nn.Module):
          return self.model(normalize(X))
  
  
@@ -137,7 +263,7 @@ index 707320c..461054d 100644
      from tqdm import tqdm
      from collections import OrderedDict
      pbar = tqdm(test_loader)
-@@ -592,35 +592,12 @@ def attack_all(model, test_loader, Attackers):
+@@ -592,35 +649,12 @@ def attack_all(model, test_loader, Attackers):
  
          acc_dict = Attackers.run_all(model, inputs, targets)
  

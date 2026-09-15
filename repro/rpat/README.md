@@ -16,3 +16,9 @@ What `rpat_local.patch` changes, and nothing else:
   `resnet.py`), and the final evaluation prints clean / PGD10 / PGD20 / PGD50 / CW / AA like main.py.
 - `attacks.py`: PGD10, PGD50 and CW added to `run_all`; upstream's AutoAttack call used `norm='L2'`,
   changed to `norm='Linf'` to match the 8/255 L-inf threat model everything else is evaluated under.
+
+2026-09-15: `train_cifar_ra.py` also gains `--awp-gamma / --awp-warmup / --awp-proxy-lr` (AWP proxy form,
+copied from FAT `utils.py:AdvWeightPerturb`), exposed in `run.sh` as `AWP_GAMMA` / `AWP_WARMUP`.  The
+RPAT/BoAT term is refactored into a function of the network so AWP evaluates the method's full loss
+on its proxy; with gamma 0 the step is the upstream one.  RPAT++ + AWP is run with
+`AWP_GAMMA=0.005 AWP_WARMUP=20` (10% of 200 epochs), its own WA unchanged.
