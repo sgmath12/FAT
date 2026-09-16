@@ -27,3 +27,31 @@ on its proxy; with gamma 0 the step is the upstream one.  RPAT++ + AWP is run wi
 naturally trained teacher, stripping the `encoder.` prefix and switching input normalization to the
 statistics that checkpoint was trained with (the script hardcodes CIFAR-10's on both datasets; with
 the teacher's own, a loaded CIFAR-100 teacher measures 77.25% clean against 36.30%).
+
+## Running this on another machine
+
+`train_cifar_ra.py` and `attacks.py` here are the full modified files, so a fresh clone can be brought
+up by copying rather than patching:
+
+    git clone https://github.com/FlaAI/RPAT && cd RPAT && git checkout $(cat UPSTREAM_COMMIT)
+    cp <this dir>/train_cifar_ra.py <this dir>/attacks.py RPAT_SOTAs/
+    cp <this dir>/resnet.py RPAT_SOTAs/networks/resnet.py
+    cp <this dir>/run.sh .
+
+The three cells the paper needs, each 200 epochs on ResNet-18 (about eight hours per cell here):
+
+    # RPAT++ as published (its own WA, no AWP)
+    NUM_CLASSES=100 DATA_DIR=<FAT>/data/CIFAR100 FNAME=rpatpp_c100_resnet18 bash run.sh
+
+    # + AWP, the rest of our stack
+    NUM_CLASSES=100 DATA_DIR=<FAT>/data/CIFAR100 FNAME=rpatpp_awp_c100_resnet18 \
+      AWP_GAMMA=0.005 AWP_WARMUP=20 bash run.sh
+
+    # + AWP + our natural warm start
+    NUM_CLASSES=100 DATA_DIR=<FAT>/data/CIFAR100 FNAME=rpatpp_awp_natinit_c100_resnet18 \
+      AWP_GAMMA=0.005 AWP_WARMUP=20 \
+      NATURAL_INIT=<FAT>/CIFAR100/checkpoint/clean_200ep/clean_last.pkl bash run.sh
+
+CIFAR-10 is the same with `NUM_CLASSES=10`, `DATA_DIR=<FAT>/data/CIFAR10` and the CIFAR-10 teacher.
+`BACKGROUND=0` keeps a run in the foreground (the default detaches it with setsid); the final table is
+printed as `[last wa]` / `[best wa]` in `exps/$FNAME/output.log`.
