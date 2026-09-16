@@ -1,3 +1,38 @@
+diff --git a/RPAT_Benchmarks/datasets/datasets.py b/RPAT_Benchmarks/datasets/datasets.py
+index fa13eaf..86b6da6 100644
+--- a/RPAT_Benchmarks/datasets/datasets.py
++++ b/RPAT_Benchmarks/datasets/datasets.py
+@@ -7,7 +7,9 @@ from torchvision import datasets, transforms
+ from datasets.cifar_c import get_CIFAR10_C, get_CIFAR100_C
+ from datasets.autoaugment import CIFAR10Policy
+ 
+-DATA_PATH = ''
++# 2026-09-16: read the dataset root from the environment so the CIFAR copies FAT already downloaded
++# can be reused (torchvision expects <root>/cifar-10-batches-py); '' keeps the upstream default.
++DATA_PATH = os.environ.get('RPAT_DATA_PATH', '')
+ CIFAR_C = ['brightness', 'contrast', 'defocus_blur', 'elastic_transform',
+            'fog', 'frost', 'gaussian_blur', 'gaussian_noise', 'glass_blur',
+            'impulse_noise', 'jpeg_compression', 'motion_blur', 'pixelate',
+diff --git a/RPAT_Benchmarks/evals/evals.py b/RPAT_Benchmarks/evals/evals.py
+index c72bfd8..e1e7b18 100644
+--- a/RPAT_Benchmarks/evals/evals.py
++++ b/RPAT_Benchmarks/evals/evals.py
+@@ -469,8 +469,13 @@ def test_classifier_random_MSE(P, model, loader, steps, adversary=None,
+ 
+ ### Eval by C&W / Boundary Attack ###
+ 
+-from art.estimators.classification import PyTorchClassifier
+-from art.attacks.evasion import CarliniLInfMethod, CarliniL2Method
++# 2026-09-16: made lazy -- this module-level import pulled in adversarial-robustness-toolbox for every
++# training run, and only test_classifier_adv_cw below needs it.
++try:
++    from art.estimators.classification import PyTorchClassifier
++    from art.attacks.evasion import CarliniLInfMethod, CarliniL2Method
++except ImportError:
++    PyTorchClassifier = CarliniLInfMethod = CarliniL2Method = None
+ 
+ def test_classifier_adv_cw(P, model, loader):
+     error_adv_top1 = AverageMeter()
 diff --git a/RPAT_SOTAs/attacks.py b/RPAT_SOTAs/attacks.py
 index 026c566..caa67fe 100644
 --- a/RPAT_SOTAs/attacks.py

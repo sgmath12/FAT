@@ -55,3 +55,21 @@ The three cells the paper needs, each 200 epochs on ResNet-18 (about eight hours
 CIFAR-10 is the same with `NUM_CLASSES=10`, `DATA_DIR=<FAT>/data/CIFAR10` and the CIFAR-10 teacher.
 `BACKGROUND=0` keeps a run in the foreground (the default detaches it with setsid); the final table is
 printed as `[last wa]` / `[best wa]` in `exps/$FNAME/output.log`.
+
+## Consistency-AT + RPAT (the paper's Sec. 5.2 setting, no weight averaging)
+
+That result comes from the other half of the repository, `RPAT_Benchmarks` (110 epochs, SGD 0.1 with
+decays at 100 and 105, no WA), not from `RPAT_SOTAs`.  `run_benchmarks.sh` runs it and then evaluates
+the last checkpoint with AutoAttack:
+
+    DATASET=cifar100 bash run_benchmarks.sh
+    DATASET=cifar10  bash run_benchmarks.sh
+
+Two edits make it run outside the authors' machine, both carried in `rpat_local.patch` and copied here
+as `benchmarks_datasets.py` and `benchmarks_evals.py`:
+- `datasets/datasets.py` reads its dataset root from `RPAT_DATA_PATH` instead of a hardcoded `''`.
+- `evals/evals.py` imports adversarial-robustness-toolbox lazily; it was a module-level import needed
+  only by the C&W evaluation, so every training run required the package.
+
+`advertorch` is not in the environment either; `run_benchmarks.sh` puts FAT's `Externals/` on
+PYTHONPATH, and `tensorboardX` was installed into the `advTrain` env.
