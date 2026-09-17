@@ -1590,6 +1590,76 @@ $8/255$.
 
 
 
+
+### 5.9 This machine, 09-13 to 09-17 (ARREST, RPAT++ given the stack, the stack on both datasets)
+
+All ResNet-18, 200-epoch natural teacher, AutoAttack on the full test set at 8/255, final-epoch
+weight-averaged model, seed 0. In the tex as `tab:stackboth`, `tab:arrestepochs`, `tab:rpatstack`.
+
+**The stack, both datasets, both radii** (clean / AA / NRR). Anchor + sensitivity-matched eps, head
+inherited. Blank = not run.
+
+| | no stack | + WA | + WA + AWP |
+|---|---|---|---|
+| C100 8/255, 50 ep | 64.51 / 25.88 / 36.94 | 62.90 / 27.76 / 38.52 | |
+| C100 8/255, 100 ep | | 63.54 / 26.75 / 37.65 | 63.89 / 27.78 / 38.72 |
+| C100 8.8/255, 50 ep | 62.91 / 26.50 / 37.29 | 61.24 / 28.30 / 38.71 | 59.74 / 28.01 / 38.14 |
+| C100 8.8/255, 100 ep | 63.09 / 25.74 / 36.56 | 62.30 / 27.69 / 38.34 | 62.17 / 28.86 / 39.42 |
+| C10 8/255, 50 ep | 87.09 / 47.53 / 61.50 | 85.52 / 50.10 / 63.18 | 84.48 / 50.47 / 63.19 |
+| C10 8/255, 100 ep | | 86.67 / 49.20 / 62.77 | 87.22 / 51.15 / 64.48 |
+| C10 8.8/255, 50 ep | 85.85 / 47.98 / 61.56 | 83.54 / 50.25 / 62.75 | |
+| C10 8.8/255, 100 ep | | 85.16 / 50.15 / 63.13 | 84.96 / 51.74 / 64.31 |
+
+Without AWP the 50-epoch schedule wins on both datasets; AWP is what makes 100 epochs pay. A 30-epoch
+WA row exists too and is worse on both (C10 8/255 81.27 / 49.35 / 61.41, C100 8/255 59.13 / 27.11 / 37.18).
+
+**CFA vs ARREST, epoch-matched, 8/255, our recipe + our stack** (clean / AA / NRR)
+
+| epochs | CFA | ARREST |
+|---|---|---|
+| C100 100 | 63.89 / 27.78 / 38.72 | 64.87 / 27.08 / 38.21 |
+| C100 150 | 64.75 / 27.98 / 39.07 | 64.66 / 26.40 / 37.49 |
+| C10 50 | 84.48 / 50.47 / 63.19 | 84.49 / 50.61 / 63.30 |
+| C10 100 | 87.22 / 51.15 / 64.48 | 85.24 / 51.52 / 64.22 |
+| C10 150 | 87.37 / 51.33 / 64.67 | 85.79 / 51.84 / 64.63 |
+| C10 200 | 87.76 / 51.44 / 64.86 | 86.13 / 51.33 / 64.33 |
+
+ARREST + our sensitivity-matched radius, 8.8/255, 100 epochs: C100 64.08 / 27.53 / 38.51 (ours
+62.17 / 28.86 / 39.42), C10 85.93 / 51.76 / 64.60 (ours 84.96 / 51.74 / 64.31). ARREST at its own
+20-epoch recipe: C100 66.44 / 22.99 / 34.16, C10 85.11 / 46.23 / 59.92; + our radius 66.79 / 23.10 /
+34.33 and 84.80 / 46.32 / 59.91; + WA only 66.61 / 23.34 / 34.57 and 83.77 / 47.05 / 60.26; + our full
+stack (C100, 20 ep) 64.95 / 23.02 / 33.99. The stack does nothing at 20 epochs because there is no
+robust overfitting to undo there.
+
+**RPAT++ given the rest of our stack** (C100, 200 epochs, our reproduction; final / best-by-PGD-20)
+
+| | final | best |
+|---|---|---|
+| its own recipe (WA only) | 57.05 / 26.61 / 36.30 | 55.93 / 27.37 / 36.74 |
+| + AWP (gamma 0.005, warmup 20) | 57.48 / 28.05 / 37.70 | 57.50 / 27.92 / 37.60 |
+| + AWP + teacher initialization | 57.83 / 27.47 / 37.25 | 57.80 / 27.59 / 37.36 |
+
+AWP is worth +1.40 NRR; the natural warm start then costs 0.45, as it does for every published
+objective in Table 7. The RPAT++ code carries no AWP, so it was ported into their
+`train_cifar_ra.py`; `repro/rpat/` holds the files and the commands, including Consistency-AT + RPAT
+(the paper's Sec. 5.2 setting, no WA), queued for both datasets.
+
+**Own recipe + natural init + stack, CIFAR-100** (clean / AA / NRR): PGD-AT 59.85 / 25.77 / 36.03,
+TRADES 56.16 / 24.56 / 34.17, MART 50.97 / 25.13 / 33.66, ARD 60.19 / 26.10 / 36.41,
+AdaAD 57.21 / 27.10 / 36.78, HAT 57.63 / 24.74 / 34.62, ARREST 64.95 / 23.02 / 33.99. RSLAD, IGDM,
+Consistency, LBGAT and ADR are still queued.
+
+**ADR with its stack removed** (its own 200-epoch recipe, SAM-AWP off): C10 84.04 / 43.05 / 56.93,
+C100 in progress. The published C10 figure is 82.41 / 50.38, so ADR loses about 7 AutoAttack points
+without AWP; the earlier C10 run *with* its SAM-AWP collapsed to chance, so AWP is where that collapse
+came from.
+
+**Consistency-AT rerun.** Its 1.00 / 1.00 collapse was the torch KLDivLoss NaN: `_jensen_shannon_div`
+passed unclamped softmax targets to `F.kl_div`, the twelfth site of that bug. With the floor it trains
+to 57.53 / 20.01 / 29.69 at its own recipe.
+
+---
+
 ## Writer's notes
 
 
