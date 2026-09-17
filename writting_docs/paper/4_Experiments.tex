@@ -297,6 +297,9 @@ forty times further from linear than the ones it was designed for.
   \end{tabular}
 \end{table}
 
+\Cref{tab:stackboth} repeats the same three rungs on both datasets and both training radii, and two
+readings hold throughout: without AWP the $50$-epoch schedule beats the $100$-epoch one, and AWP is
+what makes the longer schedule pay.
 The sensitivity rule contributes $+0.49$ NRR at 50 epochs and $+0.69$ at 100 ($+1.61/{+}0.21$ and
 $+1.80/{+}0.38$ on the two axes) at identical total attack budget. AWP appears to change sign with schedule
 length --- $-0.25$ NRR at 50 epochs against $+1.08$ at 100 --- but the two blocks are not yet the same
@@ -400,6 +403,13 @@ Two do not: HAT loses $5.94$ and LBGAT collapses to chance, both being methods w
 tied to their own schedule rather than to a distillation loss, which is why the per-method protocol is
 the right default.
 None of the ten reaches CFA, and the closest is ARREST at $1.03$ NRR behind.
+Since ARREST is also the one method whose schedule differs most from ours, \Cref{tab:arrestepochs}
+matches the two epoch by epoch at $8/255$: on CIFAR-100 we hold $+0.51$ and $+1.58$ NRR at $100$ and
+$150$ epochs, and on CIFAR-10 the two are within $0.3$ NRR of each other at every length, with the
+sensitivity-matched radius transplanted onto their objective closing what remains.
+RPAT++ is the other method that already carries part of the stack, and \Cref{tab:rpatstack} gives it
+the rest: AWP buys it $+1.40$ NRR and initialization at the teacher then costs $0.45$, which is the
+pattern \Cref{tab:natteacher} reports for every published objective.
 That margin should be read with the dial in mind, since both methods move along the frontier -- ours
 with the training radius, ARREST with the weight on its label term.
 At matched clean accuracy the margin is smaller and still ours: the $8/255$ row of \Cref{tab:radius}

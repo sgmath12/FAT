@@ -382,6 +382,35 @@ analysis.
 \end{table}
 
 \begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{3.4pt}
+  \caption{The stack, on both datasets and both training radii. Every cell is the anchor with the
+  sensitivity-matched radius and the teacher's classifier inherited; the columns add weight averaging
+  ($\kappa = 0.999$ from $20\%$ of the run) and then the AWP proxy ($\gamma = 0.005$, warmup at $10\%$
+  of the run). Empty cells were not run. Two readings hold on both datasets: without AWP the shorter
+  schedule is the better one, and AWP is what makes the $100$-epoch schedule pay.}
+  \label{tab:stackboth}
+  \begin{tabular}{lrrrrrrrrr}
+    \toprule
+    & \multicolumn{3}{c}{No stack} & \multicolumn{3}{c}{$+$ WA} & \multicolumn{3}{c}{$+$ WA $+$ AWP} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+    & Clean & AA & NRR & Clean & AA & NRR & Clean & AA & NRR \\
+    \midrule
+    \multicolumn{10}{l}{\emph{CIFAR-100}} \\
+    $8/255$, 50 ep & 64.51 & 25.88 & 36.94 & 62.90 & 27.76 & 38.52 & -- & -- & -- \\
+    $8/255$, 100 ep & -- & -- & -- & 63.54 & 26.75 & 37.65 & 63.89 & 27.78 & 38.72 \\
+    $8.8/255$, 50 ep & 62.91 & 26.50 & 37.29 & 61.24 & 28.30 & 38.71 & 59.74 & 28.01 & 38.14 \\
+    $8.8/255$, 100 ep & 63.09 & 25.74 & 36.56 & 62.30 & 27.69 & 38.34 & 62.17 & 28.86 & 39.42 \\
+    \midrule
+    \multicolumn{10}{l}{\emph{CIFAR-10}} \\
+    $8/255$, 50 ep & 87.09 & 47.53 & 61.50 & 85.52 & 50.10 & 63.18 & 84.48 & 50.47 & 63.19 \\
+    $8/255$, 100 ep & -- & -- & -- & 86.67 & 49.20 & 62.77 & 87.22 & 51.15 & 64.48 \\
+    $8.8/255$, 50 ep & 85.85 & 47.98 & 61.56 & 83.54 & 50.25 & 62.75 & -- & -- & -- \\
+    $8.8/255$, 100 ep & -- & -- & -- & 85.16 & 50.15 & 63.13 & 84.96 & 51.74 & 64.31 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{What the per-sample radius is allocated \emph{from}. CIFAR-100, ResNet-18, the shipped
   recipe, with the cells differing in one configuration line each and spending the same total budget
@@ -399,6 +428,58 @@ analysis.
     Difficulty magnitude (IAAT, CAT)        & 0.39 & 61.27 & 32.45 & 30.14 & 28.12 & 38.55 \\
     Difficulty, same weights permuted       & 0.32 & 60.90 & 32.32 & 29.94 & 28.06 & 38.42 \\
     Logit margin (MMA)                      & 0.42 & 61.07 & 32.46 & 29.75 & 27.79 & 38.20 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4.0pt}
+  \caption{ARREST at our recipe, matched epoch by epoch. Both columns train at $8/255$ from the same
+  $200$-epoch natural teacher with our optimizer and our stack, and differ only in the objective: ours
+  is the anchor with the sensitivity-matched radius, theirs is the label loss plus the angular
+  representation term with the CE attack and Noisy Replay. \emph{ARREST $+$ our radius} adds our
+  allocation rule to their objective.}
+  \label{tab:arrestepochs}
+  \begin{tabular}{lrrrcrrr}
+    \toprule
+    & \multicolumn{3}{c}{CFA (ours)} & & \multicolumn{3}{c}{ARREST} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    Epochs & Clean & AA & NRR & & Clean & AA & NRR \\
+    \midrule
+    \multicolumn{8}{l}{\emph{CIFAR-100}} \\
+    100 & 63.89 & \textbf{27.78} & \textbf{38.72} & & 64.87 & 27.08 & 38.21 \\
+    150 & 64.75 & \textbf{27.98} & \textbf{39.07} & & 64.66 & 26.40 & 37.49 \\
+    \midrule
+    \multicolumn{8}{l}{\emph{CIFAR-10}} \\
+    50  & 84.48 & 50.47 & 63.19 & & 84.49 & 50.61 & 63.30 \\
+    100 & 87.22 & 51.15 & \textbf{64.48} & & 85.24 & 51.52 & 64.22 \\
+    150 & 87.37 & 51.33 & \textbf{64.67} & & 85.79 & 51.84 & 64.63 \\
+    200 & 87.76 & 51.44 & \textbf{64.86} & & 86.13 & 51.33 & 64.33 \\
+    \midrule
+    \multicolumn{8}{l}{\emph{ARREST $+$ our radius, against our row at the same radius}} \\
+    100, $8.8/255$, C100 & 62.17 & \textbf{28.86} & \textbf{39.42} & & 64.08 & 27.53 & 38.51 \\
+    100, $8.8/255$, C10  & 84.96 & 51.74 & 64.31 & & 85.93 & 51.76 & \textbf{64.60} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{RPAT++ given the rest of our stack. Its own recipe already carries weight averaging (EMA
+  $0.999$ from epoch $105$ of $200$), so the missing component is the AWP proxy, added at
+  $\gamma = 0.005$ with warmup at $10\%$ of the run and evaluated on its own loss; the last row also
+  starts the run at our natural teacher. CIFAR-100, ResNet-18, our reproduction, reported at both the
+  final and the PGD-20-selected weight-averaged checkpoint.}
+  \label{tab:rpatstack}
+  \begin{tabular}{lrrrcrrr}
+    \toprule
+    & \multicolumn{3}{c}{Final} & & \multicolumn{3}{c}{Best by PGD-20} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    & Clean & AA & NRR & & Clean & AA & NRR \\
+    \midrule
+    RPAT++ (its own recipe)   & 57.05 & 26.61 & 36.30 & & 55.93 & 27.37 & 36.74 \\
+    \quad $+$ AWP             & 57.48 & \textbf{28.05} & \textbf{37.70} & & 57.50 & \textbf{27.92} & \textbf{37.60} \\
+    \quad $+$ AWP $+$ teacher initialization & 57.83 & 27.47 & 37.25 & & 57.80 & 27.59 & 37.36 \\
     \bottomrule
   \end{tabular}
 \end{table}
