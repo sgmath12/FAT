@@ -357,6 +357,47 @@ analysis.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{Does the anchor need the teacher's feature \emph{magnitude}? Normalizing both
+  representations to the unit sphere removes it and keeps only the angle, which makes the squared
+  Euclidean loss $\lVert \hat\Phi_s - \hat\Phi_t \rVert_2^2 = 2 - 2\cos\angle(\Phi_s, \Phi_t)$, i.e.\
+  a cosine loss up to an affine map. CIFAR-100, ResNet-18, 100 epochs; within each panel the two rows
+  differ in the normalization and in nothing else. The asymmetric row normalizes the student alone, so
+  the two sides live at different scales; it is a diagnostic rather than a design, and is marked as
+  such.}
+  \label{tab:normalization}
+  \begin{tabular}{lrrr}
+    \toprule
+    & Clean & AA & NRR \\
+    \midrule
+    \multicolumn{4}{l}{\emph{(a) With the stack: WA, AWP, $\epsilon_{\mathrm{train}} = 8.8/255$}} \\
+    Raw features (squared $\ell_2$)            & 60.21 & \textbf{28.14} & 38.35 \\
+    Both normalized (cosine)                   & \textbf{61.41} & 28.07 & \textbf{38.53} \\
+    \midrule
+    \multicolumn{4}{l}{\emph{(b) Base regime: no WA, no AWP, $\epsilon_{\mathrm{train}} = 8/255$}} \\
+    Raw features (squared $\ell_2$)            & \textbf{62.40} & \textbf{24.34} & \textbf{35.02} \\
+    Both normalized (cosine)                   & 61.52 & 22.90 & 33.38 \\
+    Asymmetric: student normalized, teacher raw & 61.28 & 22.98 & 33.43 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Feature magnitude, and what the anchor actually transfers.} The objective regresses raw
+features while the geometry read in \Cref{sec:analysis} is angular, so a natural question is whether
+the gain is magnitude matching rather than directional agreement. \Cref{tab:normalization} removes the
+magnitude by normalizing both sides. Under the full recipe, directional matching keeps the standard
+accuracy of raw regression and differs by $0.07$ AutoAttack and $0.18$ NRR; taking each design at its
+own best recipe instead, raw regression reaches $62.17 / 28.86$ (NRR $39.42$) against $62.17 / 28.59$
+(NRR $39.17$) for the directional variant, within $0.25$ NRR of each other, though those two cells
+also differ in how they treat the classifier and the late-schedule learning rate. In the base regime
+raw regression is the better of the two by $1.44$ AutoAttack, so feature magnitudes do help
+optimization there without being necessary for the final numbers.
+Read together with \Cref{tab:targetcomparison_values}, where logit regression against the same frozen
+head lands $0.21$ NRR below the feature anchor, the conclusion is not that one metric is privileged.
+What the three share is the design: the teacher's clean representation is handed to the student as a
+fixed target, and no label objective is added beside it.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{$\epsilon_{\mathrm{train}}$ swept with everything else fixed. Evaluation is at
   $\epsilon=8/255$ in every cell.}
   \label{tab:radius}
