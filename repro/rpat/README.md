@@ -73,3 +73,9 @@ as `benchmarks_datasets.py` and `benchmarks_evals.py`:
 
 `advertorch` is not in the environment either; `run_benchmarks.sh` puts FAT's `Externals/` on
 PYTHONPATH, and `tensorboardX` was installed into the `advTrain` env.
+
+2026-09-17: `RPAT_Benchmarks/training/__init__.py` (`benchmarks_training_init.py` here) floors the KL
+targets in `_jensen_shannon_div` and `_kl_div`. Unfloored, the CIFAR-100 Consistency-AT + RPAT run went
+NaN at epoch 1 under torch >= 1.13 (pytorch/pytorch#89558); the consistency loss sharpens its softmax
+with T = 0.5, so exact zeros in the target are routine. This is the same bug that took our own port of
+Consistency-AT to chance accuracy.
