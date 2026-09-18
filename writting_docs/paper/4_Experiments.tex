@@ -16,15 +16,15 @@ $\epsilon_{\mathrm{train}}=8.8/255$. The final recipe uses sensitivity matching 
 averaging, and AWP; exact hyperparameters are in \Cref{app:repro}.
 
 We evaluate the final-epoch model on the full test set at $\epsilon=8/255$, reporting clean accuracy,
-the APGD-CE/APGD-T cascade (AA), and their harmonic mean (NRR). A full four-attack AutoAttack
-validation on CIFAR-100 yields the same robust accuracy (\Cref{app:gradmask}). Baselines use their published training recipes and our evaluation
-pipeline; the distillation baselines receive our natural teacher. Published results with other
-teachers and settings are reported separately in \Cref{tab:published}.
+the APGD-CE/APGD-T cascade (AA), their mean (Avg), and their harmonic mean (NRR); a four-attack
+AutoAttack validation gives the same robust accuracy (\Cref{app:gradmask}). Baselines use their
+published recipes with our evaluation pipeline, and the distillation baselines receive our natural
+teacher; published results obtained with other teachers are collected in \Cref{tab:published}.
 
 \subsection{Main Results}
 
 \begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{3.6pt}
+  \centering \footnotesize \setlength{\tabcolsep}{3.2pt}
   \caption{ResNet-18 results at $\ell_\infty$, $\epsilon=8/255$. All values are measured in our
   framework. \emph{T.} denotes the teacher assumed by the method: none (--), a natural model
   (nat.), or the method's own weight average (self).}
@@ -64,7 +64,7 @@ configuration is evaluated on a larger dataset and network below.
 \subsection{Generalization Across Data and Model Scale}
 
 \begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{5pt}
+  \centering \footnotesize \setlength{\tabcolsep}{4pt}
   \caption{Tiny-ImageNet-200 with ResNet-18. All rows are measured in our framework.}
   \label{tab:tin}
   \begin{tabular}{llrrrr}
@@ -89,15 +89,13 @@ configuration is evaluated on a larger dataset and network below.
 \end{table}
 
 On Tiny-ImageNet, CFA attains the highest NRR among the measured methods, combining substantially
-higher clean accuracy than ADR with comparable AA (\Cref{tab:tin}). The result is not obtained by
-maximizing either endpoint: ARREST remains higher on clean accuracy, whereas ADR is $0.31$ points
-higher on AA. The teacher-checkpoint effect also transfers beyond CIFAR-100: replacing the 200-epoch
-teacher by its 80-epoch checkpoint changes the student from $55.16/20.54$ to $57.08/18.96$
-clean/AA. Thus the earlier teacher transfers more clean accuracy but less robustness, reproducing the
-direction of \Cref{fig:teacherladder} on a third dataset.
+higher clean accuracy than ADR with comparable AA (\Cref{tab:tin}), and neither endpoint is maximized:
+ARREST stays higher on clean accuracy and ADR is $0.31$ points higher on AA. The teacher-checkpoint
+effect transfers here as well, since the 80-epoch teacher moves the student from $55.16/20.54$ to
+$57.08/18.96$ clean/AA --- more clean accuracy, less robustness, as in \Cref{fig:teacherladder}.
 
 \begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{5pt}
+  \centering \footnotesize \setlength{\tabcolsep}{3.2pt}
   \caption{WideResNet-34-10 at $\epsilon=8/255$, measured in our framework. The CIFAR-100 CFA entry
   is a provisional reading of a run whose evaluation is still finishing.}
   \label{tab:wrn}
@@ -227,10 +225,10 @@ both CIFAR datasets are in \Cref{tab:radius,tab:stackboth}.
 \label{sec:empirical_geometry}
 
 \Cref{prop:decomp} bounds variation within an anchored model, but does not predict a smaller
-variation than label training. We therefore examine both displacement and class geometry. Under the
-same true-label PGD protocol, the anchor and label-trained students move by $0.275$ and $0.254$ of
-their clean feature norms. These attack-based displacements are not the worst-case diameter $O$;
-they provide no evidence that the anchor's advantage comes from smaller displacement in this test.
+variation than label training, so we examine displacement and class geometry. Under the same
+true-label PGD protocol the anchor and label-trained students move by $0.275$ and $0.254$ of their
+clean feature norms: these are not the worst-case diameter $O$, and they give no evidence that the
+anchor's advantage comes from smaller displacement.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4pt}
@@ -259,11 +257,9 @@ head (\Cref{app:anchor_measurements}); they should not be read as a causal accou
 
 \subsection{Reliability and Scope}
 
-The full standard AutoAttack suite (APGD-CE, APGD-T, FAB-T, and Square) achieves $28.73\%$
-robust accuracy on the CIFAR-100 repeat, identical to the two-attack cascade in this validation.
-Neither FAB-T nor Square finds additional failures among the $2873$ surviving test examples.
-PGD accuracy also decreases with attack steps and radius, reaching zero at $64/255$
-(\Cref{app:gradmask}). The original repeat evaluation gives $62.00/28.74$ clean/AA against $62.17/28.86$ for seed 0;
-two seeds do not establish the significance of small ablation differences (\Cref{app:repro}).
-On one RTX 5080, teacher and student training take $0.39$ and $2.07$ hours, respectively
-(\Cref{tab:compute}).
+The full standard AutoAttack suite (APGD-CE, APGD-T, FAB-T, and Square) reaches $28.73\%$ on the
+CIFAR-100 repeat, identical to the two-attack cascade: neither FAB-T nor Square finds a failure among
+the $2873$ surviving examples, and PGD accuracy falls to zero at $64/255$ (\Cref{app:gradmask}). That
+repeat gives $62.00/28.74$ clean/AA against $62.17/28.86$ for seed $0$, so two seeds do not establish
+the significance of small ablation differences (\Cref{app:repro}). Teacher and student training take
+$0.39$ and $2.07$ hours on one RTX 5080 (\Cref{tab:compute}).
