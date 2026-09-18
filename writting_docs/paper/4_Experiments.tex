@@ -157,18 +157,17 @@ narrows but does not close the gap: CFA remains ahead by $4.63$ clean and $4.45$
 
 Changing initialization or optimizer and schedule changes NRR by $0.22$ and $0.11$, respectively
 (\Cref{tab:recipe}). At 100 epochs with the full stack, label cross-entropy reaches $57.73/26.46$
-clean/AA versus CFA's $62.17/28.86$, so the gain is not carried by weight averaging and AWP. Giving
-each baseline the same natural warm start and the same stack, while leaving its objective, optimizer
-and schedule untouched, raises most of them --- PGD-AT by $6.00$ NRR and ARD by $6.45$ --- and none of
-them reaches CFA (\Cref{tab:baselinestack}).
+clean/AA versus CFA's $62.17/28.86$. Giving each baseline the same warm start and stack at its own
+recipe raises most of them, PGD-AT by $6.00$ NRR and ARD by $6.45$, and none reaches CFA
+(\Cref{tab:baselinestack}).
 
 \paragraph{Regression and probability targets.}
-Logit regression remains effective with WA and AWP. At a uniform training radius of $8.8/255$,
-100-epoch logit MSE reaches $60.36/28.02$ clean/AA against feature regression's $60.42/28.42$
-(\Cref{tab:regression_stack}). Together with the base-regime comparison in \Cref{sec:fragile}, this
-shows that effective clean-target regression is not confined to feature space. Teacher-only KL instead
-reaches $56.97/26.96$ at its best tested temperature under the full recipe (\Cref{tab:fullmetrics});
-this separate comparison does not isolate the target from classifier and radius choices.
+Logit regression remains effective with WA and AWP: at a uniform $8.8/255$ and 100 epochs, logit MSE
+reaches $60.36/28.02$ clean/AA against feature regression's $60.42/28.42$
+(\Cref{tab:regression_stack}), so with the base-regime comparison of \Cref{sec:fragile}, effective
+clean-target regression is not confined to feature space. Teacher-only KL reaches $56.97/26.96$ at its
+best tested temperature under the full recipe (\Cref{tab:fullmetrics}), a comparison that does not
+isolate the target from classifier and radius choices.
 
 \subsection{Radius Allocation and Training Components}
 
