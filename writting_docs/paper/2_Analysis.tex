@@ -1,240 +1,144 @@
 \section{Analysis}
 \label{sec:analysis}
 
-A natural teacher is attractive precisely because it retains the clean accuracy that adversarial
-training tends to lose. Its predictions and representations, however, are not themselves robust.
-The relevant question is therefore not how to make the teacher reliable inside the perturbation set,
-but what fixed signal it can provide while robustness is learned by the student's inner
-maximization. We first compare probability-space supervision with direct regression, and then
-characterize the clean-feature objective suggested by this comparison. Finally, we vary the teacher
-checkpoint to examine what information the resulting student actually inherits. Together, these
-analyses motivate the training procedure in \Cref{sec:method}.
+A natural teacher offers high clean accuracy despite being vulnerable to adversarial perturbations.
+We examine what fixed signal it can provide for the student's adversarial training. We compare
+probability-space supervision with direct regression, characterize the resulting anchor objective,
+and then vary the teacher checkpoint to examine what the student inherits.
 
 \subsection{Preliminaries}
 
-Let $(x,y)\sim\mathcal{P}$, where $x\in\mathcal{X}=[0,1]^D$ is a vectorized image and
-$y\in\{1,\ldots,C\}$ is its class label. For an $\ell_\infty$ perturbation radius $\epsilon$, we
-write
-\begin{equation}
-B(x,\epsilon)=\{x'\in\mathcal{X}:\lVert x'-x\rVert_\infty\le\epsilon\}.
-\label{eqn:threat_set}
-\end{equation}
-A network is decomposed as $f=h\circ\Phi$, where
-$\Phi:\mathcal{X}\rightarrow\mathbb{R}^d$ is its feature map and
-$h(z)=Wz+b$ is its linear classifier. We use subscripts $t$ and $s$ for the teacher and student,
-respectively. The teacher $f_t=h_t\circ\Phi_t$ is first trained on clean examples from the same
-dataset and is kept fixed thereafter; the student has the same architecture. Unless stated
-otherwise, all feature distances are Euclidean. Continuity of the networks and compactness of
-$B(x,\epsilon)$ ensure that the maxima below are attained.
+Let $x\in\mathcal X=[0,1]^D$ and
+$B(x,\epsilon)=\{x'\in\mathcal X:\lVert x'-x\rVert_\infty\le\epsilon\}$. We decompose a network as
+$f=h\circ\Phi$, where $\Phi:\mathcal X\to\mathbb R^d$ is a continuous feature map and
+$h:\mathbb R^d\to\mathbb R^C$, $h(z)=Wz+b$, is the classifier for $C$ classes. We use subscripts
+$t$ and $s$ for the frozen natural teacher and the student. Both networks share the same architecture,
+with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
 
 \subsection{Do Natural Teachers Need Softened Targets?}
 \label{sec:fragile}
 
-Soft predictions are a standard source of supervision in robust distillation
-\citep{ard,rslad,adr,bmtard}. This consideration is especially relevant for a natural teacher,
-whose output is typically much more concentrated than that of a robust model. Temperature scaling
-is thus a natural first attempt at adapting its predictions to adversarial training. There are,
-however, two distinct ways to introduce the temperature. Let
+Can the natural teacher's concentrated clean predictions provide effective adversarial supervision
+if softened? Motivated by soft-label robust distillation \citep{ard,rslad,adr,bmtard}, we first vary
+target concentration before changing the representation being transferred. Let
 \begin{equation}
-q_t^\tau(x)=\operatorname{softmax}\!\left(f_t(x)/\tau\right),
-\qquad
-p_s^\tau(x')=\operatorname{softmax}\!\left(f_s(x')/\tau\right).
+q_t^\tau(x)=\operatorname{softmax}(f_t(x)/\tau),\qquad
+p_s^\tau(x')=\operatorname{softmax}(f_s(x')/\tau).
 \label{eqn:soft_targets}
 \end{equation}
-We compare a teacher-only formulation and conventional knowledge distillation,
+We compare softening only the teacher target with conventional shared-temperature KD:
 \begin{equation}
-\mathcal{L}_{\mathrm{T\text{-}only}}^\tau(x,x')
-=D_{\mathrm{KL}}\!\left(q_t^\tau(x)\,\|\,p_s^1(x')\right),
-\qquad
-\mathcal{L}_{\mathrm{KD}}^\tau(x,x')
-=\tau^2D_{\mathrm{KL}}\!\left(q_t^\tau(x)\,\|\,p_s^\tau(x')\right).
+D_{\mathrm{KL}}(q_t^\tau(x)\|p_s^1(x')),\qquad
+\tau^2D_{\mathrm{KL}}(q_t^\tau(x)\|p_s^\tau(x')).
 \label{eqn:kd_variants}
 \end{equation}
-The former changes only the supervisory distribution, as in methods that adjust a teacher's
-temperature while leaving the student temperature fixed \citep{adr,bmtard}. The latter applies the
-same temperature to both networks and includes the usual $\tau^2$ scaling
-\citep{hinton2015distilling}.
-
-This distinction matters at large temperature. In the teacher-only objective,
-$q_t^\tau(x)$ converges to the uniform distribution, so excessive softening progressively removes
-class-dependent information from the target. By contrast, if
-$\bar f=f-C^{-1}\mathbf{1}\mathbf{1}^{\top}f$ denotes centered logits, then
+As $\tau\to\infty$, the teacher target approaches a uniform distribution in both cases, but the
+scaled shared-temperature loss retains logit information. For fixed logits and
+$\bar f=f-C^{-1}\mathbf1\mathbf1^\top f$,
 \begin{equation}
-\lim_{\tau\rightarrow\infty}\mathcal{L}_{\mathrm{KD}}^\tau(x,x')
-=\frac{1}{2C}\left\lVert\bar f_t(x)-\bar f_s(x')\right\rVert_2^2.
+\lim_{\tau\to\infty}\tau^2D_{\mathrm{KL}}(q_t^\tau(x)\|p_s^\tau(x'))
+=\frac{1}{2C}\lVert\bar f_t(x)-\bar f_s(x')\rVert_2^2.
 \label{eqn:kd_limit}
 \end{equation}
-Shared-temperature KD therefore approaches a metric regression problem rather than a uniform-target
-objective. This observation also suggests two temperature-free controls: direct regression onto the
-teacher's clean logits, and regression one layer earlier onto its clean representation. The latter
-gives the clean-feature anchor
+This limit motivates direct regression onto clean teacher logits; we also examine regression onto
+the full clean feature, which defines
 \begin{equation}
-\mathcal{L}_{\mathrm{anchor}}(x)
-=\max_{x'\in B(x,\epsilon)}
-\left\lVert\Phi_s(x')-\Phi_t(x)\right\rVert_2^2,
+\mathcal L_{\mathrm{anchor}}(x)=
+\max_{x'\in B(x,\epsilon)}\lVert\Phi_s(x')-\Phi_t(x)\rVert_2^2.
 \label{eqn:anchor_percell}
 \end{equation}
-while the logit control replaces $\Phi$ by $f$. In every case, adversarial examples maximize the
-same discrepancy that is subsequently minimized.
-
-We compare these targets on CIFAR-100 with ResNet-18. The natural teacher attains $77.66\%$ clean
-accuracy, and all students share its initialization, a 50-epoch schedule, and
-$\epsilon=8/255$. The KL objectives update the entire student, whereas both direct-regression
-controls retain the inherited classifier. To make the degree of softening explicit, we measure the
-entropy of $q_t^\tau$; for $C=100$, the entropy of a uniform target is $\log C=4.61$. AA$_2$
-comprises APGD-CE and APGD-T from AutoAttack. Exact values are reported in
-\Cref{tab:targetcomparison_values}.
 
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=\linewidth]{figure/analysis_targets.pdf}
-  \caption{From target softening to metric regression on CIFAR-100 with ResNet-18.
-  (a)~The teacher-target entropy approaches that of the uniform distribution as $\tau$ increases.
-  (b)~Clean--AA$_2$ trajectories for teacher-only and shared-temperature KL. Numbers annotate
-  $\tau$; L and F denote fixed-head logit regression and feature anchoring, respectively.}
+  \caption{Target comparison on CIFAR-100 (ResNet-18). (a) Teacher-target entropy approaches the
+  uniform value as $\tau$ increases. (b) Nondominated settings within each
+  KD variant, alongside fixed-head logit and feature regression. AA$_2$ combines APGD-CE and
+  APGD-T. The full temperature sweep is reported in
+  \Cref{tab:targetcomparison_values}.}
   \label{fig:targetcomparison}
 \end{figure}
 
-\Cref{fig:targetcomparison} exhibits the two limiting behaviors above. When only the teacher is
-softened, robustness improves until $\tau=8$, but the clean accuracy changes little;
-pushing the already near-uniform target further degrades both metrics. Shared-temperature KD avoids
-this turnover and recovers more clean accuracy, but its gains saturate as it approaches logit
-regression. Removing the probability parameterization altogether closes most of the remaining gap:
-the feature anchor improves on logit regression by only $0.13$ clean and $0.19$ AA$_2$ points. The
-experiment therefore does not imply that features are intrinsically superior to logits.
-Instead, it shows that target softening improves prediction-space distillation, while direct metric
-regression yields a better clean--robust balance without requiring a calibrated predictive
-distribution.
+We train for 50 epochs at $\epsilon=8/255$, without weight averaging or AWP.
+Across the full sweep, teacher-only softening improves robustness until the target becomes nearly
+uniform, but changes clean accuracy little. Shared-temperature KD avoids this turnover and approaches
+logit regression (\Cref{fig:targetcomparison}). Feature regression is only $0.13$ clean and $0.19$
+AA$_2$ points higher: both regression targets are effective without temperature selection, but this
+does not establish feature superiority. Moreover, KD updates the classifier whereas regression uses
+a fixed head, so this comparison evaluates training designs rather than isolating the target alone.
 
-\subsection{A Clean Representation as the Sole Target}
 \label{sec:sole_target}
-
-The preceding result motivates placing the regression target at the feature layer, where it can be
-used directly with the teacher's classifier. We initialize $\Phi_s$ from $\Phi_t$, retain
-$h_s=h_t$, and train only the student feature extractor with
-\Cref{eqn:anchor_percell}. The vector $\Phi_t(x)$ is computed from the clean example and remains the
-common target for every $x'\in B(x,\epsilon)$. Consequently, the inner maximization and the outer
-minimization act on the same feature discrepancy, and the teacher's behavior at perturbed inputs is
-absent from the objective.
-
-The role of the representation is as important as the layer at which it is taken. ARREST
-\citep{arrest}, for example, preserves a natural representation as a regularizer alongside
-adversarial cross-entropy. Here the clean representation instead supplies the entire supervision for
-both adversarial-example generation and backbone training. Adding a label objective would introduce
-a second target and a coefficient governing its influence; the anchor is designed to make neither
-necessary. The frozen classifier then converts feature alignment into predictions without an
-auxiliary head objective. This construction is the particular feature-space realization we pursue,
-while the logit-regression control in \Cref{fig:targetcomparison} makes clear that temperature-free
-regression is the broader principle.
+These results support direct regression to clean teacher targets in either space.
+We use features to preserve the representation supplied to the inherited classifier, including
+directions that logit regression need not constrain, and next examine what this single target controls.
 
 \subsection{What the Anchor Controls}
 \label{sec:decomp}
 
-We next characterize what is imposed by using one clean representation throughout the perturbation
-set. For any $x\in\mathcal{X}$ and $\epsilon\ge0$, let $B=B(x,\epsilon)$ and define
-\begin{align}
-L &= \max_{x'\in B}\left\lVert\Phi_s(x')-\Phi_t(x)\right\rVert_2,
-\label{eqn:L}\\
-F &= \left\lVert\Phi_s(x)-\Phi_t(x)\right\rVert_2,
-\label{eqn:F}\\
-O &= \max_{x',x''\in B}\left\lVert\Phi_s(x')-\Phi_s(x'')\right\rVert_2.
-\label{eqn:O}
-\end{align}
-Thus, $L^2=\mathcal{L}_{\mathrm{anchor}}(x)$ is the worst-case anchor loss, $F$ measures clean
-fidelity to the teacher, and $O$ is the diameter of the student's representation over the
-perturbation set.
+For a fixed $x$ and $B=B(x,\epsilon)$, define the worst-case anchor distance, clean fidelity, and
+student variation as
+\begin{equation}
+L=\max_{x'\in B}\lVert\Phi_s(x')-\Phi_t(x)\rVert_2,\quad
+F=\lVert\Phi_s(x)-\Phi_t(x)\rVert_2,\quad
+O=\max_{x',x''\in B}\lVert\Phi_s(x')-\Phi_s(x'')\rVert_2.
+\label{eqn:LFO}
+\end{equation}
 
 \begin{proposition}[Fixed-anchor decomposition]
 \label{prop:decomp}
-For every $x\in\mathcal{X}$ and $\epsilon\ge0$, the quantities in
-\Cref{eqn:L,eqn:F,eqn:O} satisfy
+For every $x\in\mathcal X$ and $\epsilon\ge0$,
 \begin{equation}
-L\;\le\;F+O\;\le\;3L.
+L\le F+O\le3L.
 \label{eqn:decomp}
 \end{equation}
 \end{proposition}
 
 \begin{proof}
 For any $x'\in B$, the triangle inequality gives
-\begin{equation*}
-\left\lVert\Phi_s(x')-\Phi_t(x)\right\rVert_2
-\le
-\left\lVert\Phi_s(x')-\Phi_s(x)\right\rVert_2
-+\left\lVert\Phi_s(x)-\Phi_t(x)\right\rVert_2
-\le O+F.
-\end{equation*}
-Maximizing over $x'$ yields $L\le F+O$. Conversely, $x\in B$ implies $F\le L$, and for any
-$x',x''\in B$,
-\begin{equation*}
-\left\lVert\Phi_s(x')-\Phi_s(x'')\right\rVert_2
-\le
-\left\lVert\Phi_s(x')-\Phi_t(x)\right\rVert_2
-+\left\lVert\Phi_s(x'')-\Phi_t(x)\right\rVert_2
-\le2L.
-\end{equation*}
-Hence $O\le2L$, and therefore $F+O\le3L$.
+$\lVert\Phi_s(x')-\Phi_t(x)\rVert_2\le
+\lVert\Phi_s(x')-\Phi_s(x)\rVert_2+F\le O+F$; maximizing over $x'$ yields $L\le F+O$.
+Moreover, $x\in B$ implies $F\le L$, and, for any $x',x''\in B$, applying the triangle inequality
+through $\Phi_t(x)$ gives $\lVert\Phi_s(x')-\Phi_s(x'')\rVert_2\le2L$. Hence $O\le2L$ and
+$F+O\le3L$.
 \end{proof}
 
-The proposition gives a precise, limited interpretation of the anchor. If
-$\mathcal{L}_{\mathrm{anchor}}(x)\le\delta^2$, then the student's clean feature lies within
-$\delta$ of the teacher target and all of its features in the perturbation set have diameter at most
-$2\delta$. A single worst-case distance therefore controls fidelity and local variation without
-balancing two penalties. Notably, this conclusion requires no assumption about how the teacher itself
-varies under perturbation, because only $\Phi_t(x)$ appears in the definitions.
-
-With the inherited classifier $h_t(z)=W_tz+b_t$, the same anchor also controls prediction-space
-deviation:
-\begin{equation}
-\left\lVert f_s(x')-f_t(x)\right\rVert_2
-\le\left\lVert W_t\right\rVert_{2\rightarrow2}L,
-\qquad x'\in B(x,\epsilon).
-\label{eqn:head_bound}
-\end{equation}
-Whether this bound preserves the predicted class additionally depends on the teacher's clean margin.
-Accordingly, \Cref{prop:decomp} characterizes the objective rather than proving that feature targets
-outperform logit targets or that a small anchor alone guarantees robust classification; these points
-are discussed further in \Cref{app:anchor_scope,app:robustness}.
+If $L\le\delta$, then the clean
+student feature is within $\delta$ of the teacher and the student's feature diameter over the ball is
+at most $2\delta$, without assuming that the teacher itself is stable. The inherited linear head also
+bounds logit deviation by $\lVert W_t\rVert_{2\rightarrow2}L$, although classification depends on
+the teacher's clean margin. The same argument applies to norm-based logit regression: it explains
+joint control by a fixed target, not a feature-specific advantage. Finite-step PGD does not certify $L$.
 
 \FloatBarrier
 \subsection{What Does the Natural Teacher Transfer?}
 \label{sec:teacher_transfer}
 \label{sec:geometry}
 
-Once the clean representation becomes the sole target, the choice of teacher checkpoint is no longer
-incidental. If the student merely inherited the teacher's scalar accuracy, a more accurate teacher
-would be expected to produce a more accurate student. We test this expectation using five checkpoints
-from a single natural-training trajectory. Only the checkpoint used for initialization, feature
-targets, and classifier inheritance is changed; the student training procedure is otherwise fixed.
-To track representation structure, we measure the ratio $S_w/S_b$ of within-class to between-class
-scatter on unit-normalized clean features, for which a smaller value indicates stronger class
-separation.
+We vary only the natural-teacher checkpoint along one training trajectory, using it for student
+initialization, feature targets, and classifier inheritance. We ask whether higher teacher clean
+accuracy translates into higher student clean accuracy, and whether changes in class geometry are
+preserved. We measure $S_w/S_b$ on unit-normalized clean features: $S_w$ is the mean squared distance
+to the corresponding class mean, and $S_b$ is the mean squared distance of class means to the global
+mean. A smaller ratio indicates stronger class separation.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
   \centering
   \includegraphics[width=\linewidth]{figure/teacher_checkpoint_trends.pdf}
-  \caption{Teacher-checkpoint effects on CIFAR-100 with ResNet-18. (a)~Accuracy changes relative to
-  the 50-epoch checkpoint reveal opposing teacher-clean and student-clean trends, while student
-  robustness initially rises. (b)~The class-scatter ratio decreases for both networks. Exact values
-  are reported in \Cref{tab:teacherladder_values}.}
+  \caption{Teacher checkpoint sweep on CIFAR-100 (ResNet-18). (a) Accuracy changes relative to the
+  50-epoch teacher. (b) Within-to-between scatter ratios $S_w/S_b$; lower means stronger class
+  separation, and labels denote teacher epochs. Lines are least-squares fits. Exact values are in
+  \Cref{tab:teacherladder_values}.}
   \label{fig:teacherladder}
 \end{figure}
 
-The result contradicts accuracy-only transfer. Across the ladder, the teacher gains $2.51$ points of
-clean accuracy, whereas the student loses $2.04$ points. Robust accuracy moves in the opposite
-direction before saturating at the later checkpoints. Meanwhile, the class-scatter ratio decreases
-monotonically for both networks, showing that changes in the teacher's representation are reflected
-in the student even though their clean accuracies move in opposite directions. Additional geometric
-diagnostics in \Cref{app:anchor_measurements} identify between-class separation, rather than
-within-class concentration, as the component most clearly shared by the two trajectories.
+The teacher gains $2.51$ clean points across the sweep while the student loses $2.04$, producing a
+negative correlation ($r=-0.999$), while student AA$_2$ rises from $24.38\%$ to $25.80\%$.
+Teacher and student scatter ratios decrease together ($r=0.989$). Thus higher teacher clean accuracy
+does not guarantee higher student clean accuracy, and changes in teacher class separation are
+reflected in the student. Five checkpoints from one trajectory establish this association, but do
+not isolate geometry from the simultaneous changes in initialization and classifier.
 
-We therefore view teacher training length as a control over the clean--robust operating point, not as
-a proxy that should simply be maximized. The evidence supports the restrained conclusion that the
-student tracks the teacher's class geometry more closely than its scalar clean accuracy; because
-accuracy and geometry co-vary along this checkpoint sequence, it does not establish class separation
-as the unique causal mechanism.
-
-The analysis above specifies what the student should match, but not how strongly a fixed pixel-space
-radius perturbs that target for each example. The same $\epsilon$ can induce very different changes
-in a feature-space loss. \Cref{sec:method} first states the resulting clean-feature training
-procedure and then derives a sample-dependent radius that allocates a fixed perturbation budget
-according to the input sensitivity of the anchor.
+We use the 200-epoch checkpoint in subsequent CIFAR-100 experiments. It lies on the late-checkpoint
+robustness plateau while retaining more student clean accuracy than the 300-epoch teacher. The next
+section turns the clean target into a training procedure and accounts for the fact that a fixed
+pixel-space radius perturbs its feature-space loss by different amounts across examples.

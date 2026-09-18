@@ -8,7 +8,7 @@
 \label{alg:cfa}
 \begin{algorithmic}[1]
 \STATE {\bfseries Input:} dataset $\mathcal{D}$, radius $\epsilon$, attack steps $K$, step size $a$,
-  exponent $p$, box $[w_{\mathrm{lo}}, w_{\mathrm{hi}}]$
+  exponent $p$, clipping thresholds $[w_{\mathrm{lo}}, w_{\mathrm{hi}}]$
 \STATE {\bfseries Output:} robust student $h_t \circ \Phi_s$
 \STATE
 \STATE \COMMENT{\emph{Phase 1 --- natural self-teacher.} The only stage that uses labels.}
@@ -19,17 +19,16 @@
 \FOR{$\mathrm{epoch} = 1$ {\bfseries to} $T$}
   \FOR{minibatch $\{x_i\}_{i=1}^{N} \subset \mathcal{D}$}
     \STATE $\phi_i \leftarrow \Phi_t(x_i)$ \hfill \COMMENT{teacher read once, at the clean input}
-    \STATE $g_i \leftarrow \lVert \nabla_x \lVert \Phi_s(x_i) - \phi_i \rVert^2 \rVert$
+    \STATE $g_i \leftarrow \max(\lVert \nabla_x \lVert \Phi_s(x_i) - \phi_i \rVert^2 \rVert_2,10^{-12})$
       \hfill \COMMENT{one backward pass}
-    \STATE $r_i \leftarrow (\bar g / g_i)^{p}$; \ \ solve
-      $\textstyle\sum_i \mathrm{clip}(t r_i, w_{\mathrm{lo}}, w_{\mathrm{hi}}) = N$ for $t$
-      \hfill \COMMENT{\Cref{eqn:box}}
-    \STATE $\epsilon_i \leftarrow \epsilon \cdot \mathrm{clip}(t r_i, w_{\mathrm{lo}},
-      w_{\mathrm{hi}})$ \hfill \COMMENT{$\textstyle\sum_i \epsilon_i = N\epsilon$}
+    \STATE $v_i \leftarrow \mathrm{clip}((\bar g/g_i)^p,w_{\mathrm{lo}},w_{\mathrm{hi}})$;
+      $w_i \leftarrow Nv_i/\sum_jv_j$
+    \STATE $\epsilon_i \leftarrow \epsilon w_i$; $a_i\leftarrow a w_i$
+      \hfill \COMMENT{$\textstyle\sum_i \epsilon_i = N\epsilon$}
     \STATE $x_i^{0} \leftarrow x_i + \eta_i$
     \FOR{$k = 0$ {\bfseries to} $K-1$}
       \STATE $x_i^{k+1} \leftarrow \Pi_{B(x_i, \epsilon_i)}
-        \big( x_i^{k} + a\,\mathrm{sign}\,\nabla_x \lVert \Phi_s(x_i^{k}) - \phi_i \rVert^2 \big)$
+        \big( x_i^{k} + a_i\,\mathrm{sign}\,\nabla_x \lVert \Phi_s(x_i^{k}) - \phi_i \rVert^2 \big)$
     \ENDFOR
     \STATE $\mathcal{L} \leftarrow \frac{1}{N} \sum_i
       \lVert \Phi_s(x_i^{K}) - \phi_i \rVert^2$
@@ -43,21 +42,16 @@
 \section{Two Partial Results on the Robustness Side}
 \label{app:robustness}
 
-Guiding adversarial training with a naturally trained network is not new and we do not claim it:
-LBGAT, ARREST and DP-FAT all do it. What is different here is that they keep the adversarial label
-loss and add the natural teacher on top of it, so their robustness is bought by the label term and the
-anchor is free to contribute clean accuracy alone. Nobody needs to ask whether their teacher's
-fragility leaks into the student, because the term that makes the student robust is not the teacher.
+Natural-teacher guidance is shared with prior work; our question is whether a fixed clean target can
+support adversarial training without an additional label objective. In CFA, the teacher specifies the
+target while the student's inner maximization enforces matching under perturbations. Teacher
+vulnerability alone therefore does not determine the student's response: matching a clean target
+is different from reproducing the teacher at perturbed inputs.
 
-We delete the label loss. \Cref{eqn:anchor} is the whole backbone objective, so the robustness has to
-come from the inner maximization alone, against a target supplied by a network with $0$ AutoAttack
-accuracy. That makes an otherwise idle objection load-bearing: a representation assembled out of
-features an adversary can flip is being handed to a student as the only thing it is trained on, and
-the student might reasonably be expected to inherit the fragility along with the answer. The first
-result below says that in the model where the objection is usually posed, it does not. The second is a
-certificate that tracks robustness without predicting it. Neither closes the question the paper
-actually sells --- how much robustness the objective \emph{buys} --- and both are reported with the
-reason they fall short.
+The two results below examine this distinction in restricted settings. The first studies robust
+and non-robust features in a two-feature model; the second relates anchor error to a classification
+margin. They supplement the fixed-anchor decomposition, but do not predict the measured accuracy
+or establish superiority over other regression targets.
 
 \subsection{In the Two-Feature Model, the Non-Robust Coefficient Is Zeroed Rather Than Shrunk}
 
@@ -197,8 +191,23 @@ Its representation can therefore change substantially within the perturbation ba
 
 As a control, replacing the clean target $\Phi_t(x)$ with $\Phi_t(x')$ makes an exact copy of the
 teacher, $\Phi_s=\Phi_t$, a zero-loss solution even when the teacher is sensitive to perturbations.
-This variant yields $0.00\%$ AutoAttack accuracy (\Cref{tab:controls}). With a fixed clean target,
+This variant yields $0.00\%$ AutoAttack accuracy (\Cref{tab:teacherread}). With a fixed clean target,
 copying the teacher instead incurs a loss wherever its features change within the ball.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{Where the teacher is evaluated. CIFAR-100, ResNet-18, 50 epochs; the two rows differ only
+  in the teacher input used by the loss and inner maximization.}
+  \label{tab:teacherread}
+  \begin{tabular}{lrrr}
+    \toprule
+    Teacher target & Clean & AA & NRR \\
+    \midrule
+    $\Phi_t(x)$                     & 61.33 & \textbf{26.19} & \textbf{36.71} \\
+    $\Phi_t(x_{\mathrm{adv}})$      & \textbf{76.11} & 0.00 & 0.00 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 IGDM \citep{igdm} uses the finite difference $f_t(x+\delta)-f_t(x-\delta)$ to approximate the
 teacher's response along the perturbation direction. Its accuracy depends on local linearity.
@@ -218,6 +227,14 @@ isolating the target alone.
 \subsection{Additional Evidence for the Anchor Objective}
 \label{app:anchor_measurements}
 
+The geometry and displacement diagnostics in \Cref{sec:empirical_geometry} use the earlier
+100-epoch \texttt{ladder\_p0\_100ep} anchor and \texttt{abl\_ce\_nostack} checkpoints.
+The anchor's backbone uses raw feature regression, while a detached KD term trains its classifier;
+this is distinct from the frozen-head models in \Cref{tab:controls}. Both diagnostics use true-label
+PGD with 10 steps at radius $8.8/255$. The displacement script samples training batches, whereas the
+class-geometry script samples test batches. Consequently, they are complementary descriptive
+measurements rather than a joint causal test on the final model.
+
 % The former L/F/O diagnostic paragraph is withheld pending corrected evaluation.
 % Its source, settings, and network-mode mismatch are recorded in
 % notes/analysis_review_20260908.md; do not restore the threefold-stability claim
@@ -236,7 +253,7 @@ class separation as the sole cause of the robustness gain.
 The checkpoint ladder in \Cref{fig:teacherladder} further separates within-class concentration from
 between-class separation on unit-normalized features. From the 50-epoch to the 300-epoch teacher,
 the mean angle from a sample to its class centroid decreases from $34.6^\circ$ to $30.9^\circ$,
-whereas the angle to the nearest class centroid increases from $35.7^\circ$ to $44.9^\circ$. The
+whereas the nearest-other-centroid angle between class means increases from $35.7^\circ$ to $44.9^\circ$. The
 corresponding students reproduce the latter change---their nearest-centroid separation increases from
 $25.4^\circ$ to $29.8^\circ$---while their mean within-class angle remains nearly unchanged
 ($27.9^\circ$ to $28.2^\circ$). These measurements motivate interpreting the ladder through
@@ -315,6 +332,30 @@ controls the two errors without eliminating this possible conflict.
 The following tables provide additional results supporting the main experiments and supplementary
 analysis.
 
+\paragraph{Regression under weight averaging and AWP.}
+\Cref{tab:regression_stack} compares logit and feature regression with the same natural teacher,
+inherited frozen classifier, AdamW optimizer, one-cycle schedule, WA, and AWP. Both use a uniform
+radius: neither run includes sensitivity-based allocation. Each objective is maximized to generate
+training perturbations and minimized to update the backbone, so the comparison includes its effect
+on both stages. Logit regression remains competitive with the training stack; the single-seed
+difference does not establish a general advantage for feature regression.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{6pt}
+  \caption{Fixed-head regression with WA and AWP: CIFAR-100, ResNet-18, 100 epochs,
+  uniform $\epsilon_{\mathrm{train}}=8.8/255$. Evaluation uses the APGD-CE/APGD-T cascade at $8/255$.
+  Both losses sum squared errors across output coordinates and average over the batch.}
+  \label{tab:regression_stack}
+  \begin{tabular}{lrr}
+    \toprule
+    Target & Clean & AA \\
+    \midrule
+    Clean logits & 60.36 & 28.02 \\
+    Clean features & 60.42 & 28.42 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
   \caption{Local linearity, which IGDM's construction requires of the teacher: remainder proportion of
@@ -355,15 +396,21 @@ analysis.
   \end{tabular}
 \end{table}
 
+\paragraph{Normalization check.} Because \Cref{sec:teacher_transfer} analyzes angular geometry, we
+check whether discarding feature magnitude changes the training conclusion. Normalizing both sides
+changes NRR by $0.18$ with weight averaging and AWP, while raw regression is better in the base
+regime. We therefore retain raw squared $\ell_2$ as the default and use normalized features only for
+analysis; CFA does not rely on a cosine objective.
+
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Does the anchor need the teacher's feature \emph{magnitude}? Normalizing both
-  representations to the unit sphere removes it and keeps only the angle, which makes the squared
-  Euclidean loss $\lVert \hat\Phi_s - \hat\Phi_t \rVert_2^2 = 2 - 2\cos\angle(\Phi_s, \Phi_t)$, i.e.\
-  a cosine loss up to an affine map. CIFAR-100, ResNet-18, 100 epochs; within each panel the two rows
-  differ in the normalization and in nothing else. The asymmetric row normalizes the student alone, so
-  the two sides live at different scales; it is a diagnostic rather than a design, and is marked as
-  such.}
+  \caption{Effect of feature normalization in the anchor loss. Normalizing both representations to
+  the unit sphere removes their magnitudes and keeps only the angle, for which the squared Euclidean
+  loss satisfies $\lVert \hat\Phi_s - \hat\Phi_t \rVert_2^2 = 2 - 2\cos\angle(\Phi_s, \Phi_t)$ and is
+  therefore equivalent to cosine loss up to an affine transformation. CIFAR-100, ResNet-18, 100
+  epochs; within each panel, the runs differ only in how the student and teacher features are
+  normalized. The asymmetric row normalizes the student alone, placing the two sides at different
+  scales, and is included only as a diagnostic.}
   \label{tab:normalization}
   \begin{tabular}{lrrr}
     \toprule
@@ -380,21 +427,6 @@ analysis.
     \bottomrule
   \end{tabular}
 \end{table}
-
-\paragraph{Feature magnitude, and what the anchor actually transfers.} The objective regresses raw
-features while the geometry read in \Cref{sec:analysis} is angular, so a natural question is whether
-the gain is magnitude matching rather than directional agreement. \Cref{tab:normalization} removes the
-magnitude by normalizing both sides. Under the full recipe, directional matching keeps the standard
-accuracy of raw regression and differs by $0.07$ AutoAttack and $0.18$ NRR; taking each design at its
-own best recipe instead, raw regression reaches $62.17 / 28.86$ (NRR $39.42$) against $62.17 / 28.59$
-(NRR $39.17$) for the directional variant, within $0.25$ NRR of each other, though those two cells
-also differ in how they treat the classifier and the late-schedule learning rate. In the base regime
-raw regression is the better of the two by $1.44$ AutoAttack, so feature magnitudes do help
-optimization there without being necessary for the final numbers.
-Read together with \Cref{tab:targetcomparison_values}, where logit regression against the same frozen
-head lands $0.21$ NRR below the feature anchor, the conclusion is not that one metric is privileged.
-What the three share is the design: the teacher's clean representation is handed to the student as a
-fixed target, and no label objective is added beside it.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
@@ -424,82 +456,82 @@ fixed target, and no label objective is added beside it.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{3.4pt}
-  \caption{The stack, on both datasets and both training radii. Every cell is the anchor with the
-  sensitivity-matched radius and the teacher's classifier inherited; the columns add weight averaging
-  ($\kappa = 0.999$ from $20\%$ of the run) and then the AWP proxy ($\gamma = 0.005$, warmup at $10\%$
-  of the run). Empty cells were not run. Two readings hold on both datasets: without AWP the shorter
-  schedule is the better one, and AWP is what makes the $100$-epoch schedule pay.}
+  \caption{Effect of AWP on top of weight averaging across datasets and training radii. Every run uses
+  the sensitivity-matched radius for 100 epochs; the AWP proxy uses $\gamma=0.005$ after a 10-epoch
+  warmup. Within each row, AWP is the only added component.}
   \label{tab:stackboth}
-  \begin{tabular}{lrrrrrrrrr}
+  \begin{tabular}{lrrrrrr}
     \toprule
-    & \multicolumn{3}{c}{No stack} & \multicolumn{3}{c}{$+$ WA} & \multicolumn{3}{c}{$+$ WA $+$ AWP} \\
-    \cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
-    & Clean & AA & NRR & Clean & AA & NRR & Clean & AA & NRR \\
+    & \multicolumn{3}{c}{WA} & \multicolumn{3}{c}{WA $+$ AWP} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-7}
+    & Clean & AA & NRR & Clean & AA & NRR \\
     \midrule
-    \multicolumn{10}{l}{\emph{CIFAR-100}} \\
-    $8/255$, 50 ep & 64.51 & 25.88 & 36.94 & 62.90 & 27.76 & 38.52 & -- & -- & -- \\
-    $8/255$, 100 ep & -- & -- & -- & 63.54 & 26.75 & 37.65 & 63.89 & 27.78 & 38.72 \\
-    $8.8/255$, 50 ep & 62.91 & 26.50 & 37.29 & 61.24 & 28.30 & 38.71 & 59.74 & 28.01 & 38.14 \\
-    $8.8/255$, 100 ep & 63.09 & 25.74 & 36.56 & 62.30 & 27.69 & 38.34 & 62.17 & 28.86 & 39.42 \\
+    \multicolumn{7}{l}{\emph{CIFAR-100}} \\
+    $8/255$   & 63.54 & 26.75 & 37.65 & 63.89 & 27.78 & 38.72 \\
+    $8.8/255$ & 62.30 & 27.69 & 38.34 & 62.17 & 28.86 & 39.42 \\
     \midrule
-    \multicolumn{10}{l}{\emph{CIFAR-10}} \\
-    $8/255$, 50 ep & 87.09 & 47.53 & 61.50 & 85.52 & 50.10 & 63.18 & 84.48 & 50.47 & 63.19 \\
-    $8/255$, 100 ep & -- & -- & -- & 86.67 & 49.20 & 62.77 & 87.22 & 51.15 & 64.48 \\
-    $8.8/255$, 50 ep & 85.85 & 47.98 & 61.56 & 83.54 & 50.25 & 62.75 & -- & -- & -- \\
-    $8.8/255$, 100 ep & -- & -- & -- & 85.16 & 50.15 & 63.13 & 84.96 & 51.74 & 64.31 \\
+    \multicolumn{7}{l}{\emph{CIFAR-10}} \\
+    $8/255$   & 86.67 & 49.20 & 62.77 & 87.22 & 51.15 & 64.48 \\
+    $8.8/255$ & 85.16 & 50.15 & 63.13 & 84.96 & 51.74 & 64.31 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{What the per-sample radius is allocated \emph{from}. CIFAR-100, ResNet-18, the shipped
-  recipe, with the cells differing in one configuration line each and spending the same total budget
-  $N\epsilon_{\mathrm{train}}$. $\mathrm{sd}(w)$ is the spread of the multiplier the attack actually
-  receives, after the box and the mean restoration. Only the sensitivity signal beats allocating
-  nothing at all.}
-  \label{tab:allocation}
-  \begin{tabular}{lcrrrrr}
-    \toprule
-    Allocated from & $\mathrm{sd}(w)$ & Clean & PGD-20 & CW & AA & NRR \\
-    \midrule
-    Nothing (uniform, $p=0$)                & 0 & 60.42 & \textbf{33.11} & 30.07 & 28.42 & 38.66 \\
-    \textbf{Loss sensitivity (ours, $p=1$)} & 0.32 & \textbf{62.17} & 32.37 & \textbf{30.93} & \textbf{28.86} & \textbf{39.42} \\
-    \midrule
-    Difficulty magnitude (IAAT, CAT)        & 0.39 & 61.27 & 32.45 & 30.14 & 28.12 & 38.55 \\
-    Difficulty, same weights permuted       & 0.32 & 60.90 & 32.32 & 29.94 & 28.06 & 38.42 \\
-    Logit margin (MMA)                      & 0.42 & 61.07 & 32.46 & 29.75 & 27.79 & 38.20 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4.0pt}
-  \caption{ARREST at our recipe, matched epoch by epoch. Both columns train at $8/255$ from the same
-  $200$-epoch natural teacher with our optimizer and our stack, and differ only in the objective: ours
-  is the anchor with the sensitivity-matched radius, theirs is the label loss plus the angular
-  representation term with the CE attack and Noisy Replay. \emph{ARREST $+$ our radius} adds our
-  allocation rule to their objective.}
-  \label{tab:arrestepochs}
+  \centering \small \setlength{\tabcolsep}{4pt}
+  \caption{Published adversarial-distillation objectives supplied with our natural teacher. The first
+  row of each method uses its published recipe; indented rows add our teacher initialization and then
+  our optimizer and schedule, without weight averaging or AWP.}
+  \label{tab:natteacher}
   \begin{tabular}{lrrrcrrr}
     \toprule
-    & \multicolumn{3}{c}{CFA (ours)} & & \multicolumn{3}{c}{ARREST} \\
+    & \multicolumn{3}{c}{CIFAR-100} && \multicolumn{3}{c}{CIFAR-10} \\
     \cmidrule(lr){2-4}\cmidrule(lr){6-8}
-    Epochs & Clean & AA & NRR & & Clean & AA & NRR \\
+    & Clean & AA & NRR && Clean & AA & NRR \\
     \midrule
-    \multicolumn{8}{l}{\emph{CIFAR-100}} \\
-    100 & 63.89 & \textbf{27.78} & \textbf{38.72} & & 64.87 & 27.08 & 38.21 \\
-    150 & 64.75 & \textbf{27.98} & \textbf{39.07} & & 64.66 & 26.40 & 37.49 \\
+    ARD & 57.61 & 20.24 & 29.96 && 84.58 & 43.75 & 57.67 \\
+    \quad + teacher initialization & 57.96 & 20.22 & 29.98 && -- & -- & -- \\
+    RSLAD & 59.68 & 21.30 & 31.40 && 85.15 & 42.91 & 57.06 \\
+    \quad + teacher initialization & 59.87 & 20.71 & 30.77 && -- & -- & -- \\
+    \quad + our optimizer and schedule & 54.93 & 19.44 & 28.72 && -- & -- & -- \\
+    AdaAD & 59.79 & 23.19 & 33.42 && 85.39 & 46.22 & 59.98 \\
+    \quad + teacher initialization & 59.75 & 22.78 & 32.98 && -- & -- & -- \\
+    \quad + our optimizer and schedule & 56.51 & 22.43 & 32.11 && -- & -- & -- \\
+    AdaAD + IGDM & 48.25 & 19.48 & 27.75 && 85.01 & 45.50 & 59.27 \\
+    \quad + teacher initialization & 49.67 & 20.15 & 28.67 && -- & -- & -- \\
     \midrule
-    \multicolumn{8}{l}{\emph{CIFAR-10}} \\
-    50  & 84.48 & 50.47 & 63.19 & & 84.49 & 50.61 & 63.30 \\
-    100 & 87.22 & 51.15 & \textbf{64.48} & & 85.24 & 51.52 & 64.22 \\
-    150 & 87.37 & 51.33 & \textbf{64.67} & & 85.79 & 51.84 & 64.63 \\
-    200 & 87.76 & 51.44 & \textbf{64.86} & & 86.13 & 51.33 & 64.33 \\
+    PGD-AT, teacher initialization & 57.73 & \textbf{26.46} & 36.29 && 82.23 & \textbf{50.72} & 62.74 \\
+    CFA, no WA/AWP & 61.29 & 25.36 & 35.88 && -- & -- & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{3.4pt}
+  \caption{Epoch-matched CFA and full-stack ARREST with the same 200-epoch natural teacher,
+  optimizer, WA, and AWP. The first two panels use a mean training radius of $8/255$;
+  the final panel also gives ARREST our radius allocation at $8.8/255$.
+  $\Delta$AA is CFA minus ARREST, in percentage points.}
+  \label{tab:arrestepochs}
+  \begin{tabular}{lrrrcrrrr}
+    \toprule
+    & \multicolumn{3}{c}{CFA (ours)} & & \multicolumn{3}{c}{ARREST + WA + AWP} & \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    Epochs & Clean & AA & NRR & & Clean & AA & NRR & $\Delta$AA \\
     \midrule
-    \multicolumn{8}{l}{\emph{ARREST $+$ our radius, against our row at the same radius}} \\
-    100, $8.8/255$, C100 & 62.17 & \textbf{28.86} & \textbf{39.42} & & 64.08 & 27.53 & 38.51 \\
-    100, $8.8/255$, C10  & 84.96 & 51.74 & 64.31 & & 85.93 & 51.76 & \textbf{64.60} \\
+    \multicolumn{9}{l}{\emph{CIFAR-100}} \\
+    100 & 63.89 & \textbf{27.78} & \textbf{38.72} & & \textbf{64.87} & 27.08 & 38.21 & $+0.70$ \\
+    150 & \textbf{64.75} & \textbf{27.98} & \textbf{39.07} & & 64.66 & 26.40 & 37.49 & $+1.58$ \\
+    \midrule
+    \multicolumn{9}{l}{\emph{CIFAR-10}} \\
+    50  & 84.48 & 50.47 & 63.19 & & \textbf{84.49} & \textbf{50.61} & \textbf{63.30} & $-0.14$ \\
+    100 & \textbf{87.22} & 51.15 & \textbf{64.48} & & 85.24 & \textbf{51.52} & 64.22 & $-0.37$ \\
+    150 & \textbf{87.37} & 51.33 & \textbf{64.67} & & 85.79 & \textbf{51.84} & 64.63 & $-0.51$ \\
+    200 & \textbf{87.76} & \textbf{51.44} & \textbf{64.86} & & 86.13 & 51.33 & 64.33 & $+0.11$ \\
+    \midrule
+    \multicolumn{9}{l}{\emph{ARREST $+$ our radius, against CFA at the same mean radius}} \\
+    100, $8.8/255$, C100 & 62.17 & \textbf{28.86} & \textbf{39.42} & & \textbf{64.08} & 27.53 & 38.51 & $+1.33$ \\
+    100, $8.8/255$, C10  & 84.96 & 51.74 & 64.31 & & \textbf{85.93} & \textbf{51.76} & \textbf{64.60} & $-0.02$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -598,7 +630,18 @@ only permutes which example receives which, so that the larger radii go to the e
 is the direction IAAT and CAT assign them. Reordering costs $0.80$ AutoAttack against the rule it
 reorders and lands below even the uniform row on AutoAttack, CW and NRR alike.
 
-\subsection{Keeping the radii in the box}
+\subsection{Clipping and restoring the mean radius}
+
+The reported configuration floors the gradient norm at $10^{-12}$ and computes
+$v_i=\mathrm{clip}((\bar g/g_i)^p,0.5,1.5)$, followed by
+$w_i=Nv_i/\sum_jv_j$ and $\epsilon_i=\epsilon w_i$. PGD uses step size $a_i=aw_i$.
+This preserves the batch mean radius exactly. The clipping thresholds apply before normalization,
+so they are not hard bounds on the final multipliers. When all gradients vanish, the floor makes all
+$g_i$ equal and the allocation uniform.
+
+\paragraph{Optional exact-box variant.}
+The implementation also supports an alternative that constrains the final multipliers. It is not
+enabled in the reported default configuration.
 
 With $r_i = (\bar g / g_i)^p$ and box $[w_{\mathrm{lo}}, w_{\mathrm{hi}}] = [0.5, 1.5]$, the radii that
 satisfy both the box and the budget exactly are $\epsilon_i = \epsilon \cdot \mathrm{clip}(t r_i,
@@ -615,6 +658,22 @@ not preserve the box---the rescaling moves the clipped entries back out of it.
 \section{Experimental Details}
 \label{app:repro}
 
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{Natural teacher checkpoints used by the shipped models. The teachers are trained only on
+  clean examples and have zero adversarial accuracy.}
+  \label{tab:teachers}
+  \begin{tabular}{llrr}
+    \toprule
+    Dataset & Architecture & Epochs & Clean \\
+    \midrule
+    CIFAR-10      & ResNet-18 & 200 & 95.32 \\
+    CIFAR-100     & ResNet-18 & 200 & 77.66 \\
+    Tiny-ImageNet & ResNet-18 & 200 & 66.29 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 Every number we report is the \textbf{final} epoch, never a checkpoint selected on a robustness
 metric. This matters when reading \Cref{tab:published}: RPAT selects on PGD-20 and ADR on PGD-10, so
 those rows are upper envelopes of a training run where ours is its endpoint.
@@ -622,8 +681,8 @@ those rows are upper envelopes of a training run where ours is its endpoint.
 \paragraph{Teacher.} One naturally trained network per dataset, no adversarial examples anywhere in
 its training, and the student is warm-started from the same checkpoint. ResNet-18, SGD at learning
 rate $0.1$ under a one-cycle schedule, batch size $128$, no augmentation beyond the standard crop and
-flip: $200$ epochs on CIFAR-10 and CIFAR-100, $80$ on Tiny-ImageNet-200. The resulting teachers reach
-$95.33$ (CIFAR-10), $77.66$ (CIFAR-100) and the Tiny-ImageNet figure quoted in \Cref{tab:tin}. The
+flip, for $200$ epochs on each dataset. The resulting teachers are summarized in
+\Cref{tab:teachers}. The
 teacher's own robustness is $0$ --- it is never attacked and is not meant to survive attack;
 \Cref{fig:teacherladder} is the ablation over how long it is trained.
 
@@ -646,7 +705,7 @@ teacher's own robustness is $0$ --- it is never attacked and is not meant to sur
   Classifier head                & frozen & frozen & frozen \\
   Weight averaging (start, decay)& $0.2$, $0.999$ & $0.2$, $0.999$ & $0.2$, $0.999$ \\
   AWP ($\gamma$, warmup)         & $0.005$, 10 ep & $0.005$, 10 ep & $0.005$, 10 ep \\
-  Teacher checkpoint             & clean, 200 ep & clean, 200 ep & clean, 80 ep \\
+  Teacher checkpoint             & clean, 200 ep & clean, 200 ep & clean, 200 ep \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -656,21 +715,19 @@ inherited and never updated, the head-KD term of earlier drafts has no parameter
 switched off entirely. $p$ is not tuned. $\epsilon_{\mathrm{train}} = 8.8/255$ is the one value swept,
 in \Cref{tab:radius}, and evaluation is at $8/255$ in every cell regardless.
 
-\paragraph{Evaluation.} AutoAttack, \texttt{standard} version (APGD-CE and APGD-T), $\ell_\infty$ at
-$\epsilon = 8/255$, run on the full test set. PGD-20 and CW$_\infty$ are reported alongside because
-they disagree with each other in a way that matters (\Cref{app:fullmetrics}), and NRR is the harmonic
-mean of clean accuracy and AutoAttack accuracy. Where a table reports a method we ported rather than
+\paragraph{Evaluation.} We report the APGD-CE/APGD-T cascade at $\ell_\infty$ radius
+$\epsilon = 8/255$ on the full test set. A dedicated validation of the CIFAR-100 seed-1 model
+uses all four attacks in standard AutoAttack; FAB-T and Square leave the two-attack result unchanged
+(\Cref{app:gradmask}). PGD-20 and CW$_\infty$ are also reported (\Cref{app:fullmetrics}), and NRR
+is the harmonic mean of clean and robust accuracy. Where a table reports a method we ported rather than
 quoted, the port runs on its own published recipe --- HAT and LBGAT both collapse under our schedule
 and are given theirs --- and only the evaluation is ours.
 
-\paragraph{Seeds, and how large a difference has to be.} Every number in this paper is one seed. The
-ablations are read as differences of a few tenths, so one repeat is reported to say what a tenth is
-worth: the shipped CIFAR-100 cell at seed $1$ gives $62.00 / 32.49 / 30.82 / 28.74$ against seed $0$'s
-$62.17 / 32.37 / 30.93 / 28.86$, moving each metric by $0.11$ to $0.17$ and AutoAttack by $0.12$.
-Differences at that scale are not read as differences anywhere in this paper; the component deltas of
-\Cref{tab:ladder} and the gaps of \Cref{tab:allocation} are between four and fifteen times it. One
-repeat is one repeat, and it bounds nothing --- it is reported because a reader otherwise has no scale
-at all.
+\paragraph{Repeated training.} Each reported row is an individual run. For the final CIFAR-100
+configuration, seed $1$ gives $62.00/32.49/30.82/28.74$ clean/PGD-20/CW/AA, compared with
+$62.17/32.37/30.93/28.86$ for seed $0$. These two runs provide a limited reproducibility check,
+not a variance estimate or a significance threshold for other comparisons. In particular, small
+differences between regression targets or nearby operating points require further repetitions.
 
 \paragraph{Compute, teacher included.} A single RTX 5080. One student cell is about $2.2$ hours on
 CIFAR-100 at 100 epochs, of which the AutoAttack evaluation is roughly $7$ minutes; Tiny-ImageNet is
@@ -717,7 +774,7 @@ generated data, which is more expensive than every row here combined.
 \section{The Recipe Controls}
 \label{app:recipe}
 
-Every anchored cell in this paper warm-starts from the natural teacher and trains with AdamW at
+Unless explicitly ablated, CFA warm-starts from the natural teacher and trains with AdamW at
 $0.021$ under a one-cycle schedule, while the baselines of \Cref{tab:main} run at their authors'
 recipes. Two objections follow from that asymmetry, and \Cref{tab:recipe} answers both. The first is
 that our recipe is what wins; the second is that the baselines would win with it. Every row is
@@ -750,23 +807,49 @@ CIFAR-100 with ResNet-18 for 100 epochs.
   \end{tabular}
 \end{table}
 
-The anchor moves by $0.22$ NRR between initializations and by $0.11$ between schedules, against a
-seed-to-seed spread of $0.12$ measured in \Cref{app:repro}, so neither is where its result comes from.
-Cross-entropy moves by $1.87$ NRR between the two schedules, which is the more important number: our
-schedule is not the best one for cross-entropy, and the base-regime comparison in
-\Cref{tab:controls} is therefore read against the stronger of its two rows. AdaAD loses $1.31$ NRR when given our recipe and RSLAD loses $2.68$, so the recipe is not a general
-improvement that the baselines were denied.
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4pt}
+  \caption{Every baseline given our optimizer, schedule, natural warm start, training radius, weight
+  averaging, and AWP proxy while retaining its own objective. CIFAR-100, ResNet-18.}
+  \label{tab:fullmatch}
+  \begin{tabular}{lrrrcrrrr}
+    \toprule
+    & \multicolumn{3}{c}{Own recipe} && \multicolumn{3}{c}{+ ours} & \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    Method & Clean & AA & NRR && Clean & AA & NRR & $\Delta$NRR \\
+    \midrule
+    PGD-AT & 57.36 & 20.34 & 30.03 && 57.73 & 26.46 & 36.29 & $+6.26$ \\
+    TRADES & 55.28 & 23.55 & 33.03 && 55.33 & 25.26 & 34.69 & $+1.66$ \\
+    MART & 53.86 & 22.72 & 31.96 && 50.48 & 25.74 & 34.09 & $+2.14$ \\
+    ARD & 57.61 & 20.24 & 29.96 && 58.04 & 26.44 & 36.33 & $+6.37$ \\
+    RSLAD & 59.68 & 21.30 & 31.40 && 59.82 & 25.04 & 35.30 & $+3.91$ \\
+    AdaAD & 59.79 & 23.19 & 33.42 && 58.37 & 26.71 & 36.65 & $+3.23$ \\
+    AdaAD + IGDM & 48.25 & 19.48 & 27.75 && 52.89 & 25.04 & 33.99 & $+6.23$ \\
+    ARREST & \textbf{66.44} & 22.99 & 34.16 && 63.65 & 27.48 & \textbf{38.39} & $+4.23$ \\
+    HAT & 60.67 & 24.45 & 34.85 && 55.42 & 19.56 & 28.91 & $-5.94$ \\
+    LBGAT & 56.46 & 26.02 & 35.62 && \multicolumn{3}{c}{\emph{collapses to chance}} & -- \\
+    \midrule
+    \textbf{CFA (ours)} & \multicolumn{3}{c}{--} && 62.17 & \textbf{28.86} & \textbf{39.42} & \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Changing initialization or schedule changes the anchor's NRR by $0.22$ and $0.11$, respectively.
+Cross-entropy improves by $1.87$ NRR under its own schedule, so \Cref{tab:controls} includes that
+stronger baseline. The anchor remains ahead under both tested schedules. These comparisons support
+an objective-level contribution within the tested recipes, without establishing significance from
+single runs or claiming exhaustive tuning of the alternatives.
 
 \section{Gradient Masking}
 \label{app:gradmask}
 
-The AutoAttack numbers reported in this paper run APGD-CE followed by APGD-T on the full test set. Both
-are white-box gradient attacks, and the objective we train reads neither labels nor logits, so the
-question of whether the robustness is an artifact of obscured gradients has to be answered rather than
-asserted. \Cref{tab:gradmask} runs the checks of \citet{athalye2018obfuscated} on the full test set. The model
-is the seed-1 repeat of the shipped CIFAR-100 configuration ($62.00$ clean, $28.74$ AutoAttack against
-the seed-0 run's $62.17 / 28.86$ reported elsewhere), which is the checkpoint that survives on disk;
-none of the checks below is a property that a seed changes.
+We validate the reported robustness with the full standard AutoAttack suite and additional
+gradient-masking diagnostics \citep{athalye2018obfuscated}. The evaluated model is the CIFAR-100
+seed-1 repeat of the final configuration, with $62.00\%$ clean accuracy and $28.74\%$ in its original
+two-attack evaluation. In the dedicated validation on all $10000$ test images, both the two-attack
+cascade and the full four-attack suite yield $28.73\%$ (\Cref{tab:gradmask}). This establishes that
+FAB-T and Square do not reduce robust accuracy further for this checkpoint; it does not substitute
+for a four-attack evaluation of other checkpoints.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
@@ -787,7 +870,7 @@ none of the checks below is a property that a seed changes.
     Square             & \textbf{black box}, 5000 queries & 34.82 \\
     \midrule
     \multicolumn{3}{l}{\emph{as a cascade}} \\
-    APGD-CE $\rightarrow$ APGD-T & what this paper reports & 28.73 \\
+    APGD-CE $\rightarrow$ APGD-T & two-attack validation & 28.73 \\
     \quad $\rightarrow$ FAB-T $\rightarrow$ Square & AutoAttack's \texttt{standard} version & 28.73 \\
     \midrule
     \multicolumn{3}{l}{\emph{radius sweep}, PGD-20} \\
@@ -808,13 +891,12 @@ none of the checks below is a property that a seed changes.
   \end{tabular}
 \end{table}
 
-Four things follow. The black-box attack is the weakest of the four, by $5.99$ points against the
-strongest white-box one, where masked gradients produce the opposite ordering. Adding FAB-T and Square
-to the cascade changes the reported number by $0.00$: neither attack breaks a single one of the $2873$
-points left standing by APGD-CE and APGD-T, which is why the two-attack figure is what we report
-throughout. Accuracy falls monotonically with the radius and reaches exactly zero at $64/255$, so
-there is no radius at which the attack stops working, and it falls monotonically with the number of
-steps and flattens by $50$ rather than oscillating.
+Square leaves $5.99$ points more accuracy than the strongest individual white-box attack, APGD-T.
+In the standard cascade, neither FAB-T nor Square successfully perturbs any of the $2873$ examples
+that survive APGD-CE and APGD-T, leaving robust accuracy unchanged at $28.73\%$. PGD accuracy
+decreases monotonically over the tested radii, reaching zero at $64/255$, and decreases with the
+number of steps, with smaller changes beyond $50$. Together, these checks provide no indication of
+gradient masking under the evaluated attacks, without establishing worst-case robustness.
 
 The transfer row is worth reading separately. The student inherits the teacher's classifier and is
 initialized at the teacher's features, so adversarial examples built on the teacher might be expected
@@ -877,18 +959,14 @@ AutoAttack and B-MTARD reports it on MobileNet-v2, so neither appears; CURE, ARR
 do not report it at all.
 
 \paragraph{IGDM} is reported at $\alpha = 1$. Its published $\alpha = 20$ diverges to chance accuracy
-on both datasets when the teacher is natural, for the reason given in \Cref{sec:natteacher}.
+on both datasets when the teacher is natural, as documented in \Cref{tab:natteacher}.
 
-\paragraph{Logit anchor + our stack} is not a published method. It is our own recipe with the feature
-anchor replaced by logit KL --- the closest thing to KD\,+\,SWA \citep{kdswa} that a natural teacher
-admits, distil then average weights, with a logit target where ours is a feature one --- and it exists
-to isolate the target from the schedule. Its temperature is chosen in the baseline's favour rather
-than faithfully: plain distillation is $\tau = 1$, which is the worst of the three in
-\Cref{tab:ablation} at $20.84$ AutoAttack, and the row uses the $\tau$ that maximizes it, $4$ at
-$24.48$. The comparison is therefore against the best logit target we could find rather than the one
-the name implies. Temperature also stops being a small effect once the stack is present: the two differ by
-$0.48$ without it, and $\tau = 16$ reaches only $42.45 / 20.10$ with it, against $\tau = 4$'s
-$56.97 / 26.96$.
+\paragraph{Teacher-only KL with the training stack.} This diagnostic combines probability-target
+distillation with WA and AWP; it is not a reproduction of a published method. Temperature is applied
+only to the teacher, and the best tested stacked setting, $\tau=4$, gives $56.97/26.96$ clean/AA;
+$\tau=16$ gives $42.45/20.10$. The comparison concerns this KL training design, not all logit-based
+supervision. In particular, fixed-head logit MSE is evaluated separately in
+\Cref{tab:regression_stack}, where it remains competitive with feature regression.
 
 \section{Per-Attack Metrics}
 \label{app:fullmetrics}
@@ -957,7 +1035,7 @@ AutoAttack, which is also what ADR and ARREST report in their main tables.
 \section{Published Results, for Context}
 \label{app:published}
 
-\Cref{tab:main} contain only numbers we measured ourselves. \Cref{tab:published} collects the
+\Cref{tab:main} contains only numbers we measured ourselves. \Cref{tab:published} collects the
 published figures for the same and neighbouring methods, so that our runs can be placed against the
 literature without the two being mixed in one column. These are quoted as reported and were produced
 by other codebases, other schedules and other checkpoint-selection rules---RPAT selects its best
@@ -1092,7 +1170,7 @@ We re-evaluated all five surviving checkpoints with our own pipeline and it agre
 repository's own evaluation to within $0.05$ AutoAttack on every one, so the gap is in training rather
 than in measurement. For contrast, RPAT++ reproduces to within $0.31$ AutoAttack of its published
 numbers on both datasets under the same conditions. The CURE row of \Cref{tab:published} is therefore
-the paper's own number, and CURE is left empty in \Cref{tab:main}.
+the paper's own number, and CURE is omitted from \Cref{tab:main}.
 
 \section{A Correction to the AWP Proxy, and What It Moved}
 \label{app:awp}
@@ -1113,8 +1191,7 @@ and $0.22$, no ordering in any table changes, and clean accuracy moves more than
 is evidently insensitive to a large, well-aligned perturbation of its ascent direction, which is
 consistent with its role here as a regularizer of sharpness rather than a precisely targeted objective.
 All numbers reported for the shipped recipe are post-correction. Two exceptions are stated where they
-appear: the head-freeze comparison (in \Cref{sec:components} and again in \Cref{app:fullmetrics}), the
-component ladder in \Cref{tab:ladder}, and the $\epsilon_{\mathrm{train}}$ sweep in
-\Cref{tab:radius} were measured before it. In each, every arm shares the defect, so the comparison is
-internally consistent even though its absolute values differ from the corrected ones by a few
-hundredths.
+appear: the head-freeze comparison in \Cref{app:fullmetrics} and the
+$\epsilon_{\mathrm{train}}$ sweep in \Cref{tab:radius} were measured before it. In each, every arm
+shares the defect, so the comparison is internally consistent even though its absolute values differ
+from the corrected ones by a few hundredths.

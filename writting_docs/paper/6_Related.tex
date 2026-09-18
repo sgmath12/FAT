@@ -1,48 +1,35 @@
 \section{Related Work}
 \label{sec:related}
 
-% STRUCTURE TO BE SET BY THE AUTHORS.  Placeholder so \Cref{sec:related} resolves and so the
-% introduction can defer the ARREST / DP-FAT / B-MTARD detail here rather than carrying it.
-%
-% Intended coverage, from the introduction's forward reference:
-%   - adversarial training and the accuracy-robustness trade-off
-%   - target softening inside AT: label smoothing, consistency regularization, ADR
-%   - adversarial distillation from a robust teacher: ARD, IAD, RSLAD, AKD, AdaAD, IGDM
-%   - methods guided by a naturally trained network: LBGAT, ARREST, DP-FAT, B-MTARD  <- closest to ours
-%   - per-sample attack radii: IAAT, MMA, CAT
-%
-% The distinction this section has to make, and which the introduction only states in one sentence:
-% in every prior use of a natural network the logits are the transferred quantity and are balanced
-% against a label term or a second teacher, so a coefficient has to be chosen.  Ours replaces the
-% label term with a feature anchor, which is what removes the coefficient and what makes
-% Proposition 1 available.
+\paragraph{Adversarial training and its targets.}
+PGD adversarial training optimizes a model on worst-case inputs \citep{PGD}; TRADES separates clean
+prediction from local consistency \citep{TRADES}, and MART reweights misclassified examples
+\citep{MART}. Subsequent work improves generalization through label smoothing, consistency
+regularization, weight averaging, and adversarial weight perturbation
+\citep{pang2020bag,tack2022consistency,robustoverfit,2020_awp}. ADR replaces one-hot labels with
+targets produced by an annealed momentum teacher \citep{adr}. These approaches motivate our study
+of how the supervisory target affects the clean--robust trade-off.
 
-\emph{To be written.}
+\paragraph{Adversarial distillation.}
+ARD transfers a robust teacher's predictions during adversarial training \citep{ard}. RSLAD emphasizes
+robust soft labels \citep{rslad}, IAD discounts unreliable teacher guidance \citep{iad}, and AdaAD uses
+the teacher in both adversarial-example generation and student optimization \citep{adaad}. IGDM adds
+the teacher's local input geometry to logit-based distillation \citep{igdm}. These methods are designed
+to inherit robustness from an adversarially trained teacher. In contrast, our teacher is trained only
+on clean data, and its clean representation remains fixed during the student's inner maximization.
 
-% ----------------------------------------------------------------------------------------------
-% NOTES FOR THE NATURAL-TEACHER PARAGRAPH (2026-09-03), from reading the released code.
-%
-% LBGAT (Cui et al., ICCV'21) is the closest published method to ours by mechanism, and the
-% comparison has to be made carefully because its age cuts both ways.  Its loss is
-%     MSE(f_s(x_adv), f_t(x)) + CE(f_t(x), y) + beta * KL(f_s(x_adv) || f_s(x)),
-% both models in one optimizer.  So: natural network, read at the clean point, matched with a squared
-% error and no temperature -- three of the four choices we make.  The fourth is the layer: its target
-% is the logit, ours is the feature one layer earlier.  And its natural branch is trained jointly,
-% which means the "free teacher" framing does not apply to it -- the second model is paid for during
-% training rather than obtained beforehand.
-%
-% Do NOT bill it as "the closest prior work" in the body until we have run it.  Two reasons.  A 2021
-% paper billed as our nearest neighbour invites the reading that the contribution is a five-year-old
-% idea with one layer moved, and we would be handing a reviewer that sentence.  And the claim we
-% actually want -- feature beats logit at the same read point with no temperature on either side --
-% is a measurement we do not yet have.  Run it first; the prominence should follow the number.
-%
-% HAT (Rade & Moosavi-Dezfooli, ICLR'22) also uses a naturally trained network, but for something
-% else entirely, and grouping it with the distillation methods would be wrong:
-%     x_hr = x + h (x_adv - x),  h = 2.0
-%     y_hr = std_model(x_adv).argmax()          <- label read at x_adv, not at x and not at x_hr
-%     loss = CE(f(x), y) + beta KL(f(x_adv) || f(x)) + gamma CE(f(x_hr), y_hr)
-% i.e. TRADES plus a helper term.  The natural model supplies LABELS for points beyond the ball, never
-% a target for the student to match, so nothing of its representation transfers.  It belongs in the
-% trade-off paragraph with ReBAT and RPAT, not in the natural-teacher one.
-% Official CIFAR-10 ResNet-18 recipe: beta 2.5, gamma 0.5, helper model = 50 epochs of plain CE.
+\paragraph{Guidance from naturally trained models.}
+LBGAT jointly trains a natural branch and aligns adversarial logits to it \citep{lbgat}. ARREST starts
+from a naturally pretrained model and regularizes latent representations while retaining adversarial
+cross-entropy and noisy replay \citep{arrest}. HAT uses a natural helper to label examples outside the
+training ball \citep{hat}, DP-FAT distills direction-preserving logits \citep{dpfat}, and B-MTARD
+combines clean and robust teachers with adaptive temperature and loss balancing \citep{bmtard}. CFA
+shares the use of clean natural guidance, but differs in making a fixed clean representation the sole
+target throughout the adversarial-training stage.
+
+\paragraph{Sample-dependent perturbation budgets.}
+IAAT and CAT adapt the training radius to sample difficulty, while MMA directly increases an
+input-space margin \citep{iaat,cat,mma}. Our allocation has a different source: it redistributes a
+fixed batch budget according to the input sensitivity of the loss being optimized. The comparison is
+therefore not between adaptive and uniform radii alone, but between the signals used to assign the
+same budget.

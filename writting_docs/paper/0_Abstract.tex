@@ -12,7 +12,7 @@ student to the clean feature of the teacher rather than to its logits.
 We prove that this single objective bounds both fidelity to the teacher and local stability of the
 student up to a constant factor, so that no balancing coefficient is required.
 We further assign the attack radius per sample according to the input sensitivity of the loss under a
-fixed total budget, which concentrates the anchor where the feature is most fragile.
+fixed total budget, approximately equalizing the first-order loss change across examples.
 Experimental results show that CFA recovers standard accuracy without sacrificing robustness.
 Particularly, CFA attains $62.17\%$ standard accuracy at $28.86\%$ AutoAttack accuracy on CIFAR-100
 with the ResNet-18 architecture, and consistent improvements are observed on CIFAR-10 and

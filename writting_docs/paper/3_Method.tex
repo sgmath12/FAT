@@ -4,131 +4,53 @@
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
-Clean feature anchoring (CFA) turns the clean representation studied in \Cref{sec:analysis} into the
-training target. Let $\Phi_t$ and $h_t$ denote the frozen feature map and classifier of the natural
-teacher. The student inherits both components, $\Phi_s \leftarrow \Phi_t$ and $h_s=h_t$, after which
-only $\Phi_s$ is optimized. For a clean example $x$, define
+Let $\Phi_t$ and $h_t$ be the frozen feature map and classifier of the natural teacher. The student
+inherits both, $\Phi_s\leftarrow\Phi_t$ and $h_s=h_t$, after which only $\Phi_s$ is optimized. For a
+clean example $x$, CFA solves
 \begin{equation}
 \begin{aligned}
-\ell_{\mathrm{anc}}(x';x)
-&= \big\lVert \Phi_s(x')-\Phi_t(x) \big\rVert_2^2,
-\qquad &
 x_{\mathrm{adv}}
-&= \operatorname*{arg\,max}_{x'\in B(x,\epsilon)}\ell_{\mathrm{anc}}(x';x),\\
-\mathcal{L}_{\mathrm{CFA}}
-&= \mathbb{E}_x\!\left[\ell_{\mathrm{anc}}(x_{\mathrm{adv}};x)\right].
+&=\operatorname*{arg\,max}_{x'\in B(x,\epsilon)}
+  \lVert\Phi_s(x')-\Phi_t(x)\rVert_2^2,\\
+\mathcal L_{\mathrm{CFA}}
+&=\mathbb E_x\!\left[\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\rVert_2^2\right].
 \end{aligned}
 \label{eqn:anchor}
 \end{equation}
-The target $\Phi_t(x)$ is evaluated once at the clean input and held fixed while the adversarial
-example is generated. We approximate the inner maximum using $K$ projected gradient-ascent steps,
-\begin{equation}
-x^{(k+1)}
-= \Pi_{B(x,\epsilon)}\!\left(
-  x^{(k)} + a\,\mathrm{sign}\!\left[
-  \nabla_{x^{(k)}}\ell_{\mathrm{anc}}(x^{(k)};x)\right]\right),
-\qquad x^{(0)}=x+\eta,
-\label{eqn:pgd}
-\end{equation}
-where $\eta$ is a random start and $\Pi$ projects onto the perturbation set. Thus, adversarial-example
-generation and backbone training use the same feature discrepancy. At inference the student is
-$h_t\circ\Phi_s$; the classifier remains frozen, and training uses neither a label loss nor a logit
-loss.
-
-\Cref{eqn:anchor} specifies the feature-space target but still assigns every example the same
-pixel-space radius $\epsilon$. Because an equal input displacement need not induce an equal change in
-$\ell_{\mathrm{anc}}$, we next allocate the fixed perturbation budget according to the local input
-sensitivity of this loss.
+We approximate the inner maximization with randomly initialized PGD against the fixed target
+$\Phi_t(x)$ and minimize the same discrepancy over the backbone. This adversarial-training stage
+uses no label loss; inference uses $h_t\circ\Phi_s$. \Cref{alg:cfa} gives the complete procedure.
 
 \subsection{Sensitivity-Matched $\epsilon$}
 \label{sec:angeps}
 
-Under a uniform radius, the local sensitivity of the anchor varies substantially across examples
-(\Cref{app:box}). We therefore choose a per-sample radius that approximately equalizes the
-first-order change in the anchor loss while preserving the total perturbation budget. For an example
-$x_i$, define its clean-point sensitivity as
+A uniform pixel radius need not produce a uniform change in the feature-space objective. We therefore
+allocate the batch budget according to each example's clean-point loss sensitivity. For
+$\ell_{\mathrm{anc}}(x';x_i)=\lVert\Phi_s(x')-\Phi_t(x_i)\rVert_2^2$, define
 \begin{equation}
-g_i
-= \left.\left\lVert\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\right\rVert_1\right|_{x'=x_i},
+g_i=\left.\lVert\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\rVert_1\right|_{x'=x_i},
 \qquad
-\max_{\lVert \delta \rVert_\infty \le e}
-\left\langle
-\left.\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\right|_{x'=x_i},\delta
-\right\rangle
-\;=\; e\,g_i .
+\max_{\lVert\delta\rVert_\infty\le e}
+\langle\nabla_{x'}\ell_{\mathrm{anc}},\delta\rangle=e g_i.
 \label{eqn:firstorder}
 \end{equation}
-The equality follows from the duality of $\ell_\infty$ and $\ell_1$.
-The predicted loss change under radius $\epsilon_i$ is therefore $\epsilon_i g_i$. Equalizing this
-quantity across a minibatch of $N$ examples amounts to imposing
+The linearized loss change under radius $\epsilon_i$ is therefore $\epsilon_i g_i$. For $g_i>0$,
+equalizing this quantity while preserving $\sum_i\epsilon_i=N\epsilon$ gives
 \begin{equation}
-\epsilon_i \, g_i \;=\; c \quad \text{for all } i ,
-\qquad \text{subject to} \qquad
-\sum_{i=1}^{N} \epsilon_i \;=\; N \epsilon .
-\label{eqn:equalize}
-\end{equation}
-The constraint holds the total attack budget fixed, which is what makes the rule comparable to a
-uniform radius at equal attack strength.
-Solving \Cref{eqn:equalize} gives $c = N\epsilon \big/ \sum_j g_j^{-1}$ and hence
-\begin{equation}
-\epsilon_i \;=\; N\epsilon \cdot \frac{g_i^{-1}}{\sum_j g_j^{-1}} ,
-\qquad\text{generalized to}\qquad
-\epsilon_i \;\propto\; g_i^{-p} ,
+\epsilon_i=N\epsilon\frac{g_i^{-1}}{\sum_jg_j^{-1}},
+\qquad\text{or more generally}\qquad
+\epsilon_i\propto g_i^{-p},
 \label{eqn:angeps_ideal}
 \end{equation}
-where $p = 0$ recovers the uniform radius and $p = 1$ gives the full equalization above.
-The allocation of \Cref{eqn:angeps_ideal} is equivalently the max--min solution, because moving budget
-from the example whose objective moves most to the example whose objective moves least improves the
-worst case until no such move remains.
-Our implementation reads the gradient in $\ell_2$ rather than in the $\ell_1$ derived here, for the
-reason given in \Cref{app:box}, and the two norms differ by $0.29$ points of AutoAttack accuracy.
-What the rule gains over a uniform radius is preserved in direction under either norm and is larger on
-the clean axis than on the robust one, and \Cref{app:box} reports both settings.
+where $p=0$ recovers a uniform radius. We use $p=1$ and an $\ell_2$ gradient norm as a sensitivity
+proxy, measured with one backward pass at clean inputs. The $\ell_1$ version implied by
+\Cref{eqn:firstorder} gives $0.29$ points lower AA and retains the clean-accuracy gain
+(\Cref{app:box}); exact first-order equalization is therefore a motivation for the implemented rule.
 
-\paragraph{Keeping the radii in range.}
-\Cref{eqn:angeps_ideal} assigns unbounded radii where $g_i \to 0$. In particular, the clean anchor
-discrepancy is zero for every sample immediately after the student is initialized from the teacher, so
-the allocation begins uniformly and differentiates as training proceeds.
-We therefore constrain $\epsilon_i / \epsilon \in [0.5, 1.5]$ and solve the budget constraint inside
-that box, which \Cref{app:box} states exactly and which reduces to restoring the mean when no clip is
-active.
-We use $p = 1$ throughout and never tune it, and \Cref{tab:allocation} reports the $p = 0$ endpoint
-under the same recipe.
-
-\paragraph{Relation to existing per-sample radii.}
-Assigning a different $\epsilon$ to each example is not new, as IAAT \citep{iaat}, MMA \citep{mma} and
-CAT \citep{cat} all do so.
-These methods assign the radius from the difficulty of the example or from its margin in input space,
-whereas \Cref{eqn:angeps_ideal} assigns it from the input sensitivity of the training loss, which is
-the geometry the objective is written in.
-The difference is not one of dispersion, since all three signals are dispersed on the shipped recipe
-and ours is in fact the least dispersed of them (\Cref{app:box}).
-What separates the rules is the geometry along which the budget is spread, and the experiments in
-\Cref{sec:exp} therefore compare competing allocations rather than an allocation against its
-absence.%
-% CV figures measured 2026-09-04 from the batch-0 log line of champ_diffrank_l2 (sensitivity, 99
-% epochs) and champ_diffeps_l2 (difficulty, 99 epochs).  The earlier claim here -- difficulty CV 0.03 against
-% sensitivity 0.64, i.e. "allocating by difficulty is close to allocating uniformly" -- was measured
-% on the pre-2026-08-31 DIRECTIONAL student, whose unit-norm feature makes every logit small and
-% pins per-sample CE at ln(100) (methods.py:2500).  A raw student hands the head a feature on the
-% teacher's scale, so that argument does not transfer and the sentence was retired rather than
-% requoted.  The permutation result below does not depend on it, and is stronger without it.
-
-The distinction can be tested without confounding it with the budget.
-We hold the exact multiset of weights that \Cref{eqn:angeps_ideal} produces, so that the values, the
-clip and the mean are unchanged, and only reassign which example receives which weight in the order
-that IAAT and CAT would use.
-The reassignment alone costs $0.80$ points of AutoAttack accuracy and falls below the uniform
-baseline on AutoAttack, CW and NRR alike.
-Replacing the signal outright by difficulty magnitude or by the logit margin of MMA is likewise worse
-than allocating nothing (\Cref{tab:allocation}).
-Among the signals we tested, only the input sensitivity of the loss improves on a uniform radius.
-
-\Cref{alg:cfa} summarizes both training stages. The natural teacher is the only component trained with
-labels; the anchored stage introduces no loss weight, temperature, or auxiliary head.
-
-\paragraph{Caveats.}
-\Cref{eqn:firstorder} is derived for the $\ell_1$ norm while our runs read the gradient in $\ell_2$,
-and the gap between the two is small but larger than our seed spread, as reported in \Cref{app:box}.
-The sensitivity $g_i$ is also a single backward pass at the clean $x_i$, so it measures the sensitivity
-at the starting point of the attack rather than along its trajectory.
+We floor the proxy at $10^{-12}$, clip its inverse-mean multipliers to $[0.5,1.5]$, and normalize
+them to unit mean before setting $\epsilon_i$. The floor gives a uniform allocation when all clean
+gradients vanish at teacher initialization. Normalization preserves $\sum_i\epsilon_i=N\epsilon$,
+although the final multipliers can leave the clipping interval. PGD step sizes are scaled by the same
+multipliers. \Cref{app:box} specifies this procedure and an optional exact-box variant.
+The matched-budget comparison in \Cref{tab:allocation} tests whether the sensitivity signal improves
+on uniform, difficulty-based, and margin-based allocation.

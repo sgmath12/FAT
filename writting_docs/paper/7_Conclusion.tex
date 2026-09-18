@@ -1,35 +1,12 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-Adversarial training discards standard accuracy that a naturally trained copy of the same network
-still holds. We asked whether self-distillation can put it back without touching where the robustness
-comes from, and found that it can, provided the teacher is asked only for accuracy and is read only at
-the clean point. Anchoring the student's adversarial feature to the teacher's clean feature makes that
-precise: the teacher never enters the perturbation ball, so its own instability---$63.8^\circ$ of
-rotation under $\epsilon = 8/255$---has no path into the objective, and the single term bounds fidelity
-and local stability together to within a factor of three. The result is a method with no loss weight,
-no temperature and no trained classifier, whose robustness is produced by the student's own inner
-maximization rather than borrowed from the teacher, and which transfers across three datasets with
-only the teacher checkpoint changed.
-
-Two further findings accompany it. The first is that exploiting the same natural teacher the way
-adversarial distillation does, as a logit target or evaluated inside the ball, is worse than not
-distilling at all on both datasets and for all four published objectives. The second is that the teacher
-transfers its class geometry
-rather than its accuracy, with the two anti-correlated at $r = -0.999$ across training lengths, which
-turns the teacher's own schedule into a trade-off control that costs nothing to exercise.
-
-Robustness is still produced by the student's inner maximization and by nothing the teacher supplies,
-since the teacher is never evaluated under attack. What we did not expect is that \emph{which}
-objective that maximization ascends matters as much as it does. Stripped of weight averaging, of AWP
-and of the sensitivity-matched radius, the anchor alone leads label cross-entropy under an identical
-schedule and initialization by $4.45$ points of AutoAttack as well as $4.63$ of standard accuracy,
-read against cross-entropy at its own optimizer and schedule, and
-$1.80$ of that robustness margin is traceable to attacking in feature space rather than through the
-label. For scale, at the full stack the anchor leads cross-entropy \emph{with} weight averaging and
-AWP by $2.40$. The anchor is therefore not a neutral passenger on machinery that supplies robustness;
-at matched stack it is the larger contributor, and the stack is additive on top.
-\Cref{prop:decomp} licenses only the weaker half of this---that the anchor cannot cost robustness,
-since bounding one scalar bounds fidelity and local stability together instead of trading them. What the proposition does not give is the size of the effect, and a
-bound on that is the obvious next step; the measurements that would constrain it are reported here
-rather than set aside.
+Clean Feature Anchoring uses a naturally trained model's clean representation as the sole target
+during adversarial training. The fixed anchor jointly controls teacher fidelity and local feature
+variation, while sensitivity-based radius allocation improves the measured clean--robust trade-off.
+Experiments across three datasets show gains over label training that persist under changes to the
+training recipe, with further improvements from weight averaging and AWP. Direct logit regression
+is also effective, supporting the broader value of regression to a clean teacher target. Finally,
+higher teacher clean accuracy need not yield higher student clean accuracy, and changes in teacher
+class separation are reflected in the student. These findings motivate selecting natural teachers
+for the resulting student trade-off and investigating which aspects of their geometry aid transfer.
