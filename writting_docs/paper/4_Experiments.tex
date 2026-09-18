@@ -11,14 +11,17 @@ We use CIFAR-10, CIFAR-100 \citep{krizhevsky2009learning}, and Tiny-ImageNet-200
 \citep{le2015tiny}. The natural teacher is trained on clean data for 200 epochs and then frozen
 (\Cref{tab:teachers}); its clean accuracies are $95.32\%$, $77.66\%$, and $66.29\%$, respectively,
 and its AA is zero on all three datasets. Unless stated otherwise, the ResNet-18 student is
-initialized from that teacher and trained for 100 epochs with AdamW, a one-cycle schedule, 10-step PGD, and
-$\epsilon_{\mathrm{train}}=8.8/255$. The final recipe uses sensitivity matching ($p=1$), weight
-averaging, and AWP; exact hyperparameters are in \Cref{app:repro}.
+initialized from that teacher and trained with AdamW, a one-cycle schedule, and 10-step PGD, with
+sensitivity matching ($p=1$), weight averaging, and AWP. The main CIFAR results use 150 epochs at the
+standard $\epsilon_{\mathrm{train}}=8/255$; ablations use 100 epochs and, where stated,
+$\epsilon_{\mathrm{train}}=8.8/255$, and \Cref{tab:radius} sweeps the radius. Baselines run their
+authors' recipes. Detailed settings are in \Cref{app:repro}.
 
 We evaluate the final-epoch model on the full test set at $\epsilon=8/255$, reporting clean accuracy,
 the APGD-CE/APGD-T cascade (AA), their mean (Avg), and their harmonic mean (NRR); a four-attack
-AutoAttack validation gives the same robust accuracy (\Cref{app:gradmask}). Baselines use their
-published recipes with our evaluation pipeline, and the distillation baselines receive our natural
+AutoAttack validation of the 100-epoch CIFAR-100 model gives the same robust accuracy
+(\Cref{app:gradmask}). Other baseline settings follow their published recipes with our evaluation
+pipeline, and the distillation baselines receive our natural
 teacher; published results obtained with other teachers are collected in \Cref{tab:published}.
 
 \subsection{Main Results}
@@ -50,16 +53,16 @@ teacher; published results obtained with other teachers are collected in \Cref{t
     ADR & self & 83.36 & 49.72 & 66.54 & 62.29 & 59.93 & 27.20 & 43.57 & 37.42 \\
     RPAT++ & -- & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & 84.96 & \textbf{51.74} & \textbf{68.35} & \textbf{64.31} & 62.17 & \textbf{28.86} & \textbf{45.52} & \textbf{39.42} \\
+    \textbf{CFA (ours)} & nat. & \textbf{87.37} & \textbf{51.33} & \textbf{69.35} & \textbf{64.67} & 64.75 & \textbf{27.98} & \textbf{46.37} & \textbf{39.07} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-CFA attains the highest AA and NRR on both CIFAR datasets. On CIFAR-100 it improves over ADR, the
-closest baseline in NRR, by $1.66$ points of AA and $2.00$ NRR while also gaining $2.24$ clean points.
-ARREST reaches higher clean accuracy but gives up $6.08$ AA points, placing it on a different part of
-the trade-off. On CIFAR-10, CFA improves over the closest NRR baseline by $1.49$ points. The same
-configuration is evaluated on a larger dataset and network below.
+CFA attains the highest AA and NRR on both CIFAR datasets (\Cref{tab:main}). On CIFAR-100 it
+improves over ADR, the closest baseline in NRR, by $0.78$ points of AA and $1.65$ NRR while also
+gaining $4.82$ clean points. ARREST reaches the highest clean accuracy of the table but gives up
+$5.20$ AA points, placing it on a different part of the trade-off. On CIFAR-10, CFA exceeds the
+closest baseline in NRR by $1.85$ points.
 
 \subsection{Generalization Across Data and Model Scale}
 
@@ -153,12 +156,8 @@ narrows but does not close the gap: CFA remains ahead by $4.63$ clean and $4.45$
 \end{table}
 
 Changing initialization or optimizer and schedule changes NRR by $0.22$ and $0.11$, respectively
-(\Cref{tab:recipe}). With the full stack, label cross-entropy reaches $57.73/26.46$ clean/AA versus
-CFA's $62.17/28.86$; ARREST is the closest of ten recipe-matched baselines in NRR (\Cref{tab:fullmatch}).
-With the same teacher, optimizer, WA, and AWP at $8/255$, CFA's AA advantage over ARREST is $0.70$
-points at 100 epochs and $1.58$ at 150 epochs (\Cref{tab:arrestepochs}). The latter comparison gives
-$64.75/27.98$ versus $64.66/26.40$ clean/AA: higher robustness at nearly equal clean accuracy,
-supporting CFA's training design beyond the shared stack.
+(\Cref{tab:recipe}). At 100 epochs with the full stack, label cross-entropy reaches $57.73/26.46$
+clean/AA versus CFA's $62.17/28.86$, so the gain is not carried by weight averaging and AWP.
 
 \paragraph{Regression and probability targets.}
 Logit regression remains effective with WA and AWP. At a uniform training radius of $8.8/255$,
@@ -198,7 +197,7 @@ reproductions of their complete training algorithms.
 \end{table}
 
 \paragraph{Adding weight averaging and AWP.}
-\Cref{tab:ladder} follows the additions from the base anchor to the final recipe. Sensitivity matching
+\Cref{tab:ladder} follows the additions to the base anchor at 100 epochs. Sensitivity matching
 first raises clean/AA by $1.80/0.38$. Weight averaging then adds $1.95$ AA points and AWP adds $1.17$,
 with a total NRR gain of $3.54$ over the base anchor. These are incremental effects in the stated
 order; they do not isolate interactions between components. Radius sweeps and WA/AWP comparisons on
@@ -221,45 +220,16 @@ both CIFAR datasets are in \Cref{tab:radius,tab:stackboth}.
   \end{tabular}
 \end{table}
 
-\subsection{What Changes in the Learned Geometry?}
-\label{sec:empirical_geometry}
-
-\Cref{prop:decomp} bounds variation within an anchored model, but does not predict a smaller
-variation than label training, so we examine displacement and class geometry. Under the same
-true-label PGD protocol the anchor and label-trained students move by $0.275$ and $0.254$ of their
-clean feature norms: these are not the worst-case diameter $O$, and they give no evidence that the
-anchor's advantage comes from smaller displacement.
-
-\begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4pt}
-  \caption{Feature geometry under the same true-label PGD attack. Angles are measured on
-  unit-normalized features. \emph{Own} is the sample-to-own-centroid angle; \emph{gap} is the
-  mean angle from each class centroid to its nearest other-class centroid.}
-  \label{tab:anchorgeometry}
-  \begin{tabular}{lrrrcrrr}
-    \toprule
-    & \multicolumn{3}{c}{Clean} & & \multicolumn{3}{c}{Adversarial} \\
-    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
-    & $S_w/S_b$ & Own & Gap & & $S_w/S_b$ & Own & Gap \\
-    \midrule
-    Anchor   & \textbf{0.898} & \textbf{28.1$^\circ$} & \textbf{28.6$^\circ$} && \textbf{2.681} & \textbf{33.3$^\circ$} & 16.2$^\circ$ \\
-    Label CE & 4.960 & 45.4$^\circ$ & 21.6$^\circ$ && 7.143 & 47.0$^\circ$ & 18.3$^\circ$ \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-The stronger difference is where those features lie. The anchored model has a $5.5\times$ smaller
-clean $S_w/S_b$ ratio and a $2.7\times$ smaller ratio under attack; its clean clusters are tighter
-and their centroids are farther apart (\Cref{tab:anchorgeometry}). Together with the checkpoint
-sweep, this motivates class organization as a candidate explanation for transfer. The evidence
-remains observational, and these diagnostics use earlier base-regime models with a trained student
-head (\Cref{app:anchor_measurements}); they should not be read as a causal account of the final recipe.
+\paragraph{Feature geometry.}
+Additional base-regime diagnostics show stronger class separation under anchoring, but not smaller
+relative feature displacement under a matched attack (\Cref{app:anchor_measurements}). These
+earlier trained-head models provide descriptive evidence, not a causal account of the final method.
 
 \subsection{Reliability and Scope}
 
 The full standard AutoAttack suite (APGD-CE, APGD-T, FAB-T, and Square) reaches $28.73\%$ on the
-CIFAR-100 repeat, identical to the two-attack cascade: neither FAB-T nor Square finds a failure among
+100-epoch CIFAR-100 repeat, identical to the two-attack cascade: neither FAB-T nor Square finds a failure among
 the $2873$ surviving examples, and PGD accuracy falls to zero at $64/255$ (\Cref{app:gradmask}). That
 repeat gives $62.00/28.74$ clean/AA against $62.17/28.86$ for seed $0$, so two seeds do not establish
 the significance of small ablation differences (\Cref{app:repro}). Teacher and student training take
-$0.39$ and $2.07$ hours on one RTX 5080 (\Cref{tab:compute}).
+$0.39$ and $2.07$ hours for the 100-epoch student setting on one RTX 5080 (\Cref{tab:compute}).

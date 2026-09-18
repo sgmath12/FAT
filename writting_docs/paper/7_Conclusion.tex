@@ -1,12 +1,12 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-Clean Feature Anchoring uses a naturally trained model's clean representation as the sole target
-during adversarial training. The fixed anchor jointly controls teacher fidelity and local feature
-variation, while sensitivity-based radius allocation improves the measured clean--robust trade-off.
-Experiments across three datasets show gains over label training that persist under changes to the
-training recipe, with further improvements from weight averaging and AWP. Direct logit regression
-is also effective, supporting the broader value of regression to a clean teacher target. Finally,
-higher teacher clean accuracy need not yield higher student clean accuracy, and changes in teacher
-class separation are reflected in the student. These findings motivate selecting natural teachers
-for the resulting student trade-off and investigating which aspects of their geometry aid transfer.
+Effective transfer from a natural teacher depends on more than its clean accuracy. In the checkpoint
+comparisons studied here, a more accurate teacher can yield lower student clean accuracy while
+improving robustness. CFA provides a simple setting for examining this trade-off: a fixed clean
+feature target guides both attack generation and backbone learning. For a chosen teacher,
+sensitivity-based radius allocation adjusts the perturbation budget to the loss being optimized;
+matched-distribution controls support the importance of which examples receive each radius.
+Across three datasets, the resulting method is competitive without a robust teacher or an additional
+label objective. The findings motivate evaluating teachers by their student trade-offs and matching
+training perturbations to the supervisory target, rather than treating either choice as incidental.

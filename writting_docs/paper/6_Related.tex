@@ -1,3 +1,4 @@
+\clearpage
 \section{Related Work}
 \label{sec:related}
 
@@ -19,13 +20,15 @@ to inherit robustness from an adversarially trained teacher. In contrast, our te
 on clean data, and its clean representation remains fixed during the student's inner maximization.
 
 \paragraph{Guidance from naturally trained models.}
-LBGAT jointly trains a natural branch and aligns adversarial logits to it \citep{lbgat}. ARREST starts
+BGAT regresses adversarial logits to a fixed natural teacher's clean logits, and LBGAT extends
+this to a jointly trained natural branch \citep{lbgat}. ARREST starts
 from a naturally pretrained model and regularizes latent representations while retaining adversarial
 cross-entropy and noisy replay \citep{arrest}. HAT uses a natural helper to label examples outside the
 training ball \citep{hat}, DP-FAT distills direction-preserving logits \citep{dpfat}, and B-MTARD
 combines clean and robust teachers with adaptive temperature and loss balancing \citep{bmtard}. CFA
-shares the use of clean natural guidance, but differs in making a fixed clean representation the sole
-target throughout the adversarial-training stage.
+uses a fixed clean feature target for both attack generation and backbone learning, with an inherited
+classifier. We study how the natural-teacher checkpoint and sensitivity-based radius allocation
+affect transfer under this objective.
 
 \paragraph{Sample-dependent perturbation budgets.}
 IAAT and CAT adapt the training radius to sample difficulty, while MMA directly increases an

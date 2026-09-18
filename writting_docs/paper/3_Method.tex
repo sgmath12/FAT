@@ -1,6 +1,10 @@
 \section{Method}
 \label{sec:method}
 
+CFA combines a clean-feature training objective with sample-dependent perturbation budgets.
+Teacher selection fixes the reference representation; radius allocation determines the
+neighborhood over which each example is trained to preserve it.
+
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
@@ -24,8 +28,10 @@ uses no label loss; inference uses $h_t\circ\Phi_s$. \Cref{alg:cfa} gives the co
 \subsection{Sensitivity-Matched $\epsilon$}
 \label{sec:angeps}
 
-A uniform pixel radius need not produce a uniform change in the feature-space objective. We therefore
-allocate the batch budget according to each example's clean-point loss sensitivity. For
+A uniform pixel radius fixes the size of each input neighborhood, but not the change it induces
+in the anchor loss. An example whose loss is locally sensitive can experience a larger increase
+than another example given the same radius. We use this discrepancy to allocate a fixed batch
+budget, rather than increasing the mean radius or adding another loss term. For
 $\ell_{\mathrm{anc}}(x';x_i)=\lVert\Phi_s(x')-\Phi_t(x_i)\rVert_2^2$, define
 \begin{equation}
 g_i=\left.\lVert\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\rVert_1\right|_{x'=x_i},
@@ -34,23 +40,32 @@ g_i=\left.\lVert\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\rVert_1\right|_{x'=x_i},
 \langle\nabla_{x'}\ell_{\mathrm{anc}},\delta\rangle=e g_i.
 \label{eqn:firstorder}
 \end{equation}
-The linearized loss change under radius $\epsilon_i$ is therefore $\epsilon_i g_i$. For $g_i>0$,
-equalizing this quantity while preserving $\sum_i\epsilon_i=N\epsilon$ gives
+The linearized worst-case loss increase under radius $\epsilon_i$ is therefore $\epsilon_i g_i$.
+To keep this local increase comparable across examples, a more sensitive example should receive
+a smaller radius. For $g_i>0$, equalizing the products subject to
+$\sum_i\epsilon_i=N\epsilon$ gives
 \begin{equation}
 \epsilon_i=N\epsilon\frac{g_i^{-1}}{\sum_jg_j^{-1}},
 \qquad\text{or more generally}\qquad
 \epsilon_i\propto g_i^{-p},
 \label{eqn:angeps_ideal}
 \end{equation}
-where $p=0$ recovers a uniform radius. We use $p=1$ and an $\ell_2$ gradient norm as a sensitivity
-proxy, measured with one backward pass at clean inputs. The $\ell_1$ version implied by
-\Cref{eqn:firstorder} gives $0.29$ points lower AA and retains the clean-accuracy gain
-(\Cref{app:box}); exact first-order equalization is therefore a motivation for the implemented rule.
+where $p=0$ recovers a uniform radius and $p=1$ gives inverse-sensitivity allocation.
+The conserved sum separates redistribution from a change in the mean training budget. This is a
+local approximation to loss growth, not a claim that nonlinear adversarial losses become equal.
+
+We use $p=1$ with an $\ell_2$ gradient norm as a practical sensitivity proxy, measured with one
+backward pass at clean inputs. The $\ell_1$ norm follows exactly from the linearized
+$\ell_\infty$ problem; it also retains the clean-accuracy gain but gives $0.29$ points lower AA
+in our comparison (\Cref{app:box}). Thus first-order equalization motivates the allocation,
+while the implemented proxy is chosen empirically.
 
 We floor the proxy at $10^{-12}$, clip its inverse-mean multipliers to $[0.5,1.5]$, and normalize
 them to unit mean before setting $\epsilon_i$. The floor gives a uniform allocation when all clean
 gradients vanish at teacher initialization. Normalization preserves $\sum_i\epsilon_i=N\epsilon$,
 although the final multipliers can leave the clipping interval. PGD step sizes are scaled by the same
 multipliers. \Cref{app:box} specifies this procedure and an optional exact-box variant.
-The matched-budget comparison in \Cref{tab:allocation} tests whether the sensitivity signal improves
-on uniform, difficulty-based, and margin-based allocation.
+The key test is whether sensitivity assigns the budget usefully, not merely whether varying
+radii helps. Accordingly, \Cref{tab:allocation} includes a control that keeps the exact multiset
+of sensitivity-derived multipliers but reassigns them by sample difficulty. Together with uniform
+and margin-based controls, this distinguishes the allocation signal from the spread of radii.

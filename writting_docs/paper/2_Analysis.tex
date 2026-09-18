@@ -1,10 +1,10 @@
 \section{Analysis}
 \label{sec:analysis}
 
-A natural teacher offers high clean accuracy despite being vulnerable to adversarial perturbations.
-We examine what fixed signal it can provide for the student's adversarial training. We compare
-probability-space supervision with direct regression, characterize the resulting anchor objective,
-and then vary the teacher checkpoint to examine what the student inherits.
+A natural teacher's clean accuracy need not indicate how well it will guide a robust student.
+We first establish a simple regression target and characterize what it controls, then examine
+how teacher selection changes the student's clean--robust trade-off. This separates the choice of
+supervisory target from the choice of teacher that supplies it.
 
 \subsection{Preliminaries}
 
@@ -75,8 +75,8 @@ directions that logit regression need not constrain, and next examine what this 
 \subsection{What the Anchor Controls}
 \label{sec:decomp}
 
-For a fixed $x$ and $B=B(x,\epsilon)$, define the worst-case anchor distance, clean fidelity, and
-student variation as
+The anchor provides a common reference for clean fidelity and local variation. Let
+$x\in\mathcal X$ and $B=B(x,\epsilon)$, and define
 \begin{equation}
 L=\max_{x'\in B}\lVert\Phi_s(x')-\Phi_t(x)\rVert_2,\quad
 F=\lVert\Phi_s(x)-\Phi_t(x)\rVert_2,\quad
@@ -110,16 +110,15 @@ the teacher's clean margin. The same argument applies to norm-based logit regres
 joint control by a fixed target, not a feature-specific advantage. Finite-step PGD does not certify $L$.
 
 \FloatBarrier
-\subsection{What Does the Natural Teacher Transfer?}
+\subsection{Does Teacher Accuracy Predict Transfer?}
 \label{sec:teacher_transfer}
 \label{sec:geometry}
 
-We vary only the natural-teacher checkpoint along one training trajectory, using it for student
-initialization, feature targets, and classifier inheritance. We ask whether higher teacher clean
-accuracy translates into higher student clean accuracy, and whether changes in class geometry are
-preserved. We measure $S_w/S_b$ on unit-normalized clean features: $S_w$ is the mean squared distance
-to the corresponding class mean, and $S_b$ is the mean squared distance of class means to the global
-mean. A smaller ratio indicates stronger class separation.
+The bound above describes training against a given target, but does not identify which teacher
+to choose. A natural criterion is the teacher's clean accuracy. To test it, we vary the checkpoint
+along one natural-training trajectory while keeping the student training procedure fixed. Each
+checkpoint supplies the initialization, feature targets, and inherited classifier; the experiment
+therefore evaluates teacher selection as a whole, rather than changing the targets alone.
 
 \begin{figure}[!htbp]
   \centering
@@ -131,14 +130,20 @@ mean. A smaller ratio indicates stronger class separation.
   \label{fig:teacherladder}
 \end{figure}
 
-The teacher gains $2.51$ clean points across the sweep while the student loses $2.04$, producing a
-negative correlation ($r=-0.999$), while student AA$_2$ rises from $24.38\%$ to $25.80\%$.
-Teacher and student scatter ratios decrease together ($r=0.989$). Thus higher teacher clean accuracy
-does not guarantee higher student clean accuracy, and changes in teacher class separation are
-reflected in the student. Five checkpoints from one trajectory establish this association, but do
-not isolate geometry from the simultaneous changes in initialization and classifier.
+Across the sweep, the teacher gains $2.51$ clean points while the student loses $2.04$;
+student AA$_2$ nevertheless rises from $24.38\%$ to $25.80\%$ (\Cref{fig:teacherladder}a).
+The more accurate teacher thus shifts the student toward robustness rather than improving both
+accuracies. Selecting the checkpoint with the highest teacher clean accuracy would miss this
+trade-off.
 
-We use the 200-epoch checkpoint in subsequent CIFAR-100 experiments. It lies on the late-checkpoint
-robustness plateau while retaining more student clean accuracy than the 300-epoch teacher. The next
-section turns the clean target into a training procedure and accounts for the fact that a fixed
-pixel-space radius perturbs its feature-space loss by different amounts across examples.
+To examine what changes alongside accuracy, we measure $S_w/S_b$ on unit-normalized clean features:
+$S_w$ is the mean squared distance to the corresponding class mean, and $S_b$ is the mean squared
+distance of class means to the global mean. Teacher and student ratios decrease together
+(\Cref{fig:teacherladder}b), indicating stronger class separation. This is an association across
+five checkpoints, not evidence that geometry alone causes the transfer effect.
+
+The implication is to assess teacher checkpoints by the resulting student trade-off.
+Our subsequent experiments use the 200-epoch teacher, which lies on the late-checkpoint robustness
+plateau while retaining more student clean accuracy than the 300-epoch teacher. Once the teacher
+is fixed, a separate question remains: how should the perturbation budget be distributed across
+examples whose anchor losses have different input sensitivities? We address this next.
