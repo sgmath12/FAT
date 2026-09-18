@@ -653,6 +653,48 @@ so a root exists and bisection finds it; when no clip is active it reduces to $t
 that is, to restoring the mean. Clipping first and rescaling afterwards, the obvious alternative, does
 not preserve the box---the rescaling moves the clipped entries back out of it.
 
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{Baselines given the natural warm start and the training stack, CIFAR-100 with ResNet-18.
+  Each method keeps its own objective, optimizer, schedule and epoch count; the right block adds
+  initialization at our natural teacher, weight averaging ($\kappa=0.999$ from $20\%$ of the run) and
+  the AWP proxy ($\gamma=0.005$, warmup at $10\%$ of the run), with AWP evaluated on that method's own
+  loss. Blank entries are runs still in progress. \dg ADR's published recipe already includes its own
+  SAM-style AWP, so its left column is not stack-free; removing that term gives $58.22/20.93$
+  (NRR $30.79$).}
+  \label{tab:baselinestack}
+  \begin{tabular}{lrrrcrrr}
+    \toprule
+    & \multicolumn{3}{c}{Own recipe} && \multicolumn{3}{c}{$+$ teacher init $+$ WA $+$ AWP} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    Method & Clean & AA & NRR && Clean & AA & NRR \\
+    \midrule
+    PGD-AT           & 57.36 & 20.34 & 30.03 && 59.85 & 25.77 & 36.03 \\
+    TRADES           & 55.28 & 23.55 & 33.03 && 56.16 & 24.56 & 34.17 \\
+    MART             & 53.86 & 22.72 & 31.96 && 50.97 & 25.13 & 33.66 \\
+    ARD              & 57.61 & 20.24 & 29.96 && 60.19 & 26.10 & 36.41 \\
+    RSLAD            & 59.68 & 21.30 & 31.40 && -- & -- & -- \\
+    AdaAD            & 59.79 & 23.19 & 33.42 && 57.21 & 27.10 & 36.78 \\
+    AdaAD + IGDM     & 48.25 & 19.48 & 27.75 && -- & -- & -- \\
+    Consistency-AT   & 57.53 & 20.01 & 29.69 && -- & -- & -- \\
+    LBGAT            & 56.46 & 26.02 & 35.62 && -- & -- & -- \\
+    HAT              & 60.67 & 24.45 & 34.85 && 57.63 & 24.74 & 34.62 \\
+    ARREST           & 66.44 & 22.99 & 34.16 && 64.95 & 23.02 & 33.99 \\
+    ADR\ddg          & 59.93 & 27.20 & 37.42 && -- & -- & -- \\
+    \midrule
+    \textbf{CFA (ours)} & \multicolumn{3}{c}{---} && \textbf{64.75} & \textbf{27.98} & \textbf{39.07} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The stack helps most of them, and by large margins where the objective was weakest: PGD-AT gains
+$6.00$ NRR and ARD $6.45$, both from AutoAttack accuracy that rises by more than five points. It does
+not help everywhere. HAT and ARREST lose $0.23$ and $0.17$ NRR, and both run short schedules where
+there is little robust overfitting for weight averaging and AWP to undo --- ARREST finetunes for
+twenty epochs. No stacked baseline reaches CFA, and the closest is ADR at its own recipe, $1.65$ NRR
+behind. The comparison changes each baseline's recipe only by the components we add, so it separates
+the stack from the objective without substituting our optimizer or schedule.
+
 \section{Experimental Details}
 \label{app:repro}
 
