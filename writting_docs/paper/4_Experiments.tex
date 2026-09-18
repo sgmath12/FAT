@@ -29,28 +29,28 @@ teachers and settings are reported separately in \Cref{tab:published}.
   framework. \emph{T.} denotes the teacher assumed by the method: none (--), a natural model
   (nat.), or the method's own weight average (self).}
   \label{tab:main}
-  \begin{tabular}{llrrrrrr}
+  \begin{tabular}{llrrrrrrrr}
     \toprule
-    & & \multicolumn{3}{c}{CIFAR-10} & \multicolumn{3}{c}{CIFAR-100} \\
-    \cmidrule(lr){3-5}\cmidrule(lr){6-8}
-    Method & T. & Clean & AA & NRR & Clean & AA & NRR \\
+    & & \multicolumn{4}{c}{CIFAR-10} & \multicolumn{4}{c}{CIFAR-100} \\
+    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
+    Method & T. & Clean & AA & Avg & NRR & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT & -- & 84.54 & 43.57 & 57.50 & 57.36 & 20.34 & 30.03 \\
-    TRADES & -- & 81.71 & 49.16 & 61.39 & 55.28 & 23.55 & 33.03 \\
-    MART & -- & 80.41 & 45.56 & 58.16 & 53.86 & 22.72 & 31.96 \\
+    PGD-AT & -- & 84.54 & 43.57 & 64.06 & 57.50 & 57.36 & 20.34 & 38.85 & 30.03 \\
+    TRADES & -- & 81.71 & 49.16 & 65.44 & 61.39 & 55.28 & 23.55 & 39.42 & 33.03 \\
+    MART & -- & 80.41 & 45.56 & 62.99 & 58.16 & 53.86 & 22.72 & 38.29 & 31.96 \\
     \midrule
-    ARD & nat. & 84.58 & 43.75 & 57.67 & 57.61 & 20.24 & 29.96 \\
-    RSLAD & nat. & 85.15 & 42.91 & 57.06 & 59.68 & 21.30 & 31.40 \\
-    AdaAD & nat. & 85.39 & 46.22 & 59.98 & 59.79 & 23.19 & 33.42 \\
-    AdaAD + IGDM & nat. & 85.01 & 45.50 & 59.27 & 48.25 & 19.48 & 27.75 \\
-    LBGAT & nat. & -- & -- & -- & 56.46 & 26.02 & 35.62 \\
-    ARREST & nat. & 85.06 & 46.42 & 60.06 & \textbf{66.97} & 22.78 & 34.00 \\
+    ARD & nat. & 84.58 & 43.75 & 64.16 & 57.67 & 57.61 & 20.24 & 38.93 & 29.96 \\
+    RSLAD & nat. & 85.15 & 42.91 & 64.03 & 57.06 & 59.68 & 21.30 & 40.49 & 31.40 \\
+    AdaAD & nat. & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 \\
+    AdaAD + IGDM & nat. & 85.01 & 45.50 & 65.26 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 \\
+    LBGAT & nat. & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 \\
+    ARREST & nat. & 85.06 & 46.42 & 65.74 & 60.06 & \textbf{66.97} & 22.78 & 44.88 & 34.00 \\
     \midrule
-    HAT & nat. & 84.59 & 48.81 & 61.90 & 60.67 & 24.45 & 34.85 \\
-    ADR & self & 83.36 & 49.72 & 62.29 & 59.93 & 27.20 & 37.42 \\
-    RPAT++ & -- & 82.41 & 50.75 & 62.82 & 55.93 & 27.36 & 36.74 \\
+    HAT & nat. & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 \\
+    ADR & self & 83.36 & 49.72 & 66.54 & 62.29 & 59.93 & 27.20 & 43.57 & 37.42 \\
+    RPAT++ & -- & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & 84.96 & \textbf{51.74} & \textbf{64.31} & 62.17 & \textbf{28.86} & \textbf{39.42} \\
+    \textbf{CFA (ours)} & nat. & 84.96 & \textbf{51.74} & \textbf{68.35} & \textbf{64.31} & 62.17 & \textbf{28.86} & \textbf{45.52} & \textbf{39.42} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -67,23 +67,23 @@ configuration is evaluated on a larger dataset and network below.
   \centering \small \setlength{\tabcolsep}{5pt}
   \caption{Tiny-ImageNet-200 with ResNet-18. All rows are measured in our framework.}
   \label{tab:tin}
-  \begin{tabular}{llrrr}
+  \begin{tabular}{llrrrr}
     \toprule
-    Method & Teacher & Clean & AA & NRR \\
+    Method & Teacher & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT         & --   & 49.72 & 14.45 & 22.39 \\
-    TRADES         & --   & 46.98 & 15.95 & 23.83 \\
-    MART           & --   & 46.01 & 16.90 & 24.73 \\
+    PGD-AT & -- & 49.72 & 14.45 & 32.09 & 22.39 \\
+    TRADES & -- & 46.98 & 15.95 & 31.46 & 23.83 \\
+    MART & -- & 46.01 & 16.90 & 31.46 & 24.73 \\
     \midrule
-    ARD            & nat. & 49.74 & 14.48 & 22.43 \\
-    RSLAD          & nat. & 51.26 & 17.02 & 25.56 \\
-    AdaAD          & nat. & 51.59 & 16.79 & 25.33 \\
-    LBGAT          & nat. & 51.04 & 18.47 & 27.13 \\
-    ARREST         & nat. & \textbf{59.38} & 16.06 & 25.28 \\
-    HAT            & nat. & 52.57 & 17.28 & 26.01 \\
-    ADR            & self & 47.66 & \textbf{20.85} & 29.01 \\
+    ARD & nat. & 49.74 & 14.48 & 32.11 & 22.43 \\
+    RSLAD & nat. & 51.26 & 17.02 & 34.14 & 25.56 \\
+    AdaAD & nat. & 51.59 & 16.79 & 34.19 & 25.33 \\
+    LBGAT & nat. & 51.04 & 18.47 & 34.75 & 27.13 \\
+    ARREST & nat. & \textbf{59.38} & 16.06 & 37.72 & 25.28 \\
+    HAT & nat. & 52.57 & 17.28 & 34.93 & 26.01 \\
+    ADR & self & 47.66 & \textbf{20.85} & 34.25 & 29.01 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & 55.16 & 20.54 & \textbf{29.93} \\
+    \textbf{CFA (ours)} & nat. & 55.16 & 20.54 & \textbf{37.85} & \textbf{29.93} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -98,36 +98,37 @@ direction of \Cref{fig:teacherladder} on a third dataset.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
-  \caption{WideResNet-34-10 at $\epsilon=8/255$, measured in our framework.
-  CFA's CIFAR-100 result is pending.}
+  \caption{WideResNet-34-10 at $\epsilon=8/255$, measured in our framework. The CIFAR-100 CFA entry
+  is a provisional reading of a run whose evaluation is still finishing.}
   \label{tab:wrn}
-  \begin{tabular}{llrrrrrr}
+  \begin{tabular}{llrrrrrrrr}
     \toprule
-    & & \multicolumn{3}{c}{CIFAR-10} & \multicolumn{3}{c}{CIFAR-100} \\
-    \cmidrule(lr){3-5}\cmidrule(lr){6-8}
-    Method & T. & Clean & AA & NRR & Clean & AA & NRR \\
+    & & \multicolumn{4}{c}{CIFAR-10} & \multicolumn{4}{c}{CIFAR-100} \\
+    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
+    Method & T. & Clean & AA & Avg & NRR & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT & -- & 86.00 & 45.71 & 59.69 & 58.97 & 22.84 & 32.93 \\
-    TRADES & -- & 85.13 & 48.99 & 62.19 & 57.35 & 25.60 & 35.40 \\
-    MART & -- & 85.29 & 47.06 & 60.65 & 57.16 & 22.43 & 32.22 \\
+    PGD-AT & -- & 86.00 & 45.71 & 65.86 & 59.69 & 58.97 & 22.84 & 40.91 & 32.93 \\
+    TRADES & -- & 85.13 & 48.99 & 67.06 & 62.19 & 57.35 & 25.60 & 41.48 & 35.40 \\
+    MART & -- & 85.29 & 47.06 & 66.18 & 60.65 & 57.16 & 22.43 & 39.80 & 32.22 \\
     \midrule
-    ARD & nat. & 86.35 & 45.52 & 59.61 & 59.52 & 23.05 & 33.25 \\
-    RSLAD & nat. & 86.41 & 45.80 & 59.87 & 60.48 & 21.63 & 31.87 \\
-    AdaAD & nat. & 86.80 & 46.84 & 60.85 & 61.66 & 25.62 & 36.20 \\
-    LBGAT & nat. & 81.56 & 51.79 & 63.35 & 59.63 & 28.55 & 38.61 \\
-    ARREST & nat. & 87.54 & 48.83 & 62.69 & \textbf{67.69} & 24.69 & 36.18 \\
-    HAT & nat. & 87.15 & 53.21 & 66.07 & 62.81 & 26.91 & 37.68 \\
-    ADR & self & 88.64 & 52.34 & 65.82 & 65.05 & \textbf{29.04} & \textbf{40.15} \\
+    ARD & nat. & 86.35 & 45.52 & 65.94 & 59.61 & 59.52 & 23.05 & 41.29 & 33.25 \\
+    RSLAD & nat. & 86.41 & 45.80 & 66.10 & 59.87 & 60.48 & 21.63 & 41.06 & 31.87 \\
+    AdaAD & nat. & 86.80 & 46.84 & 66.82 & 60.85 & 61.66 & 25.62 & 43.64 & 36.20 \\
+    LBGAT & nat. & 81.56 & 51.79 & 66.68 & 63.35 & 59.63 & 28.55 & 44.09 & 38.61 \\
+    ARREST & nat. & 87.54 & 48.83 & 68.19 & 62.69 & \textbf{67.69} & 24.69 & 46.19 & 36.18 \\
+    HAT & nat. & 87.15 & 53.21 & 70.18 & 66.07 & 62.81 & 26.91 & 44.86 & 37.68 \\
+    ADR & self & 88.64 & 52.34 & 70.49 & 65.82 & 64.50 & 29.04 & 46.77 & 40.05 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & \textbf{88.67} & \textbf{55.29} & \textbf{68.11}
-      & \multicolumn{3}{c}{\emph{pending}} \\
+    \textbf{CFA (ours)} & nat. & \textbf{88.67} & \textbf{55.29} & \textbf{71.98} & \textbf{68.11} & \textbf{65.00} & \textbf{30.00} & \textbf{47.50} & \textbf{41.05} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 On CIFAR-10 with WideResNet-34-10, CFA attains the highest AA and NRR among our measured runs
 (\Cref{tab:wrn}). Its clean accuracy is close to ADR's ($88.67\%$ versus $88.64\%$), with $2.95$
-points higher AA. This extends the result to a larger network with the same objective.
+points higher AA. The CIFAR-100 entry, still provisional, places CFA at $65.00/30.00$ clean/AA against
+ADR's $64.50/29.04$, the closest baseline there. This extends the result to a larger network with the
+same objective.
 
 \subsection{What Produces the Gain?}
 \label{sec:components}
