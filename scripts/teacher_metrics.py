@@ -36,6 +36,11 @@ def build(ckpt, num_classes):
     sd = torch.load(ckpt, map_location='cpu')
     sd = {k[len('encoder.'):] if k.startswith('encoder.') else k: v for k, v in sd.items()}
     missing, unexpected = net.load_state_dict(sd, strict=False)
+    # Checked in both directions since 2026-09-19: `clean_cos200ep` carries `log_s` instead of `alphas`
+    # (it is the normalized-feature variant, not this network), and with only `missing` asserted it
+    # loaded silently with that parameter dropped, which produced a margin of 0.22 and a feature
+    # sensitivity of 0.72 for a teacher at 73% clean accuracy.  Those numbers were an artifact.
+    assert not unexpected, 'checkpoint has parameters this network does not: %s' % unexpected
     assert not [k for k in missing if 'alphas' not in k], missing
     return Converter(net, MEAN, STD).cuda().eval()
 

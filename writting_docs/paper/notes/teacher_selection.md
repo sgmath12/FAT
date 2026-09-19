@@ -107,10 +107,16 @@ Also, the shipped teachers were trained on the full training set, so these metri
 images, the same split the students are scored on. A selection rule claimed from this alone is not
 independent of that split.
 
-## One cheap prediction to test next
+## A retracted prediction
 
-`clean_cos200ep` is the one off-trajectory teacher already trained here (cosine schedule, 200 epochs):
-clean 73.00, S_w/S_b 2.257, margin 0.223, gradient norm 4.33, feature sensitivity 0.722. Every metric
-above places it at or below the 5-epoch teacher, while its clean accuracy is that of the 20-epoch one.
-The rule therefore predicts a student well below 54.54 clean and 16.00 AA, whereas clean accuracy
-predicts about 63/23. One 50-epoch student, about an hour, decides between them.
+An earlier version of this note proposed `clean_cos200ep` as an off-trajectory teacher whose geometry
+contradicted its accuracy, and predicted a student from it. That measurement was invalid. The
+checkpoint is the normalized-feature variant of the network: it carries `log_s` where this ResNet-18
+carries `alphas`, and the metric script loaded it with `strict=False`, dropping that parameter. The
+margin of $0.223$ and feature sensitivity of $0.722$ it reported are artifacts of the dropped feature
+scale, and the ladder student for it cannot run at all --- the state dict does not fit the plain
+network, which is how the mistake surfaced. The script now asserts that a checkpoint carries no
+parameters the network lacks.
+
+The accuracy-matched teachers of `notes/new_analysis.md` (label smoothing, mixup, weight decay) are
+trained with this same network and replace it as the off-trajectory test.

@@ -53,7 +53,6 @@ post-hoc reading, and it is the reason to write them here rather than after the 
 
 | teacher | clean accuracy | margin | feature sens. | accuracy rule predicts | geometry rule predicts |
 |---|---|---|---|---|---|
-| `clean_cos200ep` (already trained) | 73.00 | 0.223 | 0.722 | student near 63 / 23, i.e. the 20-epoch teacher's | student below 54.5 / 16.0, worse than the 5-epoch teacher |
 | `clean_ls01_200ep` (label smoothing 0.1) | expected near 77 | expected lower than 4.48 | to be measured | student near 62.7 / 25.9 | clean follows sensitivity, AA follows the reduced margin: lower AA than the 200-epoch teacher |
 | `clean_mixup_200ep` | expected 74--78 | expected much lower | expected lower | student near 62.7 / 25.9 | markedly lower AA |
 | `clean_wd5e3_200ep` (weight decay 5e-3) | expected near 76 | expected higher | expected lower | student near 62.7 / 25.9 | AA at or above the 200-epoch teacher's, clean below it |
@@ -63,8 +62,13 @@ accuracy should stay within a couple of points of $77.38$ while their geometry m
 by the same 50-epoch ladder student, the only difference from the other nine points being the teacher.
 
 Queued as `scripts/chain_teachersel_20260919.sh` behind the Table 4 chain: three teachers at $0.39$ h
-and three students at about $1.05$ h, so roughly $4.5$ h in total. `tladder_clean_cos200ep` is second in
-the Table 4 chain and lands first.
+and three students at about $1.05$ h, so roughly $4.5$ h in total.
+
+A fourth candidate was dropped. `clean_cos200ep` looked like a free off-trajectory teacher, but it is
+the normalized-feature variant of the network, so the metric script had loaded it with a parameter
+silently dropped and its student could not be trained at all; `notes/teacher_selection.md` records the
+retraction and the script now checks for it. That leaves the three teachers above, all trained with the
+same network as the ladder.
 
 **Decision rule.** If the geometry metrics keep their ordering on teachers whose accuracy is matched,
 the Analysis section is retitled *What Predicts Transfer from a Natural Teacher?* and the reframing
