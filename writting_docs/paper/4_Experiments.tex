@@ -147,8 +147,8 @@ isolate the target from classifier and radius choices.
   \caption{Baselines given the natural warm start and the training stack, CIFAR-100 with ResNet-18.
   Each method keeps its own objective, optimizer, schedule and epochs; the right block adds teacher
   initialization, weight averaging and the AWP proxy, the latter on that method's own loss. Blank
-  entries are in progress; RSLAD, IGDM, Consistency-AT, LBGAT and ADR are still running and are
-  omitted here.}
+  entries are in progress; IGDM, Consistency-AT, LBGAT and ADR are still running and are omitted
+  here.}
   \label{tab:baselinestack}
   \begin{tabular}{lrrrcrrr}
     \toprule
@@ -160,6 +160,7 @@ isolate the target from classifier and radius choices.
     TRADES           & 55.28 & 23.55 & 33.03 && 56.16 & 24.56 & 34.17 \\
     MART             & 53.86 & 22.72 & 31.96 && 50.97 & 25.13 & 33.66 \\
     ARD              & 57.61 & 20.24 & 29.96 && 60.19 & 26.10 & 36.41 \\
+    RSLAD            & 59.68 & 21.30 & 31.40 && 63.44 & 25.55 & 36.43 \\
     AdaAD            & 59.79 & 23.19 & 33.42 && 57.21 & 27.10 & 36.78 \\
     HAT              & 60.67 & 24.45 & 34.85 && 57.63 & 24.74 & 34.62 \\
     ARREST           & 66.44 & 22.99 & 34.16 && 64.95 & 23.02 & 33.99 \\
@@ -169,8 +170,8 @@ isolate the target from classifier and radius choices.
   \end{tabular}
 \end{table}
 
-The stack helps most of them, and most where the objective was weakest: PGD-AT gains $6.00$ NRR and
-ARD $6.45$, both from AutoAttack accuracy rising by over five points. It does not help everywhere,
+The stack helps most of them, and most where the objective was weakest: PGD-AT gains $6.00$ NRR, ARD
+$6.45$ and RSLAD $5.03$, all from AutoAttack accuracy rising by more than four points. It does not help everywhere,
 since HAT and ARREST lose $0.23$ and $0.17$ NRR on schedules too short for weight averaging and AWP to
 undo robust overfitting. No stacked baseline reaches CFA, the closest being ADR at $1.65$ NRR behind.
 
