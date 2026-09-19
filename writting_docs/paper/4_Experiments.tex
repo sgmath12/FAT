@@ -67,77 +67,51 @@ closest baseline in NRR by $1.85$ points.
 \subsection{Generalization Across Data and Model Scale}
 
 \begin{table}[!htbp]
-  \centering \footnotesize \setlength{\tabcolsep}{4pt}
-  \caption{Tiny-ImageNet-200 with ResNet-18. All rows are measured in our framework.}
-  \label{tab:tin}
-  \begin{tabular}{llrrrr}
-    \toprule
-    Method & Teacher & Clean & AA & Avg & NRR \\
-    \midrule
-    PGD-AT & -- & 49.72 & 14.45 & 32.09 & 22.39 \\
-    TRADES & -- & 46.98 & 15.95 & 31.46 & 23.83 \\
-    MART & -- & 46.01 & 16.90 & 31.46 & 24.73 \\
-    \midrule
-    ARD & nat. & 49.74 & 14.48 & 32.11 & 22.43 \\
-    RSLAD & nat. & 51.26 & 17.02 & 34.14 & 25.56 \\
-    AdaAD & nat. & 51.59 & 16.79 & 34.19 & 25.33 \\
-    LBGAT & nat. & 51.04 & 18.47 & 34.75 & 27.13 \\
-    ARREST & nat. & \textbf{59.38} & 16.06 & 37.72 & 25.28 \\
-    HAT & nat. & 52.57 & 17.28 & 34.93 & 26.01 \\
-    ADR & self & 47.66 & \textbf{20.85} & 34.25 & 29.01 \\
-    \midrule
-    \textbf{CFA (ours)} & nat. & 55.16 & 20.54 & \textbf{37.85} & \textbf{29.93} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-On Tiny-ImageNet, CFA attains the highest NRR among the measured methods, combining substantially
-higher clean accuracy than ADR with comparable AA (\Cref{tab:tin}), and neither endpoint is maximized:
-ARREST stays higher on clean accuracy and ADR is $0.31$ points higher on AA. The teacher-checkpoint
-effect transfers here as well, since the 80-epoch teacher moves the student from $55.16/20.54$ to
-$57.08/18.96$ clean/AA --- more clean accuracy, less robustness, as in \Cref{fig:teacherladder}.
-
-\begin{table}[!htbp]
   \centering \footnotesize \setlength{\tabcolsep}{3.2pt}
-  \caption{WideResNet-34-10 at $\epsilon=8/255$, measured in our framework. The CIFAR-100 CFA entry
-  is a provisional reading of a run whose evaluation is still finishing.}
-  \label{tab:wrn}
+  \caption{A larger dataset and a larger network, both measured in our framework: Tiny-ImageNet-200
+  with ResNet-18, and CIFAR-10 with WideResNet-34-10. \Cref{tab:wrn100} reports WideResNet-34-10 on
+  CIFAR-100.}
+  \label{tab:scale}
   \begin{tabular}{llrrrrrrrr}
     \toprule
-    & & \multicolumn{4}{c}{CIFAR-10} & \multicolumn{4}{c}{CIFAR-100} \\
+    & & \multicolumn{4}{c}{Tiny-ImageNet, ResNet-18} & \multicolumn{4}{c}{CIFAR-10, WRN-34-10} \\
     \cmidrule(lr){3-6}\cmidrule(lr){7-10}
     Method & T. & Clean & AA & Avg & NRR & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT & -- & 86.00 & 45.71 & 65.86 & 59.69 & 58.97 & 22.84 & 40.91 & 32.93 \\
-    TRADES & -- & 85.13 & 48.99 & 67.06 & 62.19 & 57.35 & 25.60 & 41.48 & 35.40 \\
-    MART & -- & 85.29 & 47.06 & 66.18 & 60.65 & 57.16 & 22.43 & 39.80 & 32.22 \\
+    PGD-AT & -- & 49.72 & 14.45 & 32.09 & 22.39 & 86.00 & 45.71 & 65.86 & 59.69 \\
+    TRADES & -- & 46.98 & 15.95 & 31.46 & 23.83 & 85.13 & 48.99 & 67.06 & 62.19 \\
+    MART & -- & 46.01 & 16.90 & 31.46 & 24.73 & 85.29 & 47.06 & 66.18 & 60.65 \\
     \midrule
-    ARD & nat. & 86.35 & 45.52 & 65.94 & 59.61 & 59.52 & 23.05 & 41.29 & 33.25 \\
-    RSLAD & nat. & 86.41 & 45.80 & 66.10 & 59.87 & 60.48 & 21.63 & 41.06 & 31.87 \\
-    AdaAD & nat. & 86.80 & 46.84 & 66.82 & 60.85 & 61.66 & 25.62 & 43.64 & 36.20 \\
-    LBGAT & nat. & 81.56 & 51.79 & 66.68 & 63.35 & 59.63 & 28.55 & 44.09 & 38.61 \\
-    ARREST & nat. & 87.54 & 48.83 & 68.19 & 62.69 & \textbf{67.69} & 24.69 & 46.19 & 36.18 \\
-    HAT & nat. & 87.15 & 53.21 & 70.18 & 66.07 & 62.81 & 26.91 & 44.86 & 37.68 \\
-    ADR & self & 88.64 & 52.34 & 70.49 & 65.82 & 64.50 & 29.04 & 46.77 & 40.05 \\
+    ARD & nat. & 49.74 & 14.48 & 32.11 & 22.43 & 86.35 & 45.52 & 65.94 & 59.61 \\
+    RSLAD & nat. & 51.26 & 17.02 & 34.14 & 25.56 & 86.41 & 45.80 & 66.10 & 59.87 \\
+    AdaAD & nat. & 51.59 & 16.79 & 34.19 & 25.33 & 86.80 & 46.84 & 66.82 & 60.85 \\
+    LBGAT & nat. & 51.04 & 18.47 & 34.75 & 27.13 & 81.56 & 51.79 & 66.68 & 63.35 \\
+    ARREST & nat. & \textbf{59.38} & 16.06 & 37.72 & 25.28 & 87.54 & 48.83 & 68.19 & 62.69 \\
+    HAT & nat. & 52.57 & 17.28 & 34.93 & 26.01 & 87.15 & 53.21 & 70.18 & 66.07 \\
+    ADR & self & 47.66 & \textbf{20.85} & 34.25 & 29.01 & 88.64 & 52.34 & 70.49 & 65.82 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & \textbf{88.67} & \textbf{55.29} & \textbf{71.98} & \textbf{68.11} & \textbf{65.00} & \textbf{30.00} & \textbf{47.50} & \textbf{41.05} \\
+    \textbf{CFA (ours)} & nat. & 55.16 & 20.54 & \textbf{37.85} & \textbf{29.93}
+      & \textbf{88.67} & \textbf{55.29} & \textbf{71.98} & \textbf{68.11} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-On CIFAR-10 with WideResNet-34-10, CFA attains the highest AA and NRR among our measured runs
-(\Cref{tab:wrn}). Its clean accuracy is close to ADR's ($88.67\%$ versus $88.64\%$), with $2.95$
-points higher AA. The CIFAR-100 entry, still provisional, places CFA at $65.00/30.00$ clean/AA against
-ADR's $64.50/29.04$, the closest baseline there. This extends the result to a larger network with the
-same objective.
+On Tiny-ImageNet, CFA attains the highest Avg and NRR, combining substantially higher clean accuracy
+than ADR with comparable AA (\Cref{tab:scale}), and neither endpoint is maximized: ARREST stays higher
+on clean accuracy and ADR is $0.31$ points higher on AA. The teacher-checkpoint effect transfers here
+as well, since the 80-epoch teacher moves the student from $55.16/20.54$ to $57.08/18.96$ clean/AA ---
+more clean accuracy, less robustness, as in \Cref{fig:teacherladder}. On CIFAR-10 with
+WideResNet-34-10, CFA attains the highest accuracy on both axes: its clean accuracy matches ADR's
+($88.67\%$ versus $88.64\%$) with $2.95$ points more AA. CIFAR-100 on the same network is
+in \Cref{tab:wrn100}, where CFA leads the closest baseline, ADR, on both axes.
 
 \subsection{What Produces the Gain?}
 \label{sec:components}
 
 \paragraph{Anchor and label supervision.}
-Replacing the anchor by label cross-entropy under the same base regime reduces clean and AA by
-$6.69$ and $5.91$ points (\Cref{tab:controls}). Giving cross-entropy its own optimizer and schedule
-narrows but does not close the gap: CFA remains ahead by $4.63$ clean and $4.45$ AA points.
+Replacing the anchor by label cross-entropy under the same base regime reduces clean and AA by $6.69$
+and $5.91$ points, and giving cross-entropy its own optimizer and schedule narrows the gap without
+closing it, leaving CFA ahead by $4.63$ clean and $4.45$ AA points (\Cref{tab:controls}).
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
@@ -169,16 +143,47 @@ clean-target regression is not confined to feature space. Teacher-only KL reache
 best tested temperature under the full recipe (\Cref{tab:fullmetrics}), a comparison that does not
 isolate the target from classifier and radius choices.
 
+\begin{table}[!htbp]
+  \centering \footnotesize \setlength{\tabcolsep}{4.5pt}
+  \caption{Baselines given the natural warm start and the training stack, CIFAR-100 with ResNet-18.
+  Each method keeps its own objective, optimizer, schedule and epochs; the right block adds teacher
+  initialization, weight averaging and the AWP proxy, the latter on that method's own loss. Blank
+  entries are in progress; RSLAD, IGDM, Consistency-AT, LBGAT and ADR are still running and are
+  omitted here.}
+  \label{tab:baselinestack}
+  \begin{tabular}{lrrrcrrr}
+    \toprule
+    & \multicolumn{3}{c}{Own recipe} && \multicolumn{3}{c}{$+$ teacher init $+$ WA $+$ AWP} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    Method & Clean & AA & NRR && Clean & AA & NRR \\
+    \midrule
+    PGD-AT           & 57.36 & 20.34 & 30.03 && 59.85 & 25.77 & 36.03 \\
+    TRADES           & 55.28 & 23.55 & 33.03 && 56.16 & 24.56 & 34.17 \\
+    MART             & 53.86 & 22.72 & 31.96 && 50.97 & 25.13 & 33.66 \\
+    ARD              & 57.61 & 20.24 & 29.96 && 60.19 & 26.10 & 36.41 \\
+    AdaAD            & 59.79 & 23.19 & 33.42 && 57.21 & 27.10 & 36.78 \\
+    HAT              & 60.67 & 24.45 & 34.85 && 57.63 & 24.74 & 34.62 \\
+    ARREST           & 66.44 & 22.99 & 34.16 && 64.95 & 23.02 & 33.99 \\
+    \midrule
+    \textbf{CFA (ours)} & \multicolumn{3}{c}{---} && \textbf{64.75} & \textbf{27.98} & \textbf{39.07} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The stack helps most of them, and most where the objective was weakest: PGD-AT gains $6.00$ NRR and
+ARD $6.45$, both from AutoAttack accuracy rising by over five points. It does not help everywhere,
+since HAT and ARREST lose $0.23$ and $0.17$ NRR on schedules too short for weight averaging and AWP to
+undo robust overfitting. No stacked baseline reaches CFA, the closest being ADR at $1.65$ NRR behind.
+
 \subsection{Radius Allocation and Training Components}
 
 \paragraph{Which signal should allocate the radius?}
-\Cref{tab:allocation} holds the mean training radius fixed and changes the allocation signal under
-the full recipe. Sensitivity improves clean/AA by $1.75/0.44$ over a uniform radius. To distinguish
-the signal from the spread of radii, we also preserve the sensitivity rule's exact set of multipliers
-but reassign them so easier examples receive larger radii. This reduces AA by $0.80$ points.
-Difficulty and margin alternatives likewise have lower NRR, supporting the use of the anchor's own
-input sensitivity. These are signal controls inspired by adaptive-radius methods, rather than
-reproductions of their complete training algorithms.
+\Cref{tab:allocation} holds the mean training radius fixed and changes the allocation signal under the
+full recipe, where sensitivity improves clean/AA by $1.75/0.44$ over a uniform radius. Preserving the
+rule's exact multipliers but reassigning them so easier examples receive larger radii costs $0.80$ AA,
+and difficulty and margin signals also have lower NRR, which supports allocating from the anchor's own
+input sensitivity. These are signal controls inspired by adaptive-radius methods rather than
+reproductions of those algorithms.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
@@ -229,9 +234,8 @@ earlier trained-head models provide descriptive evidence, not a causal account o
 
 \subsection{Reliability and Scope}
 
-The full standard AutoAttack suite (APGD-CE, APGD-T, FAB-T, and Square) reaches $28.73\%$ on the
-100-epoch CIFAR-100 repeat, identical to the two-attack cascade: neither FAB-T nor Square finds a failure among
-the $2873$ surviving examples, and PGD accuracy falls to zero at $64/255$ (\Cref{app:gradmask}). That
-repeat gives $62.00/28.74$ clean/AA against $62.17/28.86$ for seed $0$, so two seeds do not establish
-the significance of small ablation differences (\Cref{app:repro}). Teacher and student training take
-$0.39$ and $2.07$ hours for the 100-epoch student setting on one RTX 5080 (\Cref{tab:compute}).
+The full AutoAttack suite (APGD-CE, APGD-T, FAB-T, Square) reaches $28.73\%$ on the 100-epoch
+CIFAR-100 repeat, identical to the two-attack cascade, and PGD accuracy falls to zero at $64/255$
+(\Cref{app:gradmask}). That repeat gives $62.00/28.74$ clean/AA against $62.17/28.86$ for seed $0$, so
+two seeds do not establish the significance of small ablation differences (\Cref{app:repro}). Teacher
+and student training take $0.39$ and $2.07$ hours on one RTX 5080 (\Cref{tab:compute}).

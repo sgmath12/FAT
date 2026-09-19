@@ -654,46 +654,31 @@ that is, to restoring the mean. Clipping first and rescaling afterwards, the obv
 not preserve the box---the rescaling moves the clipped entries back out of it.
 
 \begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Baselines given the natural warm start and the training stack, CIFAR-100 with ResNet-18.
-  Each method keeps its own objective, optimizer, schedule and epoch count; the right block adds
-  initialization at our natural teacher, weight averaging ($\kappa=0.999$ from $20\%$ of the run) and
-  the AWP proxy ($\gamma=0.005$, warmup at $10\%$ of the run), with AWP evaluated on that method's own
-  loss. Blank entries are runs still in progress. \dg ADR's published recipe already includes its own
-  SAM-style AWP, so its left column is not stack-free; removing that term gives $58.22/20.93$
-  (NRR $30.79$).}
-  \label{tab:baselinestack}
-  \begin{tabular}{lrrrcrrr}
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{WideResNet-34-10 on CIFAR-100 at $\epsilon = 8/255$, measured in our framework; the
+  CIFAR-10 column of this network is in \Cref{tab:scale}. The CFA entry is a provisional reading of a
+  run whose evaluation is still finishing.}
+  \label{tab:wrn100}
+  \begin{tabular}{llrrrr}
     \toprule
-    & \multicolumn{3}{c}{Own recipe} && \multicolumn{3}{c}{$+$ teacher init $+$ WA $+$ AWP} \\
-    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
-    Method & Clean & AA & NRR && Clean & AA & NRR \\
+    Method & T. & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT           & 57.36 & 20.34 & 30.03 && 59.85 & 25.77 & 36.03 \\
-    TRADES           & 55.28 & 23.55 & 33.03 && 56.16 & 24.56 & 34.17 \\
-    MART             & 53.86 & 22.72 & 31.96 && 50.97 & 25.13 & 33.66 \\
-    ARD              & 57.61 & 20.24 & 29.96 && 60.19 & 26.10 & 36.41 \\
-    RSLAD            & 59.68 & 21.30 & 31.40 && -- & -- & -- \\
-    AdaAD            & 59.79 & 23.19 & 33.42 && 57.21 & 27.10 & 36.78 \\
-    AdaAD + IGDM     & 48.25 & 19.48 & 27.75 && -- & -- & -- \\
-    Consistency-AT   & 57.53 & 20.01 & 29.69 && -- & -- & -- \\
-    LBGAT            & 56.46 & 26.02 & 35.62 && -- & -- & -- \\
-    HAT              & 60.67 & 24.45 & 34.85 && 57.63 & 24.74 & 34.62 \\
-    ARREST           & 66.44 & 22.99 & 34.16 && 64.95 & 23.02 & 33.99 \\
-    ADR\ddg          & 59.93 & 27.20 & 37.42 && -- & -- & -- \\
+    PGD-AT & -- & 58.97 & 22.84 & 40.91 & 32.93 \\
+    TRADES & -- & 57.35 & 25.60 & 41.48 & 35.40 \\
+    MART & -- & 57.16 & 22.43 & 39.80 & 32.22 \\
     \midrule
-    \textbf{CFA (ours)} & \multicolumn{3}{c}{---} && \textbf{64.75} & \textbf{27.98} & \textbf{39.07} \\
+    ARD & nat. & 59.52 & 23.05 & 41.29 & 33.25 \\
+    RSLAD & nat. & 60.48 & 21.63 & 41.06 & 31.87 \\
+    AdaAD & nat. & 61.66 & 25.62 & 43.64 & 36.20 \\
+    LBGAT & nat. & 59.63 & 28.55 & 44.09 & 38.61 \\
+    ARREST & nat. & \textbf{67.69} & 24.69 & 46.19 & 36.18 \\
+    HAT & nat. & 62.81 & 26.91 & 44.86 & 37.68 \\
+    ADR & self & 64.50 & 29.04 & 46.77 & 40.05 \\
+    \midrule
+    \textbf{CFA (ours)} & nat. & 65.00 & \textbf{30.00} & \textbf{47.50} & \textbf{41.05} \\
     \bottomrule
   \end{tabular}
 \end{table}
-
-The stack helps most of them, and by large margins where the objective was weakest: PGD-AT gains
-$6.00$ NRR and ARD $6.45$, both from AutoAttack accuracy that rises by more than five points. It does
-not help everywhere. HAT and ARREST lose $0.23$ and $0.17$ NRR, and both run short schedules where
-there is little robust overfitting for weight averaging and AWP to undo --- ARREST finetunes for
-twenty epochs. No stacked baseline reaches CFA, and the closest is ADR at its own recipe, $1.65$ NRR
-behind. The comparison changes each baseline's recipe only by the components we add, so it separates
-the stack from the objective without substituting our optimizer or schedule.
 
 \section{Experimental Details}
 \label{app:repro}
@@ -1128,7 +1113,7 @@ at Avg $46.37$ on CIFAR-100 and $87.37/51.33$ at Avg $69.35$ on CIFAR-10.
 
 The restriction is not a convenience. The WideResNet-34-10 block exceeds ours on both criteria---
 RPAT++ reaches Avg $70.87$ and NRR $67.30$ there---because a $48.3$M network is a different model, not
-a better method, and \Cref{tab:wrn} is where that comparison belongs. The same caution applies to the
+a better method, and \Cref{tab:scale,tab:wrn100} are where that comparison belongs. The same caution applies to the
 PreActResNet-18 blocks in the other direction: RPAT++ falls to $82.63/51.00$ there, and reading that
 as a defeat for RPAT would be the identical error. We state all of this as a comparison across
 codebases and architectures rather than as a controlled result, which is what \Cref{tab:main} is for.
