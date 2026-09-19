@@ -217,7 +217,11 @@ def train_analyze_norm_vs_gradient(model,train_loader,optimizer, origin_model,ep
 
 
 def train_clean(model,train_loader,optimizer, origin_model,epoch, config, scheduler, exp_avg = None):
-    XENT_loss = nn.CrossEntropyLoss()
+    # clean_label_smoothing (2026-09-19): natural teachers whose CLEAN ACCURACY is comparable but whose
+    # feature geometry is not, which is what the teacher-selection correlations need in order to
+    # separate class structure from training progress.  0 = the original loss.
+    XENT_loss = nn.CrossEntropyLoss(
+        label_smoothing=float(getattr(config, "clean_label_smoothing", 0.0) or 0.0))
     model.train()
     for batch_idx, (x,y) in enumerate(train_loader):
         optimizer.zero_grad()
