@@ -1,0 +1,68 @@
+{
+  "CIFAR100/checkpoint/clean_traj_s1_seed1/clean_ep20.pkl": {
+    "clean": 62.36,
+    "sw_sb": 1.513145664770962,
+    "margin": 1.4301222562789917,
+    "grad": 15.033551216125488,
+    "featsens": 4.612037658691406,
+    "featsens_rel": 0.19533634185791016,
+    "featnorm": 23.963443756103516,
+    "margin_grad": 0.09512870483621959,
+    "margin_feat": 0.31008468753153384
+  },
+  "CIFAR100/checkpoint/clean_traj_s1_seed1/clean_ep40.pkl": {
+    "clean": 63.06,
+    "sw_sb": 1.425833840760928,
+    "margin": 1.9655057191848755,
+    "grad": 21.9626522064209,
+    "featsens": 4.307905673980713,
+    "featsens_rel": 0.2719045877456665,
+    "featnorm": 16.104293823242188,
+    "margin_grad": 0.08949309494644046,
+    "margin_feat": 0.45625551438053036
+  },
+  "CIFAR100/checkpoint/clean_traj_s1_seed1/clean_ep100.pkl": {
+    "clean": 60.43,
+    "sw_sb": 1.309619200241531,
+    "margin": 1.7917520999908447,
+    "grad": 23.856916427612305,
+    "featsens": 3.8308637142181396,
+    "featsens_rel": 0.310334712266922,
+    "featnorm": 12.554207801818848,
+    "margin_grad": 0.07510409425406912,
+    "margin_feat": 0.46771491591851955
+  },
+  "CIFAR100/checkpoint/clean_traj_s1_seed1/clean_ep150.pkl": {
+    "clean": 60.94,
+    "sw_sb": 1.3234588595293584,
+    "margin": 1.9807120561599731,
+    "grad": 26.793241500854492,
+    "featsens": 4.552417755126953,
+    "featsens_rel": 0.3556864261627197,
+    "featnorm": 13.096973419189453,
+    "margin_grad": 0.0739258090924461,
+    "margin_feat": 0.4350901351110158
+  },
+  "CIFAR100/checkpoint/clean_traj_s1_seed1/clean_ep200.pkl": {
+    "clean": 59.54,
+    "sw_sb": 1.3269572762767194,
+    "margin": 1.9446666240692139,
+    "grad": 25.842302322387695,
+    "featsens": 4.051486015319824,
+    "featsens_rel": 0.314250111579895,
+    "featnorm": 13.23462200164795,
+    "margin_grad": 0.07525129146037855,
+    "margin_feat": 0.47998848242740433
+  },
+  "CIFAR100/checkpoint/clean_traj_s1_seed1/clean_ep300.pkl": {
+    "clean": 78.27,
+    "sw_sb": 0.7081034716286043,
+    "margin": 4.5227131843566895,
+    "grad": 17.529088973999023,
+    "featsens": 3.8354499340057373,
+    "featsens_rel": 0.3753647208213806,
+    "featnorm": 10.539405822753906,
+    "margin_grad": 0.2580118790580189,
+    "margin_feat": 1.1791871259373148
+  }
+}

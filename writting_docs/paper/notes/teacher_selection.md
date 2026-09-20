@@ -296,3 +296,30 @@ the checkpoints immediately before and after it, and report whether the window c
 student and, if not, by how much clean and AA are given up. Teachers whose accuracy differs by several
 points, such as the weight-decay one, are not part of this test; they belong to the separate question of
 whether sensitivity ranks teachers across training methods.
+
+## The snapshot shortcut does not work here (2026-09-20)
+
+To get a second trajectory cheaply, `main.py` gained `save_epochs`, writing epoch-indexed snapshots
+inside one 300-epoch run. The snapshots measured:
+
+| snapshot | clean | margin | feat. sens. |
+|---|---|---|---|
+| 20 ep | 62.36 | 1.43 | 4.61 |
+| 40 ep | 63.06 | 1.97 | 4.31 |
+| 100 ep | 60.43 | 1.79 | 3.83 |
+| 150 ep | 60.94 | 1.98 | 4.55 |
+| 200 ep | 59.54 | 1.94 | 4.05 |
+| 300 ep (final) | 78.27 | 4.52 | 3.84 |
+
+The first five are not N-epoch teachers. Natural training here uses a one-cycle schedule, so a snapshot
+taken partway through a 300-epoch run is a model at the schedule's high-learning-rate middle, sitting at
+$59$ to $63\%$ clean accuracy on its way to $78.27\%$. The seed-0 ladder was nine separate runs, each
+converged under its own one-cycle schedule, and only the final snapshot here is comparable to anything
+($78.27$ against seed 0's $78.32$ at 300 epochs, which is a useful check that the seeds agree at the
+end). The frozen window rule returns an empty window on this trajectory, correctly: no snapshot has a
+saturated margin except the last, whose sensitivity has already fallen.
+
+So the seed-1 ladder is being built the same way as seed 0: one converged run per epoch count, at 20,
+40, 100, 150, 200 and 300 epochs, $810$ epochs in total and about $1.6$ h
+(`scripts/chain_traj_s1_runs_20260920.sh`). `save_epochs` stays in `main.py` --- it is harmless when
+unset and useful for a constant-learning-rate schedule --- but it is not how this trajectory is built.
