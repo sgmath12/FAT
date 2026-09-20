@@ -95,14 +95,12 @@ of the table but gives up $5.20$ AA points, placing it elsewhere on the trade-of
   \end{tabular}
 \end{table}
 
-On Tiny-ImageNet, CFA attains the highest Avg and NRR, combining substantially higher clean accuracy
-than ADR with comparable AA (\Cref{tab:scale}), and neither endpoint is maximized: ARREST stays higher
-on clean accuracy and ADR is $0.31$ points higher on AA. The teacher-checkpoint effect transfers here
-as well, since the 80-epoch teacher moves the student from $55.16/20.54$ to $57.08/18.96$ clean/AA ---
-more clean accuracy, less robustness, as in \Cref{fig:teacherladder}. On CIFAR-10 with
-WideResNet-34-10, CFA attains the highest accuracy on both axes: its clean accuracy matches ADR's
-($88.67\%$ versus $88.64\%$) with $2.95$ points more AA. CIFAR-100 on the same network is
-in \Cref{tab:wrn100}, where CFA leads the closest baseline, ADR, on both axes.
+On Tiny-ImageNet, CFA attains the highest Avg and NRR while maximizing neither endpoint: ARREST stays
+higher on clean accuracy and ADR is $0.31$ points higher on AA (\Cref{tab:scale}). The
+teacher-checkpoint effect transfers here too, since the 80-epoch teacher moves the student from
+$55.16/20.54$ to $57.08/18.96$ clean/AA. On CIFAR-10 with WideResNet-34-10 CFA is highest on both axes,
+matching ADR's clean accuracy ($88.67\%$ versus $88.64\%$) with $2.95$ points more AA; CIFAR-100 on that
+network is in \Cref{tab:wrn100}, where CFA again leads ADR on both.
 
 \subsection{What Produces the Gain?}
 \label{sec:components}
@@ -147,8 +145,8 @@ isolate the target from classifier and radius choices.
   \caption{Baselines given the natural warm start and the training stack, CIFAR-100 with ResNet-18.
   Each method keeps its own objective, optimizer, schedule and epochs; the right block adds teacher
   initialization, weight averaging and the AWP proxy, the latter on that method's own loss. Blank
-  entries are in progress; IGDM, Consistency-AT, LBGAT and ADR are still running and are omitted
-  here.}
+  entries are in progress. \dg ADR's own recipe already carries its own SAM-style AWP, so its left
+  column is not stack-free; without that term it gives $58.22/20.93$ (NRR $30.79$).}
   \label{tab:baselinestack}
   \begin{tabular}{lrrrcrrr}
     \toprule
@@ -162,6 +160,10 @@ isolate the target from classifier and radius choices.
     ARD              & 57.61 & 20.24 & 29.96 && 60.19 & 26.10 & 36.41 \\
     RSLAD            & 59.68 & 21.30 & 31.40 && 63.44 & 25.55 & 36.43 \\
     AdaAD            & 59.79 & 23.19 & 33.42 && 57.21 & 27.10 & 36.78 \\
+    AdaAD + IGDM     & 48.25 & 19.48 & 27.75 && 54.24 & 25.56 & 34.75 \\
+    Consistency-AT   & 57.53 & 20.01 & 29.69 && 60.74 & 25.38 & 35.80 \\
+    LBGAT            & 56.46 & 26.02 & 35.62 && 53.91 & 25.16 & 34.31 \\
+    ADR\ddg          & 59.93 & 27.20 & 37.42 && 59.84 & 27.84 & 38.00 \\
     HAT              & 60.67 & 24.45 & 34.85 && 57.63 & 24.74 & 34.62 \\
     ARREST           & 66.44 & 22.99 & 34.16 && 64.95 & 23.02 & 33.99 \\
     \midrule
@@ -170,10 +172,10 @@ isolate the target from classifier and radius choices.
   \end{tabular}
 \end{table}
 
-The stack helps most of them, and most where the objective was weakest: PGD-AT gains $6.00$ NRR, ARD
-$6.45$ and RSLAD $5.03$, all from AutoAttack accuracy rising by more than four points. It does not help everywhere,
-since HAT and ARREST lose $0.23$ and $0.17$ NRR on schedules too short for weight averaging and AWP to
-undo robust overfitting. No stacked baseline reaches CFA, the closest being ADR at $1.65$ NRR behind.
+The stack helps nine of the twelve, most where the objective was weakest: AdaAD\,+\,IGDM gains $7.04$
+NRR, ARD $6.45$, PGD-AT $6.00$, Consistency-AT $6.11$. It does not help everywhere --- LBGAT loses
+$1.31$, HAT $0.23$ and ARREST $0.17$, the last two on schedules too short for robust overfitting to
+undo --- and no stacked baseline reaches CFA, the closest being ADR at $1.07$ NRR behind.
 
 \subsection{Radius Allocation and Training Components}
 
