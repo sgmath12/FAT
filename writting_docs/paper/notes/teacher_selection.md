@@ -472,3 +472,31 @@ intervention already exists and does not do it --- `margingeom_t50_g10` moves th
 student from $64.28/24.38$ to $64.20/24.62$, closing $0.24$ of the $1.50$ AA gap --- and weight averaging
 the checkpoints collapses the network. The low-learning-rate continuation runs stay queued, not as a
 construction claim but as two more teachers for the matched-accuracy comparison of point 1.
+
+# Final reading of the teacher study (2026-09-20 23:40)
+
+No more seeds. The underfit checkpoints (5, 10, 20 epochs) are dropped: a teacher that has not converged
+is not a checkpoint anyone would consider, and including them is what produced the earlier claim that
+teacher accuracy carries no information about student clean accuracy.
+
+On converged teachers, 40 epochs onward, both trajectories say the same thing, monotonically:
+
+| | teacher clean vs student clean | vs student AA | student clean span | student AA span |
+|---|---|---|---|---|
+| seed 0, 6 points | $-0.94$ | $+0.94$ | $63.79 \to 62.24$ | $24.23 \to 25.80$ |
+| seed 1, 5 points | $-1.00$ | $+0.80$ | $64.36 \to 62.34$ | $23.86 \to 25.94$ |
+
+**The more accurate the natural teacher, the more robust and the less accurate the student.** Two
+independent trajectories, spans of $1.5$ to $2.0$ clean points and $1.6$ to $2.3$ AA points, against a
+student-seed spread of $0.2$ to $0.5$. Teacher clean accuracy is therefore not a quality score to be
+maximized but a dial on the student's operating point, which is the finding to report and the one the
+window rule was an over-complicated way of expressing.
+
+The matched-accuracy pair stays as the second half of the story: at equal teacher accuracy the dial
+still moves, by $4.18$ clean points between the label-smoothing and mixup teachers, so accuracy sets the
+operating point but does not determine it. Feature sensitivity orders that pair; its correlation with
+student clean accuracy within a trajectory is not stable across trajectories ($0.83$ on seed 0, $0.54$ on
+seed 1), so it is reported as what distinguishes teachers of equal accuracy, not as a general predictor.
+
+Closed: further seed repeats, the margin-and-sensitivity window as a selection rule, and constructing a
+50-epoch teacher that behaves like a 200-epoch one.
