@@ -500,3 +500,33 @@ seed 1), so it is reported as what distinguishes teachers of equal accuracy, not
 
 Closed: further seed repeats, the margin-and-sensitivity window as a selection rule, and constructing a
 50-epoch teacher that behaves like a 200-epoch one.
+
+# Two results from the overnight queue (2026-09-21)
+
+## The radius allocation still pays at the final recipe
+
+The control that was missing: `tab:allocation` compares uniform against sensitivity-matched radii at 100
+epochs and $8.8/255$, while the reported result is 150 epochs at $8/255$. Same teacher, frozen head, WA
+and AWP, one configuration line apart:
+
+| 150 epochs, $8/255$ | Clean | AA | NRR |
+|---|---|---|---|
+| uniform radius, $p = 0$ | 62.40 | 27.84 | 38.50 |
+| sensitivity-matched, $p = 1$ | **64.75** | **27.98** | **39.07** |
+
+$+2.35$ clean, $+0.14$ AA, $+0.57$ NRR. The signature is the same as at 100 epochs and $8.8/255$
+($+1.75$ clean, $+0.44$ AA): the allocation buys clean accuracy at equal robustness, and the clean gain
+is four to five times the student-seed spread while the AA difference is inside it. That is the honest
+form of the claim, and it now holds at the configuration the paper reports rather than only at the
+ablation regime.
+
+## The constructed teachers are worse teachers, not off-trajectory ones
+
+Continuing the 50-epoch teacher at $\mathrm{lr} = 0.01$ for 50 and 150 more epochs gives clean
+accuracies of $68.32$ and $69.98$, against the $75.81$ it started from. Restarting at a constant learning
+rate moves the network off the minimum its one-cycle schedule had annealed into, and nothing recovers it
+because there is no final decay. Their margins ($3.32$, $3.90$) sit below every converged ladder
+checkpoint's and their sensitivities ($5.07$, $4.74$) above, which is the corner the window rule wanted,
+but at $6$ to $8$ points less accuracy they are not accuracy-matched teachers and no student was trained
+on them. The construction line is closed on this evidence: averaging collapses, the transfer-side
+intervention moves AA by $0.24$ of the $1.50$ gap, and continued low-lr training costs accuracy.
