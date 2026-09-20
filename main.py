@@ -285,6 +285,16 @@ def main(config,npt):
         epoch_time.append(time.time() - start)
         total_time += epoch_time[-1]
  
+        # save_epochs (2026-09-20): epoch-indexed snapshots inside one run, so a teacher TRAJECTORY costs
+        # one training instead of one per checkpoint.  The ladder of tab:teacherladder_values was nine
+        # separate runs; the teacher-selection study needs that sweep on new seeds, and
+        # `save_epochs: [20, 40, 100, 150, 200, 300]` gives it for the price of the longest one.  This
+        # sits outside the interval block on purpose: with interval 5, epoch 19 never enters it.
+        _se = getattr(config, "save_epochs", None) or []
+        if (epoch + 1) in [int(e) for e in _se]:
+            snap = model.state_dict() if "clean" in config.method else exp_avg
+            torch.save(snap, model_save_path + '%s_ep%d.pkl' % (config.method, epoch + 1))
+
         if epoch % config.interval == 0  :
             if "clean" in config.method:
                 test_model.load_state_dict(exp_avg) 
@@ -304,6 +314,7 @@ def main(config,npt):
                 best_model_save_path = model_save_path + '%s_best.pkl'%config.method
                 torch.save(test_model.state_dict(),best_model_save_path)
                 best_robust_acc = robust_acc
+
 
 
     last_model_save_path = model_save_path + '%s_last.pkl'%config.method

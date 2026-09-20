@@ -241,3 +241,58 @@ pair's ordering survives normalization, while the trajectory fit does not, and t
 about the absolute quantity with that caveat attached.
 
 The weight-decay teacher stays the counterexample under every variant, $+7.2$ to $+8.3$ points.
+
+## Reconciling the notes with the paper's table (2026-09-20)
+
+Two mismatches, both now fixed, and neither in the paper's favour or against it.
+
+- **Teacher clean accuracy.** The first pass measured on a 5000-image subset of the test set and read
+  $0.3$ to $0.9$ points low ($75.32$ against the paper's $75.81$ at 50 epochs, and so on). Measured on
+  all 10000 images the numbers reproduce `tab:teacherladder_values` exactly: $57.26$, $68.81$, $73.74$,
+  $75.74$, $75.81$, $76.62$, $77.52$, $77.65$, $78.32$, and $S_w/S_b$ to within $0.001$. All metrics in
+  this note are now the full-test-set version.
+- **Student numbers.** Three ladder cells have logs for seeds 0, 1 and 2, and the first pass read the
+  newest file, which is seed 2. The paper reports seed 0 throughout, so the correlations were computed
+  against a mixture. Corrected to seed 0: $64.28/24.38$ at 50 epochs, $61.15/20.22$ at 10, $62.24/25.80$
+  at 300.
+- The repeats are useful in themselves: across seeds the same teacher gives students within $0.2$ to
+  $0.5$ clean points and $0.1$ to $0.5$ AA points. The matched-pair gap of $4.18$ clean points is an
+  order of magnitude above that spread.
+
+## The candidate-window rule, frozen before validation
+
+The goal is not to name one teacher but to narrow a trajectory to the checkpoints worth training
+students on. `scripts/teacher_window.py` fixes the rule:
+
+    keep a checkpoint if  margin >= 0.99 * max(margin)  and  feature sensitivity >= 0.85 * max(sens.)
+
+On the original trajectory it keeps exactly the 150- and 200-epoch checkpoints:
+
+| checkpoint | margin | % of max | sensitivity | % of max | kept |
+|---|---|---|---|---|---|
+| 5 ep | 0.641 | 14.1 | 2.452 | 51.7 | |
+| 10 ep | 1.812 | 39.8 | 3.215 | 67.8 | |
+| 20 ep | 3.027 | 66.5 | 4.036 | 85.1 | |
+| 40 ep | 4.048 | 88.9 | 4.741 | 100.0 | |
+| 50 ep | 4.187 | 92.0 | 4.685 | 98.8 | |
+| 100 ep | 4.480 | 98.4 | 4.520 | 95.3 | |
+| 150 ep | 4.553 | 100.0 | 4.326 | 91.2 | **yes** |
+| 200 ep | 4.545 | 99.8 | 4.102 | 86.5 | **yes** |
+| 300 ep | 4.473 | 98.2 | 3.832 | 80.8 | |
+
+Those two checkpoints contain the trajectory's best student AutoAttack accuracy ($25.88$ at 200 epochs)
+and its best NRR ($36.64$, also 200 epochs), and both give more student clean accuracy than the
+300-epoch teacher. The clean-accuracy optimum, the 50-epoch teacher at $64.28$, is outside the window,
+which is the cost of the rule and has to be reported as such.
+
+Both thresholds were read off this trajectory after its students were known. They are therefore frozen
+in the script and applied unchanged to the two new trajectories now training
+(`scripts/chain_teachertraj_20260920.sh`, seeds 1 and 2, snapshots at 20, 40, 100, 150, 200 and 300
+epochs from a single run each, using the new `save_epochs` option in `main.py`).
+
+**Protocol for the validation, in order.** Train the two trajectories. Compute teacher metrics on each.
+Write the selected window for each seed into this note. Only then train students at the window and at
+the checkpoints immediately before and after it, and report whether the window contains that seed's best
+student and, if not, by how much clean and AA are given up. Teachers whose accuracy differs by several
+points, such as the weight-decay one, are not part of this test; they belong to the separate question of
+whether sensitivity ranks teachers across training methods.

@@ -8,10 +8,14 @@ off-trajectory teacher available and is reported separately for that reason.
 """
 import json, sys
 
-STUDENTS = {   # teacher checkpoint -> (student clean, student AA), 50-epoch anchor, CIFAR-100
-    'clean_5ep': (54.54, 16.00), 'clean_10ep': (61.04, 19.94), 'clean_20ep': (63.40, 22.98),
-    'clean_40ep': (63.79, 24.23), 'clean': (64.07, 24.51), 'clean_100ep': (63.65, 25.20),
-    'clean_150ep': (62.93, 25.78), 'clean_200ep': (62.72, 25.88), 'clean_300ep': (61.85, 25.59),
+STUDENTS = {   # teacher checkpoint -> (student clean, student AA_2), 50-epoch anchor, CIFAR-100, SEED 0
+    # Seed 0 throughout, which is what tab:teacherladder_values reports.  Three of these cells also
+    # have seeds 1 and 2, and they bound the student noise: 10 epochs 61.15/61.56/61.04 clean and
+    # 20.22/20.10/19.94 AA, 50 epochs 64.28/64.07/64.07 and 24.38/24.42/24.51, 300 epochs
+    # 62.24/62.09/61.85 and 25.80/26.13/25.59.  So a spread of 0.2-0.5 clean and 0.1-0.5 AA.
+    'clean_5ep': (54.54, 16.00), 'clean_10ep': (61.15, 20.22), 'clean_20ep': (63.40, 22.98),
+    'clean_40ep': (63.79, 24.23), 'clean': (64.28, 24.38), 'clean_100ep': (63.65, 25.20),
+    'clean_150ep': (62.93, 25.78), 'clean_200ep': (62.72, 25.88), 'clean_300ep': (62.24, 25.80),
 }
 
 def ranks(v):

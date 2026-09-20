@@ -5,7 +5,8 @@ It does not say which teacher to pick without training students.  This script me
 teacher alone, the quantities a selection rule could use, so they can be ranked against the student
 results we already have for the same checkpoints.
 
-Metrics are computed on 5000 held-out images (`--split test` by default).  The shipped teachers were
+Metrics are computed on the held-out set (`--split test`, all 10000 images by default, which is
+the set the paper's teacher clean accuracies are measured on).  The shipped teachers were
 fit on the whole training set, so their train-split accuracy and margins saturate and carry no signal;
 the price of using test images is that a rule read off them is not independent of the split the
 students are scored on, which the new-seed teachers of step 2 are meant to fix.
@@ -45,7 +46,7 @@ def build(ckpt, num_classes):
     return Converter(net, MEAN, STD).cuda().eval()
 
 
-def eval_split(root, split, n=5000, seed=0):
+def eval_split(root, split, n=10000, seed=0):
     """`train` is what these teachers were fit on, so their accuracy and margins saturate there (100%
     clean, see the 2026-09-19 run); the informative split is held-out data.  Since the shipped teachers
     were trained on the full training set, that means the test set, and a rule read off it is not
@@ -118,10 +119,13 @@ if __name__ == '__main__':
     ap.add_argument('--data-root', default='./data/CIFAR100')
     ap.add_argument('--eps', type=float, default=8 / 255)
     ap.add_argument('--split', default='test', choices=['test', 'train'])
+    ap.add_argument('--n', type=int, default=10000,
+                    help='images to measure on; 10000 = the whole CIFAR test set, which is what the '
+                         'paper reports teacher clean accuracy on (a 5000 subset read 0.3-0.9 points low)')
     ap.add_argument('--out', default='writting_docs/paper/notes/teacher_metrics.json')
     a = ap.parse_args()
     torch.manual_seed(0)
-    loader = eval_split(a.data_root, a.split)
+    loader = eval_split(a.data_root, a.split, a.n)
     rows = {}
     for name in a.checkpoints:
         ckpt = f'{a.dataset}/checkpoint/{name}/clean_last.pkl'
