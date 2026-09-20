@@ -399,3 +399,76 @@ selection is what remains. Teachers cost $0.1$ and $0.3$ h, the student $1$ h.
 
 Not to be retried: shrinking features toward class prototypes and rotating classes onto a simplex ETF,
 both measured inert or harmful in 2026-08.
+
+# Seed-1 validation: the result, and a correction it forces (2026-09-20 23:30)
+
+Window selected from teacher metrics alone, printed at 16:30 before any student started:
+$\{100, 200\}$ epochs. Students, all six, same 50-epoch setting as the seed-0 ladder:
+
+| seed-1 teacher | teacher clean | margin | feat. sens. | student clean | student AA | student NRR | window |
+|---|---|---|---|---|---|---|---|
+| 20 ep | 73.87 | 3.074 | 3.911 | 63.82 | 23.22 | 34.05 | |
+| 40 ep | 75.57 | 3.931 | 4.542 | **64.36** | 23.86 | 34.81 | |
+| 100 ep | 77.27 | 4.506 | **4.678** | 63.68 | 25.61 | 36.53 | **yes** |
+| 150 ep | 77.68 | 4.495 | 4.262 | 63.37 | 25.49 | 36.36 | |
+| 200 ep | 77.90 | **4.542** | 4.129 | 63.02 | **26.16** | **36.97** | **yes** |
+| 300 ep | 78.27 | 4.523 | 3.835 | 62.34 | 25.94 | 36.64 | |
+
+**Against the pre-declared criteria: C1 fails, C2 and C3 pass.**
+
+- C1, every window checkpoint within $0.5$ AA of the maximum: **fail by $0.05$**. The 200-epoch
+  checkpoint is the maximum; the 100-epoch one is $0.55$ below it. The failure is inside the student-seed
+  spread of $0.1$ to $0.5$, which is worth stating but does not undo a criterion fixed in advance.
+- C2, the window is not just "train longest": pass. The 100-epoch student holds $63.68$ clean against
+  the 300-epoch student's $62.34$, $+1.34$.
+- C3, nothing more than $1.0$ AA below the maximum is inside: pass. The two such checkpoints, 20 and 40
+  epochs, are outside.
+- The best NRR of the trajectory, $36.97$, is inside the window, and so is the best AA. The best clean
+  accuracy, $64.36$ at 40 epochs, is outside, as on seed 0.
+
+**The trade-off shape reproduces.** Over 40 to 300 epochs the seed-1 student loses $2.02$ clean points
+and gains $2.30$ AA points, against $1.55$ and $1.65$ on seed 0. This is the paper's ladder finding on an
+independent trajectory, and it is the part of this study that is now solid.
+
+## The correction: the sensitivity result was grid-dependent
+
+Spearman on the seed-1 six-point grid, against the same quantities measured on seed 0:
+
+| teacher metric | seed 0, 9 points (5--300) | seed 0, 6 points (20--300) | seed 1, 6 points |
+|---|---|---|---|
+| clean accuracy vs student clean | $0.18$ | $-0.83$ | $-0.94$ |
+| feature sensitivity vs student clean | $0.93$ | $0.83$ | $0.54$ |
+| $S_w/S_b$ vs student clean | $-0.17$ | $0.83$ | $0.94$ |
+| margin vs student AA | $0.98$ | $0.71$ | $1.00$ |
+| clean accuracy vs student AA | $0.95$ | $0.94$ | $0.89$ |
+
+The claim "teacher clean accuracy cannot predict the student's clean accuracy ($\rho = 0.18$)" holds only
+on the nine-point grid, and it holds there because that grid contains three underfit teachers (5, 10 and
+20 epochs) whose students are bad on both axes. Restricted to converged teachers, 20 epochs onward,
+teacher accuracy predicts student clean accuracy with $\rho = -0.83$ on seed 0 and $-0.94$ on seed 1: a
+strong \emph{negative} relation, which is the ladder finding, not an absence of one.
+
+Feature sensitivity survives less well than step 1 suggested. Its correlation with student clean accuracy
+falls from $0.93$ (nine points) to $0.83$ (same trajectory, six points) to $0.54$ on seed 1, where the
+scatter ratio $S_w/S_b$ is the better predictor ($0.94$). The matched-accuracy pair remains the strongest
+piece of evidence for sensitivity, since there teacher accuracy is constant by construction and cannot
+order anything.
+
+## What the Analysis section should therefore say
+
+Two results, in this order:
+
+1. **Teachers of equal clean accuracy transfer differently.** Label smoothing and mixup teachers differ
+   by $0.14$ clean points and their students by $4.18$; AutoAttack accuracy is equal to $0.02$. Teacher
+   accuracy cannot select on the clean axis because it is constant here, and of the teacher-only
+   quantities measured, feature sensitivity is the one that orders the pair.
+2. **The trade-off reproduces on an independent trajectory**, and a window marked from teacher metrics
+   alone, before the students, contains the best AA and the best NRR of that trajectory while keeping
+   $1.34$ clean points over its last checkpoint. One of three pre-declared criteria fails by $0.05$
+   points, which is reported rather than hidden.
+
+Dropped: the construction line, making a 50-epoch teacher behave like a 200-epoch one. The transfer-side
+intervention already exists and does not do it --- `margingeom_t50_g10` moves the 50-epoch teacher's
+student from $64.28/24.38$ to $64.20/24.62$, closing $0.24$ of the $1.50$ AA gap --- and weight averaging
+the checkpoints collapses the network. The low-learning-rate continuation runs stay queued, not as a
+construction claim but as two more teachers for the matched-accuracy comparison of point 1.
