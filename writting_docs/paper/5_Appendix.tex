@@ -801,13 +801,12 @@ generated data, which is more expensive than every row here combined.
 \section{Teacher-Only Metrics and What They Predict}
 \label{app:teachersel}
 
-\Cref{sec:teacher_transfer} selects a teacher by training students. This appendix asks what can be read
-off the frozen teacher instead, reports the predictions that failed as well as the one that held, and
-records a measurement we retracted. Metrics are computed on $5000$ held-out images: clean accuracy, the
+\Cref{sec:teacher_transfer} selects a teacher by training students. Here we ask what can be inferred
+from the frozen teacher. Metrics are computed on all $10{,}000$ CIFAR-100 test images: clean accuracy, the
 scatter ratio $S_w/S_b$, the mean logit margin $f_y - \max_{k \ne y} f_k$, the mean $\lVert \nabla_x
 \mathrm{CE} \rVert_2$, and the feature sensitivity $\lVert \Phi_t(x+\delta) - \Phi_t(x) \rVert_2 /
-\lVert \delta \rVert_2$ for uniform $\delta$ at $8/255$. The students are the 50-epoch cells of
-\Cref{tab:teacherladder_values}, identical apart from the teacher.
+\lVert \delta \rVert_2$ for uniform $\delta$ at $8/255$. All students use the same 50-epoch protocol;
+five of the nine checkpoint results appear in \Cref{tab:teacherladder_values}.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4pt}
@@ -842,9 +841,9 @@ supports. The trajectory therefore selects candidates; it does not test them.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Out-of-sample prediction: each line is fit on the nine trajectory checkpoints and applied to
-  the three teachers of \Cref{tab:matchedteacher}, which were trained differently. Mean absolute error
-  in accuracy points, and the error on each teacher.}
+  \caption{Out-of-trajectory prediction: each line is fit on the nine trajectory checkpoints and
+  applied to the two teachers in \Cref{tab:matchedteacher} and a weight-decay teacher. Mean absolute
+  error in accuracy points, and the error on each teacher.}
   \label{tab:teacherpredict}
   \begin{tabular}{llrrrr}
     \toprule
@@ -861,23 +860,27 @@ supports. The trajectory therefore selects candidates; it does not test them.
   \end{tabular}
 \end{table}
 
-The ordering reverses between the two tables. The margin and the scatter ratio, strongest along the
-trajectory, are the weakest predictors off it: the margin predicts $22.5$ and $20.2$ AutoAttack points
-for the label-smoothing and mixup teachers, which give $25.72$ and $25.70$, and the scatter ratio errs
-by $12.0$ points on the mixup teacher. Their trajectory correlations were the collinearity with
-training time. Teacher accuracy predicts the robust axis best out of sample and the clean axis worst,
-and feature sensitivity is the reverse. Neither the label-dependent gradient norm nor the margin is the
-right quantity to read on a label-smoothing teacher in any case, since label smoothing changes the logit
-scale both of them are computed from, which is a second reason to name the feature version in
-\Cref{sec:teacher_transfer}.
+The trajectory correlations of margin and $S_w/S_b$ do not carry over to these differently trained
+teachers. Feature sensitivity has the lowest student-clean prediction error among the tested metrics,
+but this small sample does not establish a selection rule. In particular, the weight-decay teacher
+has lower clean accuracy ($69.30\%$) than the matched pair ($78.76\%$ and $78.62\%$), so its larger
+prediction error cannot isolate the role of sensitivity. Label smoothing also changes logit scale,
+complicating comparisons based on margin or the cross-entropy gradient.
+
+\paragraph{Exploratory checkpoint window.}
+Let $m_e$ and $s_e$ denote the teacher's mean margin and feature sensitivity at epoch $e$. Retaining
+checkpoints with $m_e\geq0.99\max_j m_j$ and $s_e\geq0.85\max_j s_j$ selects epochs 150 and 200 on
+the original trajectory. This window includes the best student AA$_2$ and NRR but excludes the
+clean-accuracy maximum at epoch 50. The thresholds were set after examining this trajectory and
+therefore require validation on independent trajectories.
 
 One measurement was retracted rather than reported. A cosine-schedule checkpoint was to be a fourth
 off-trajectory teacher, and its metrics looked decisive: a margin of $0.22$ at $73.00$ clean accuracy.
 It is the normalized-feature variant of this network, carrying a feature-scale parameter the plain
 network does not, and the metric script had loaded it with that parameter dropped. Its student could not
 be trained at all, which is how the error surfaced. The script now refuses a checkpoint whose parameters
-do not match the network, and the three teachers of \Cref{tab:matchedteacher} use the same network as
-the ladder.
+do not match the network; the two teachers in \Cref{tab:matchedteacher} and the weight-decay teacher
+use the same network as the ladder.
 
 \section{The Recipe Controls}
 \label{app:recipe}
@@ -916,6 +919,23 @@ Cross-entropy improves by $1.87$ NRR under its own schedule, so \Cref{tab:contro
 stronger baseline. The anchor remains ahead under both tested schedules. These comparisons support
 an objective-level contribution within the tested recipes, without establishing significance from
 single runs or claiming exhaustive tuning of the alternatives.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{Successive additions to the CIFAR-100 ResNet-18 anchor (100 epochs,
+  $\epsilon_{\mathrm{train}}=8.8/255$).}
+  \label{tab:ladder}
+  \begin{tabular}{lrrr}
+    \toprule
+    & Clean & AA & NRR \\
+    \midrule
+    Anchor ($p=0$)                         & 61.29 & 25.36 & 35.88 \\
+    \quad + sensitivity-matched $\epsilon$ & \textbf{63.09} & 25.74 & 36.56 \\
+    \quad + weight averaging               & 62.30 & 27.69 & 38.34 \\
+    \quad + AWP                            & 62.17 & \textbf{28.86} & \textbf{39.42} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \section{Gradient Masking}
 \label{app:gradmask}

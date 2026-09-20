@@ -1,22 +1,18 @@
 \section{Introduction}
 \label{sec:intro}
 
-Adversarial training remains the most reliable defense against norm-bounded attacks
-\citep{PGD,athalye2018obfuscated,AutoAttack}, but its robustness comes with lower accuracy on clean
-inputs. This trade-off is partly intrinsic to the training objective \citep{tsipras2018robustness,TRADES}
-and becomes especially restrictive for compact networks. Existing approaches improve the target seen
-during adversarial training: some replace one-hot labels with softened or self-distilled targets
-\citep{pang2020bag,tack2022consistency,adr}, while adversarial distillation transfers predictions from
-a robust teacher \citep{ard,iad,rslad,adaad,igdm}. The latter can be effective, but presupposes a model
-that has already paid the cost of robust training.
+Adversarial training improves worst-case accuracy but often sacrifices clean accuracy
+\citep{PGD,tsipras2018robustness,TRADES}. Robust distillation can soften this trade-off, but requires
+an adversarially trained teacher \citep{ard,iad,rslad,adaad,igdm}. A naturally trained teacher is
+cheaper and more accurate on clean inputs, yet vulnerable to attack. What should a robust student
+learn from such a teacher?
 
-A naturally trained copy of the student provides inexpensive clean guidance, despite being
-non-robust itself. Previous methods exploit its predictions or representations
-\citep{lbgat,arrest,dpfat,bmtard}, but choosing a target leaves two further decisions: which natural
-checkpoint to use, and how strongly to perturb each training example. Neither follows directly
-from the teacher's clean accuracy. We study these decisions through a simple feature-regression
-objective, asking how the teacher and the perturbation budget shape the student's clean--robust
-trade-off.
+Prior methods use natural teachers' predictions or representations
+\citep{lbgat,arrest,dpfat,bmtard}. We study a particularly simple answer: match the teacher's
+\emph{clean feature} throughout adversarial training, with the inherited classifier fixed. The same
+target drives attack generation and student learning, without a separate label loss or temperature
+search. This design exposes two choices beyond the target itself: which natural checkpoint to use,
+and how to allocate perturbations across examples.
 
 \begin{figure}[t]
   \centering
@@ -28,43 +24,30 @@ trade-off.
   \label{fig:frontier}
 \end{figure}
 
-\textbf{Clean Feature Anchoring} (CFA) uses the natural teacher's clean feature as a fixed target
-for both adversarial-example generation and backbone learning, while retaining its classifier.
-This gives a single objective without a label-loss coefficient or temperature search during
-adversarial training. A fixed-anchor bound characterizes its joint control of teacher fidelity
-and local feature variation. We use this simple objective to examine teacher selection and
-perturbation allocation.
+\textbf{Clean Feature Anchoring} (CFA) makes the target explicit: the student backbone learns to
+match one clean teacher representation even at adversarial inputs. A fixed-anchor bound relates
+this loss to clean teacher fidelity and local feature variation; it does not rely on the teacher
+itself being robust.
 
-With this objective fixed, a more accurate natural teacher need not produce a more accurate
-student on clean inputs. Along the CIFAR-100 teacher trajectory we examine, teacher clean accuracy
-increases by $2.51$ points, yet student clean accuracy falls by $2.04$ while robustness improves.
-An earlier-versus-later checkpoint comparison on Tiny-ImageNet follows the same direction.
-Thus teacher selection changes the student's trade-off rather than simply improving both axes.
-The practical implication is to assess a teacher by the student it produces, not by its own clean
-accuracy alone.
+The choice of teacher is less straightforward than its clean accuracy suggests. Along the CIFAR-100
+training trajectory, the teacher gains $2.51$ clean points while its student's clean accuracy falls
+by $2.04$ and robustness improves. Two teachers with nearly identical clean accuracy, trained with
+label smoothing and mixup, produce students $4.18$ clean points apart. These comparisons motivate
+examining teacher properties beyond accuracy, rather than simply taking the final checkpoint.
 
-For a chosen teacher, a second mismatch remains: equal pixel-space radii can induce different
-changes in the anchor loss across examples. We therefore allocate the training radius using the
-input sensitivity of that same loss. Locally sensitive examples receive smaller radii and less
-sensitive examples larger ones, with the batch total held fixed. An inverse-sensitivity rule is
-motivated by equalizing the linearized loss increase. Importantly, we test the allocation signal
-by reassigning exactly the same radius multipliers across examples, separating their assignment
-from their distribution. Teacher selection and radius allocation thus address complementary
-choices: the reference representation and the neighborhoods over which it is preserved.
+Even with the teacher fixed, a uniform pixel radius need not perturb the anchor loss equally across
+examples. We allocate a fixed batch budget inversely to the loss's input sensitivity, then test the
+allocation against a control that reassigns the \emph{same} radii to different examples. Teacher
+selection determines the reference; radius allocation determines where to enforce it.
 
-CFA achieves competitive clean--robust trade-offs across CIFAR-10, CIFAR-100, and
-Tiny-ImageNet. On CIFAR-100 with ResNet-18 it reaches $64.75\%$ clean and $27.98\%$ AutoAttack
-accuracy (\Cref{tab:main}). Controls on label supervision, regression targets, optimization recipes,
-and radius allocation distinguish the contribution of the anchor from that of the training stack.
+CFA improves the measured trade-off across CIFAR-10, CIFAR-100, and Tiny-ImageNet. On CIFAR-100
+with ResNet-18 it reaches $64.75\%$ clean and $27.98\%$ AA, exceeding ARREST by $1.58$ AA points
+at comparable clean accuracy (\Cref{tab:main}). Target, recipe, and radius controls distinguish the
+anchor's contribution from that of the training stack.
 
-Our contributions are threefold:
+Our contributions are:
 \begin{itemize}
-  \item We identify a teacher-selection trade-off: along the studied natural-training trajectory,
-  higher teacher clean accuracy accompanies lower student clean accuracy and higher robustness,
-  with the same direction observed in a Tiny-ImageNet checkpoint comparison.
-  \item We develop sensitivity-based radius allocation for a single clean-feature objective,
-  motivated by a fixed-budget first-order analysis and tested against controls that preserve
-  the radius distribution.
-  \item We evaluate CFA across three datasets and two architectures, and use target, recipe, and
-  allocation controls to characterize where this simple natural-teacher training design is effective.
+  \item A single clean-feature target, with a bound relating teacher fidelity and local variation.
+  \item Evidence that teacher clean accuracy alone does not determine student clean accuracy.
+  \item Sensitivity-based radius allocation, tested with fixed-budget controls across three datasets.
 \end{itemize}

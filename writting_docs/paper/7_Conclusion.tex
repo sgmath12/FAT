@@ -1,10 +1,9 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-Effective transfer from a natural teacher depends on more than its clean accuracy: in the checkpoint
-comparisons studied here, a more accurate teacher can give a less accurate student while improving
-robustness. CFA makes that trade-off easy to examine, since one fixed clean feature target drives both
-attack generation and backbone learning, and the sensitivity-matched radius then matches the
-perturbation budget to the loss being optimized. Across three datasets the result is competitive with
-neither a robust teacher nor a label objective, which argues for choosing teachers by the student
-trade-off they produce.
+A natural teacher can guide adversarial training without a separate label loss, but its checkpoints
+are not interchangeable: a more accurate teacher can produce a less accurate student while improving
+robustness. CFA exposes this trade-off with one clean feature target, and sensitivity-based radii
+allocate the perturbation budget according to that target's local response. Across three datasets,
+this yields strong clean--robust trade-offs. More broadly, target, teacher, and perturbation budget
+are distinct choices in natural-teacher distillation.

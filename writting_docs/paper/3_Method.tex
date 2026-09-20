@@ -54,17 +54,12 @@ where $p=0$ recovers a uniform radius and $p=1$ gives inverse-sensitivity alloca
 The conserved sum separates redistribution from a change in the mean training budget. This is a
 local approximation to loss growth, not a claim that nonlinear adversarial losses become equal.
 
-We use $p=1$ with an $\ell_2$ gradient norm as a practical sensitivity proxy, measured with one
-backward pass at clean inputs. The $\ell_1$ norm follows exactly from the linearized
-$\ell_\infty$ problem; it also retains the clean-accuracy gain but gives $0.29$ points lower AA
-in our comparison (\Cref{app:box}). Thus first-order equalization motivates the allocation,
-while the implemented proxy is chosen empirically.
-
-We floor the proxy at $10^{-12}$, clip its inverse-mean multipliers to $[0.5,1.5]$, and normalize
-them to unit mean before setting $\epsilon_i$. The floor gives a uniform allocation when all clean
-gradients vanish at teacher initialization. Normalization preserves $\sum_i\epsilon_i=N\epsilon$,
-although the final multipliers can leave the clipping interval. PGD step sizes are scaled by the same
-multipliers. \Cref{app:box} specifies this procedure and an optional exact-box variant.
+We implement $p=1$ with an $\ell_2$ gradient norm, measured by one backward pass at the clean input.
+The $\ell_1$ norm follows exactly from the linearized $\ell_\infty$ problem, but the $\ell_2$ proxy
+performs slightly better here (\Cref{app:box}). Thus the first-order argument motivates the rule
+without uniquely determining its implementation. Clipping and renormalization preserve the batch
+budget, and PGD step sizes scale with the assigned radii; implementation details are in
+\Cref{app:box}.
 The key test is whether sensitivity assigns the budget usefully, not merely whether varying
 radii helps. Accordingly, \Cref{tab:allocation} includes a control that keeps the exact multiset
 of sensitivity-derived multipliers but reassigns them by sample difficulty. Together with uniform

@@ -142,21 +142,18 @@ distance of class means to the global mean. Teacher and student ratios decrease 
 (\Cref{fig:teacherladder}b), indicating stronger class separation. This is an association across
 five checkpoints, not evidence that geometry alone causes the transfer effect.
 
-Correlations along one trajectory cannot separate a teacher property from training time, so we test
-the criterion directly on teachers trained differently. Label smoothing and mixup give two natural
-teachers whose clean accuracies differ by $0.14$ points and whose students differ by $4.18$
-(\Cref{tab:matchedteacher}). Their AutoAttack accuracies agree to $0.02$: at matched teacher accuracy
-the clean axis moves and the robust axis does not. Of the teacher-only quantities we measured, the one
-that orders the pair is the feature sensitivity
-$\lVert\Phi_t(x+\delta)-\Phi_t(x)\rVert_2/\lVert\delta\rVert_2$, which uses neither labels nor logits;
-a line fit on the nine trajectory checkpoints predicts $59.0$ and $65.0$ from it, against $64.3$ and
-$64.2$ from teacher clean accuracy, which cannot tell the two teachers apart.
+Because training time is confounded with teacher accuracy in this sweep, we also compare teachers
+trained with label smoothing and mixup. Their clean accuracies differ by only $0.14$ points, yet their
+students differ by $4.18$ clean points (\Cref{tab:matchedteacher}); AA$_2$ differs by $0.02$ points
+in these runs. Thus teacher accuracy alone does not determine the student's clean accuracy. Feature
+sensitivity, $\lVert\Phi_t(x+\delta)-\Phi_t(x)\rVert_2/\lVert\delta\rVert_2$, also differs between
+the two teachers in the direction of student clean accuracy. This pair suggests a useful diagnostic,
+but cannot by itself establish a teacher-selection rule.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Two teachers at the same clean accuracy, and a third that refutes the general rule.
-  CIFAR-100, ResNet-18, 50-epoch students identical apart from the teacher. Sensitivity is the
-  feature displacement per unit input displacement, measured on held-out data.}
+  \caption{Accuracy-matched teachers and student transfer on CIFAR-100 (ResNet-18, 50-epoch students).
+  Feature sensitivity is measured on held-out data.}
   \label{tab:matchedteacher}
   \begin{tabular}{lrrcrr}
     \toprule
@@ -164,22 +161,14 @@ $64.2$ from teacher clean accuracy, which cannot tell the two teachers apart.
     \cmidrule(lr){2-3}\cmidrule(lr){5-6}
     Natural training & Clean & Sensitivity && Clean & AA$_2$ \\
     \midrule
-    200 epochs (\Cref{fig:teacherladder}) & 77.38 & 4.14 && 62.72 & \textbf{25.88} \\
-    \quad + label smoothing $0.1$ & \textbf{78.76} & 3.17 && 59.62 & 25.72 \\
-    \quad + mixup & 78.62 & \textbf{4.81} && \textbf{63.80} & 25.70 \\
-    \quad + weight decay $5\times10^{-3}$ & 69.30 & 4.13 && 55.30 & 19.60 \\
+    Label smoothing $0.1$ & 78.76 & 3.17 && 59.62 & 25.72 \\
+    Mixup & 78.62 & 4.81 && 63.80 & 25.70 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The rule does not extend to every teacher. The weight-decay teacher has the sensitivity of the
-200-epoch one and gives a student $7.42$ clean points below it, so sensitivity is a candidate
-explanation for differences among teachers of comparable accuracy rather than a selector. The margin
-and separation metrics, which correlate most strongly along the trajectory, fail outside it;
-\Cref{app:teachersel} reports those predictions, the full metric set and the retracted checkpoint.
-What survives is that teachers of equal accuracy transfer differently, so checkpoints have to be
-assessed by the student trade-off they produce. Our subsequent experiments use the 200-epoch teacher,
-which lies on the late-checkpoint robustness plateau while retaining more student clean accuracy than
-the 300-epoch teacher. Once the teacher is fixed, a separate question remains: how should the
-perturbation budget be distributed across examples whose anchor losses have different input
-sensitivities? We address this next.
+Together, the sweep and matched comparison suggest looking for a range of teachers rather than the
+checkpoint with the highest clean accuracy. Teacher margin and feature sensitivity identify the
+150--200-epoch range on this trajectory (\Cref{app:teachersel}), although the criterion remains
+exploratory. We use the 200-epoch teacher in subsequent experiments. With the teacher fixed, we next
+ask how to allocate the perturbation budget across examples.

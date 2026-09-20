@@ -1,9 +1,8 @@
 \section{Experiments}
 \label{sec:exp}
 
-We evaluate the clean--robust trade-off across datasets and architectures, isolate the anchor's
-contribution, and distinguish radius-allocation effects from weight averaging and AWP.
-We then examine feature geometry and attack reliability.
+We test CFA across datasets and architectures, then separate the effects of the anchor,
+radius allocation, and the training stack.
 
 \subsection{Experimental Settings}
 
@@ -47,21 +46,21 @@ teacher; published results obtained with other teachers are collected in \Cref{t
     AdaAD & nat. & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 \\
     AdaAD + IGDM & nat. & 85.01 & 45.50 & 65.26 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 \\
     LBGAT & nat. & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 \\
-    ARREST & nat. & 85.06 & 46.42 & 65.74 & 60.06 & \textbf{66.97} & 22.78 & 44.88 & 34.00 \\
+    ARREST & nat. & 85.06 & 46.42 & 65.74 & 60.06 & 64.66 & 26.40 & 45.53 & 37.49 \\
     \midrule
     HAT & nat. & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 \\
     ADR & self & 83.36 & 49.72 & 66.54 & 62.29 & 59.93 & 27.20 & 43.57 & 37.42 \\
     RPAT++ & -- & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & \textbf{87.37} & \textbf{51.33} & \textbf{69.35} & \textbf{64.67} & 64.75 & \textbf{27.98} & \textbf{46.37} & \textbf{39.07} \\
+    \textbf{CFA (ours)} & nat. & \textbf{87.37} & \textbf{51.33} & \textbf{69.35} & \textbf{64.67} & \textbf{64.75} & \textbf{27.98} & \textbf{46.37} & \textbf{39.07} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-CFA attains the highest AA and NRR on both CIFAR datasets (\Cref{tab:main}). On CIFAR-100 it improves
-over ADR, the closest baseline in NRR, by $0.78$ AA and $1.65$ NRR while gaining $4.82$ clean points,
-and it exceeds the closest CIFAR-10 baseline by $1.85$ NRR. ARREST reaches the highest clean accuracy
-of the table but gives up $5.20$ AA points, placing it elsewhere on the trade-off.
+CFA attains the highest AA and NRR on both CIFAR datasets (\Cref{tab:main}). On CIFAR-100 it
+improves over ARREST by $1.58$ AA points at comparable clean accuracy ($64.75\%$ versus $64.66\%$),
+and exceeds ADR, the next closest baseline in NRR, by $1.65$ points. On CIFAR-10, its NRR exceeds
+the closest baseline by $1.85$ points.
 
 \subsection{Generalization Across Data and Model Scale}
 
@@ -126,10 +125,9 @@ closing it, leaving CFA ahead by $4.63$ clean and $4.45$ AA points (\Cref{tab:co
   \end{tabular}
 \end{table}
 
-Changing initialization or optimizer and schedule changes NRR by $0.22$ and $0.11$, respectively
-(\Cref{tab:recipe}). At 100 epochs with the full stack, label cross-entropy reaches $57.73/26.46$
-clean/AA versus CFA's $62.17/28.86$. Giving each baseline the same warm start and stack at its own
-recipe raises most of them, PGD-AT by $6.00$ NRR and ARD by $6.45$, and none reaches CFA
+Initialization and schedule controls change NRR by at most $0.22$ (\Cref{tab:recipe}). Even under
+the full stack, label cross-entropy remains below CFA in both clean and AA accuracy. Applying the
+same additions to the baselines' own recipes helps most but does not close the gap
 (\Cref{tab:baselinestack}).
 
 \paragraph{Regression and probability targets.}
@@ -142,11 +140,8 @@ isolate the target from classifier and radius choices.
 
 \begin{table}[!htbp]
   \centering \scriptsize \setlength{\tabcolsep}{4pt}
-  \caption{Baselines given the natural warm start and the training stack, CIFAR-100 with ResNet-18.
-  Each method keeps its own objective, optimizer, schedule and epochs; the right block adds teacher
-  initialization, weight averaging and the AWP proxy, the latter on that method's own loss. Blank
-  entries are in progress. \dg ADR's own recipe already carries its own SAM-style AWP, so its left
-  column is not stack-free; without that term it gives $58.22/20.93$ (NRR $30.79$).}
+  \caption{Adding teacher initialization, weight averaging, and AWP to baseline recipes on
+  CIFAR-100 (ResNet-18).}
   \label{tab:baselinestack}
   \begin{tabular}{lrrrcrrr}
     \toprule
@@ -163,7 +158,7 @@ isolate the target from classifier and radius choices.
     AdaAD + IGDM     & 48.25 & 19.48 & 27.75 && 54.24 & 25.56 & 34.75 \\
     Consistency-AT   & 57.53 & 20.01 & 29.69 && 60.74 & 25.38 & 35.80 \\
     LBGAT            & 56.46 & 26.02 & 35.62 && 53.91 & 25.16 & 34.31 \\
-    ADR\ddg          & 59.93 & 27.20 & 37.42 && 59.84 & 27.84 & 38.00 \\
+    ADR              & 59.93 & 27.20 & 37.42 && 59.84 & 27.84 & 38.00 \\
     HAT              & 60.67 & 24.45 & 34.85 && 57.63 & 24.74 & 34.62 \\
     ARREST           & 66.44 & 22.99 & 34.16 && 64.95 & 23.02 & 33.99 \\
     \midrule
@@ -172,10 +167,9 @@ isolate the target from classifier and radius choices.
   \end{tabular}
 \end{table}
 
-The stack helps nine of the twelve, most where the objective was weakest: AdaAD\,+\,IGDM gains $7.04$
-NRR, ARD $6.45$, PGD-AT $6.00$, Consistency-AT $6.11$. It does not help everywhere --- LBGAT loses
-$1.31$, HAT $0.23$ and ARREST $0.17$, the last two on schedules too short for robust overfitting to
-undo --- and no stacked baseline reaches CFA, the closest being ADR at $1.07$ NRR behind.
+The additions raise NRR for nine of twelve baselines, yet none reaches CFA; ADR is closest at
+$38.00$ versus $39.07$. ADR already uses a SAM-style weight perturbation in its own recipe, so its
+left column is not stack-free.
 
 \subsection{Radius Allocation and Training Components}
 
@@ -206,33 +200,9 @@ reproductions of those algorithms.
 \end{table}
 
 \paragraph{Adding weight averaging and AWP.}
-\Cref{tab:ladder} follows the additions to the base anchor at 100 epochs: sensitivity matching raises
-clean/AA by $1.80/0.38$, weight averaging adds $1.95$ AA points and AWP $1.17$, a total NRR gain of
-$3.54$. These are incremental effects in the stated order and do not isolate interactions between
-components; radius sweeps and WA/AWP comparisons on both CIFAR datasets are in
-\Cref{tab:radius,tab:stackboth}.
-
-\begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{5pt}
-  \caption{Component ablation on CIFAR-100 with ResNet-18, 100 epochs, and
-  $\epsilon_{\mathrm{train}}=8.8/255$. Each row adds one component to the row above.}
-  \label{tab:ladder}
-  \begin{tabular}{lrrr}
-    \toprule
-    & Clean & AA & NRR \\
-    \midrule
-    Anchor ($p=0$)                         & 61.29 & 25.36 & 35.88 \\
-    \quad + sensitivity-matched $\epsilon$ & \textbf{63.09} & 25.74 & 36.56 \\
-    \quad + weight averaging               & 62.30 & 27.69 & 38.34 \\
-    \quad + AWP                            & 62.17 & \textbf{28.86} & \textbf{39.42} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\paragraph{Feature geometry.}
-Additional base-regime diagnostics show stronger class separation under anchoring, but not smaller
-relative feature displacement under a matched attack (\Cref{app:anchor_measurements}). These
-earlier trained-head models provide descriptive evidence, not a causal account of the final method.
+Sensitivity matching improves the anchor's clean/AA by $1.80/0.38$ points; weight averaging and AWP
+then add $1.95$ and $1.17$ AA points, respectively (\Cref{tab:ladder}). The ordered ablation does
+not isolate interactions; radius and stack comparisons are in \Cref{tab:radius,tab:stackboth}.
 
 \subsection{Reliability and Scope}
 
