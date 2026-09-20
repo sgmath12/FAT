@@ -203,3 +203,41 @@ Not supported, and not to be written:
 The defensible summary is that transfer varies substantially between teachers of equal accuracy, and
 that feature sensitivity is the leading candidate for explaining that variation, on $n = 12$
 checkpoints, one architecture, one dataset and a single student seed.
+
+## Which sensitivity, verified (2026-09-20)
+
+Two questions had to be settled before the paper names a metric: which of the two sensitivities orders
+the matched pair, and whether that ordering is a feature-norm artifact. Both were measured with four
+random $\delta$ draws per image rather than one, adding the feature norm and the norm-relative
+sensitivity to the metric set.
+
+| teacher | clean | feat. sens. | feat. norm | sens. / norm | ‖∇x CE‖ | student clean |
+|---|---|---|---|---|---|---|
+| label smoothing 0.1 | 78.76 | 3.16 | 8.68 | 0.366 | 17.23 | 59.62 |
+| mixup | 78.62 | 4.82 | 9.53 | 0.507 | 20.15 | 63.80 |
+| weight decay 5e-3 | 69.30 | 4.14 | 12.14 | 0.349 | 19.68 | 55.30 |
+
+Prediction error on the matched pair, from lines fit on the nine trajectory checkpoints:
+
+| predictor | label smoothing | mixup | weight decay |
+|---|---|---|---|
+| feature sensitivity | **−0.71** | **+1.18** | +7.19 |
+| ‖∇x CE‖ | +2.18 | +0.10 | +8.26 |
+| feature norm alone | +7.46 | +2.18 | +7.28 |
+| sensitivity / feature norm | +3.73 | +4.71 | +7.42 |
+| teacher clean accuracy | +4.67 | +0.43 | +5.25 |
+
+**It is the absolute feature sensitivity**, $\lVert \Phi_t(x+\delta) - \Phi_t(x) \rVert_2 / \lVert
+\delta \rVert_2$, which uses no labels and no logits. The CE gradient norm gets the mixup teacher right
+($+0.10$) and the label-smoothing teacher wrong ($+2.18$), and it is the metric label smoothing has a
+direct mechanical effect on, so it is the wrong one to name here.
+
+**The ordering is not a norm artifact.** Feature norms differ by a factor $1.10$ across the pair while
+the sensitivities differ by $1.52$, and the norm on its own errs by $7.46$ points on the label-smoothing
+teacher. Dividing the sensitivity by the norm keeps the pair's ordering ($0.366 < 0.507$) but loses the
+calibration, over-predicting both by $3.7$ and $4.7$: along the trajectory the norm-relative sensitivity
+is nearly flat against student clean accuracy ($\rho = 0.22$) and tracks AA instead ($0.98$). So the
+pair's ordering survives normalization, while the trajectory fit does not, and the honest statement is
+about the absolute quantity with that caveat attached.
+
+The weight-decay teacher stays the counterexample under every variant, $+7.2$ to $+8.3$ points.

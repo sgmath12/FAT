@@ -61,9 +61,9 @@ def feats(model, x):
     return model(x, feat=True)[0] if not hasattr(model, 'extract_feature') else model.extract_feature(x)[0]
 
 
-def measure(model, loader, eps):
+def measure(model, loader, eps, n_delta=4):
     correct = n = 0
-    margins, grads, sens = [], [], []
+    margins, grads, sens, sens_rel, fnorm = [], [], [], [], []
     Fs, Ys = [], []
     for x, y in loader:
         x, y = x.cuda(), y.cuda()
@@ -79,9 +79,19 @@ def measure(model, loader, eps):
             zo = z.scatter(1, y[:, None], float('-inf')).max(1).values
             margins.append((zy - zo).cpu())
             f0 = feats(model, x)
-            delta = (torch.rand_like(x) * 2 - 1) * eps
-            f1 = feats(model, (x + delta).clamp(0, 1))
-            sens.append(((f1 - f0).norm(dim=1) / delta.flatten(1).norm(dim=1)).cpu())
+            fnorm.append(f0.norm(dim=1).cpu())
+            # Averaged over `n_delta` draws, and also reported relative to the feature norm: mixup and
+            # label smoothing change the scale of the representation, so an absolute displacement could
+            # order the teachers for that reason alone (2026-09-20).
+            s_abs = s_rel = 0.0
+            for _ in range(n_delta):
+                delta = (torch.rand_like(x) * 2 - 1) * eps
+                f1 = feats(model, (x + delta).clamp(0, 1))
+                d = (f1 - f0).norm(dim=1) / delta.flatten(1).norm(dim=1)
+                s_abs = s_abs + d
+                s_rel = s_rel + d / f0.norm(dim=1)
+            sens.append((s_abs / n_delta).cpu())
+            sens_rel.append((s_rel / n_delta).cpu())
             Fs.append(F.normalize(f0, dim=1).cpu()); Ys.append(y.cpu())
     Fs, Ys = torch.cat(Fs), torch.cat(Ys)
     mu = Fs.mean(0)
@@ -94,8 +104,11 @@ def measure(model, loader, eps):
     margin = torch.cat(margins).mean().item()
     grad = torch.cat(grads).mean().item()
     featsens = torch.cat(sens).mean().item()
+    featsens_rel = torch.cat(sens_rel).mean().item()
+    featnorm = torch.cat(fnorm).mean().item()
     return dict(clean=100.0 * correct / n, sw_sb=sw / sb, margin=margin, grad=grad,
-                featsens=featsens, margin_grad=margin / grad, margin_feat=margin / featsens)
+                featsens=featsens, featsens_rel=featsens_rel, featnorm=featnorm,
+                margin_grad=margin / grad, margin_feat=margin / featsens)
 
 
 if __name__ == '__main__':

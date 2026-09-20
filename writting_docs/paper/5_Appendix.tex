@@ -798,6 +798,87 @@ comparison with adversarial distillation is favourable in a way the table unders
 rows assume a robust teacher that the current literature obtains from a WideResNet trained on
 generated data, which is more expensive than every row here combined.
 
+\section{Teacher-Only Metrics and What They Predict}
+\label{app:teachersel}
+
+\Cref{sec:teacher_transfer} selects a teacher by training students. This appendix asks what can be read
+off the frozen teacher instead, reports the predictions that failed as well as the one that held, and
+records a measurement we retracted. Metrics are computed on $5000$ held-out images: clean accuracy, the
+scatter ratio $S_w/S_b$, the mean logit margin $f_y - \max_{k \ne y} f_k$, the mean $\lVert \nabla_x
+\mathrm{CE} \rVert_2$, and the feature sensitivity $\lVert \Phi_t(x+\delta) - \Phi_t(x) \rVert_2 /
+\lVert \delta \rVert_2$ for uniform $\delta$ at $8/255$. The students are the 50-epoch cells of
+\Cref{tab:teacherladder_values}, identical apart from the teacher.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4pt}
+  \caption{Left: Spearman correlation between a teacher-only metric and the student it produced, over
+  the nine trajectory checkpoints. Right: Spearman between the metrics themselves, which is what makes
+  the left block hard to read --- teacher clean accuracy has correlation $1.00$ with the epoch index,
+  so any quantity monotone in training time inherits its correlations.}
+  \label{tab:teachermetrics}
+  \begin{tabular}{lrrrcrrr}
+    \toprule
+    & \multicolumn{3}{c}{Student} && \multicolumn{3}{c}{Teacher metric} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
+    Teacher metric & Clean & AA$_2$ & NRR && Epoch & Clean & Margin \\
+    \midrule
+    Clean accuracy        &  0.18 &  0.95 &  0.95 &&  1.00 &  1.00 &  0.90 \\
+    $S_w/S_b$             & -0.17 & -0.93 & -0.93 && -0.98 & -0.98 & -0.88 \\
+    Logit margin          &  0.30 &  \textbf{0.98} &  \textbf{0.98} &&  0.90 &  0.90 &  1.00 \\
+    $\lVert\nabla_x\mathrm{CE}\rVert$ &  0.90 &  0.48 &  0.48 &&  0.43 &  0.43 &  0.53 \\
+    Feature sensitivity   &  \textbf{0.93} &  0.40 &  0.40 &&  0.32 &  0.32 &  0.47 \\
+    Margin $/$ sensitivity &  0.18 &  0.95 &  0.95 &&  1.00 &  1.00 &  0.90 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two diagnostics temper the left block. Leave-one-checkpoint-out, fitting a line on eight checkpoints
+and predicting the ninth, the student's AutoAttack accuracy is predictable to $0.56$ points from the
+margin and $0.78$ from teacher accuracy, against $2.47$ for predicting the mean; the student's clean
+accuracy is much harder, $1.32$ points from the gradient norm and $1.72$ from teacher accuracy against
+$1.90$ for the mean. And regressing the student on teacher accuracy leaves residuals whose rank
+correlation with the margin is $0.48$ and with feature sensitivity $0.30$, neither of which $n = 9$
+supports. The trajectory therefore selects candidates; it does not test them.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{4.5pt}
+  \caption{Out-of-sample prediction: each line is fit on the nine trajectory checkpoints and applied to
+  the three teachers of \Cref{tab:matchedteacher}, which were trained differently. Mean absolute error
+  in accuracy points, and the error on each teacher.}
+  \label{tab:teacherpredict}
+  \begin{tabular}{llrrrr}
+    \toprule
+    Predicted & From & MAE & Label sm. & Mixup & Weight decay \\
+    \midrule
+    Student clean & Feature sensitivity & \textbf{2.99} & 0.7 & 1.2 & 7.2 \\
+    Student clean & $\lVert\nabla_x\mathrm{CE}\rVert$ & 3.51 & 2.2 & 0.1 & 8.3 \\
+    Student clean & Teacher clean accuracy & 3.45 & 4.7 & 0.4 & 5.2 \\
+    \midrule
+    Student AA$_2$ & Logit margin & 3.05 & 3.3 & 5.5 & 0.4 \\
+    Student AA$_2$ & $S_w/S_b$ & 7.95 & 2.6 & 12.0 & 9.3 \\
+    Student AA$_2$ & Teacher clean accuracy & \textbf{0.92} & 0.4 & 0.4 & 2.0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The ordering reverses between the two tables. The margin and the scatter ratio, strongest along the
+trajectory, are the weakest predictors off it: the margin predicts $22.5$ and $20.2$ AutoAttack points
+for the label-smoothing and mixup teachers, which give $25.72$ and $25.70$, and the scatter ratio errs
+by $12.0$ points on the mixup teacher. Their trajectory correlations were the collinearity with
+training time. Teacher accuracy predicts the robust axis best out of sample and the clean axis worst,
+and feature sensitivity is the reverse. Neither the label-dependent gradient norm nor the margin is the
+right quantity to read on a label-smoothing teacher in any case, since label smoothing changes the logit
+scale both of them are computed from, which is a second reason to name the feature version in
+\Cref{sec:teacher_transfer}.
+
+One measurement was retracted rather than reported. A cosine-schedule checkpoint was to be a fourth
+off-trajectory teacher, and its metrics looked decisive: a margin of $0.22$ at $73.00$ clean accuracy.
+It is the normalized-feature variant of this network, carrying a feature-scale parameter the plain
+network does not, and the metric script had loaded it with that parameter dropped. Its student could not
+be trained at all, which is how the error surfaced. The script now refuses a checkpoint whose parameters
+do not match the network, and the three teachers of \Cref{tab:matchedteacher} use the same network as
+the ladder.
+
 \section{The Recipe Controls}
 \label{app:recipe}
 
