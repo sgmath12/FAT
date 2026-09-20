@@ -2,9 +2,9 @@
 \label{sec:conclusion}
 
 Effective transfer from a natural teacher depends on more than its clean accuracy: in the checkpoint
-comparisons studied here, a more accurate teacher can yield lower student clean accuracy while
-improving robustness. CFA makes that trade-off easy to examine, since one fixed clean feature target
-guides both attack generation and backbone learning, and sensitivity-based radius allocation matches
-the perturbation budget to the loss being optimized. Across three datasets the result is competitive without a
-robust teacher and without a label objective, which motivates evaluating teachers by the student
+comparisons studied here, a more accurate teacher can give a less accurate student while improving
+robustness. CFA makes that trade-off easy to examine, since one fixed clean feature target drives both
+attack generation and backbone learning, and the sensitivity-matched radius then matches the
+perturbation budget to the loss being optimized. Across three datasets the result is competitive with
+neither a robust teacher nor a label objective, which argues for choosing teachers by the student
 trade-off they produce.
