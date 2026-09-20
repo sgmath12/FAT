@@ -168,13 +168,38 @@ The weight-decay teacher is the hard case for every clean-axis rule: at $69.30$ 
 with sensitivity $4.13$ it gives a $55.30 / 19.60$ student, and the sensitivity fit errs by $7.2$ points
 there. Sensitivity wins the matched pair, not the general regression.
 
+## Which sensitivity, and why it matters that it is the feature one
+
+The metric that ordered the matched pair with errors of $0.7$ and $1.2$ points is the **feature
+sensitivity**, $\lVert \Phi_t(x+\delta) - \Phi_t(x) \rVert_2 / \lVert \delta \rVert_2$ for uniform
+$\delta$ at $8/255$. The CE gradient norm errs by $2.2$ and $0.1$ on the same pair: it happens to nail
+the mixup teacher and miss the label-smoothing one. The paper should name the feature version and keep
+the gradient version in the appendix, for a reason beyond the smaller error: label smoothing changes
+the logit scale and therefore the CE gradient directly, so a label-dependent metric is the wrong thing
+to read on exactly this pair, whereas the feature sensitivity uses no labels and no logits.
+
 ## What can now be claimed, and what cannot
 
-Supported, including one off-trajectory test: *teacher clean accuracy predicts the student's robustness
-ordering and cannot predict its clean accuracy; the teacher's input sensitivity predicts the clean axis,
-including for two teachers whose accuracies are equal.* n = 12 checkpoints, one architecture, one
-dataset, single student seed.
+Supported:
 
-Not supported, and to be removed from the earlier draft of this note: the margin and class-separation
-rules for the robust axis. On the trajectory they looked strongest; off it they are the weakest of the
-three. This is the reason the accuracy-matched runs were done before rewriting the paper.
+- Two teachers at the same clean accuracy ($78.76$ and $78.62$) give students $4.18$ points apart in
+  clean accuracy and equal to $0.02$ in AutoAttack accuracy. Teacher clean accuracy therefore cannot
+  select for the student's clean axis, and this is a direct test rather than a correlation.
+- Along one trajectory teacher clean accuracy tracks the student's robustness ordering ($\rho = 0.95$).
+  Extending to teachers trained differently, that relation does not survive as a selection rule: the
+  margin and separation metrics that looked strongest on the trajectory err by $3.05$ and $7.95$ points
+  out of sample, and teacher accuracy's own out-of-sample error on the robust axis is $0.92$.
+- Feature sensitivity explains the matched pair's clean-accuracy gap better than any other metric here.
+
+Not supported, and not to be written:
+
+- That feature sensitivity selects teachers in general. The weight-decay teacher is a counterexample:
+  at clean accuracy $69.30$ with sensitivity $4.13$ it gives $55.30 / 19.60$, and every clean-axis rule
+  errs by $5$ to $8$ points on it. This is not a small caveat, it is a refutation of the general rule.
+- That the margin or the class separation is a selection criterion for robustness.
+- That teacher geometry is the *cause* of either effect. The teacher changes the student's
+  initialization, its classifier and its target at once.
+
+The defensible summary is that transfer varies substantially between teachers of equal accuracy, and
+that feature sensitivity is the leading candidate for explaining that variation, on $n = 12$
+checkpoints, one architecture, one dataset and a single student seed.
