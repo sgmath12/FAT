@@ -76,6 +76,14 @@ goes into the abstract and introduction. If accuracy predicts these four as well
 metrics do, the correlations move to the appendix as an observation and the paper keeps its current
 spine.
 
+**Outcome, 2026-09-20 (details in `notes/teacher_selection.md`).** The rule splits. The clean axis
+passes: label smoothing and mixup give teachers $0.14$ points apart in clean accuracy and students
+$4.18$ points apart in clean accuracy, ordered by feature sensitivity, which accuracy cannot see at
+all. The robust axis fails: the margin and separation rules, strongest on the trajectory, err by $3.05$
+and $7.95$ points out of sample where teacher accuracy errs by $0.92$. So the reframing goes ahead in
+the halved form --- one teacher property that accuracy misses, for one axis --- and the margin rule is
+dropped rather than reported as a criterion.
+
 ## Section and figure changes, if the reframing goes ahead
 
 Analysis, in this order: the obvious criterion is teacher accuracy; nine checkpoints show it fails on

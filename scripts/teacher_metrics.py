@@ -112,6 +112,11 @@ if __name__ == '__main__':
     rows = {}
     for name in a.checkpoints:
         ckpt = f'{a.dataset}/checkpoint/{name}/clean_last.pkl'
+        if not os.path.exists(ckpt):   # main.py names the file after the method, e.g. clean_mixup
+            import glob
+            cands = sorted(glob.glob(f'{a.dataset}/checkpoint/{name}/*_last.pkl'))
+            assert len(cands) == 1, cands
+            ckpt = cands[0]
         m = measure(build(ckpt, 100 if a.dataset == 'CIFAR100' else 10), loader, a.eps)
         rows[name] = m
         print(name, json.dumps({k: round(v, 4) for k, v in m.items()}), flush=True)

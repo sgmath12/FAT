@@ -120,3 +120,61 @@ parameters the network lacks.
 
 The accuracy-matched teachers of `notes/new_analysis.md` (label smoothing, mixup, weight decay) are
 trained with this same network and replace it as the off-trajectory test.
+
+# Step 1.5: teachers whose geometry differs at matched accuracy (2026-09-20)
+
+Three teachers trained with `clean_200ep`'s schedule and one change each, then the same 50-epoch ladder
+student. Metrics as above, on 5000 held-out images.
+
+| teacher | clean | S_w/S_b | margin | ‖∇x‖ | feat. sens. | student clean | student AA |
+|---|---|---|---|---|---|---|---|
+| 200 ep (trajectory) | 77.38 | 0.811 | 4.48 | 18.50 | 4.14 | 62.72 | 25.88 |
+| label smoothing 0.1 | **78.76** | 0.679 | 3.08 | 17.23 | **3.17** | **59.62** | 25.72 |
+| mixup | **78.62** | 1.680 | 2.12 | 20.15 | **4.81** | **63.80** | 25.70 |
+| weight decay 5e-3 | 69.30 | 0.640 | 1.70 | 19.68 | 4.13 | 55.30 | 19.60 |
+
+## The accuracy-matched pair decides the clean axis
+
+Label smoothing and mixup land $0.14$ points apart in teacher clean accuracy, $78.76$ against $78.62$,
+and produce students $4.18$ points apart in clean accuracy, $59.62$ against $63.80$. Their AutoAttack
+accuracies are the same to within $0.02$. So at matched teacher accuracy the clean axis moves and the
+robust axis does not, which is the asymmetry step 1 predicted, and teacher accuracy cannot see it: a
+line fit on the nine trajectory checkpoints gives $64.3$ and $64.2$ for these two teachers, while the
+feature-sensitivity fit gives $59.0$ and $65.0$ against the measured $59.62$ and $63.80$.
+
+The direction is the one step 1 measured. The teacher with the lower feature sensitivity ($3.17$) gives
+the lower student clean accuracy ($59.62$), and the more sensitive teacher ($4.81$) the higher ($63.80$).
+
+## The margin rule does not survive the same test
+
+Out-of-sample error on the three new teachers, from lines fit on the nine trajectory checkpoints:
+
+| predicted axis | predictor | MAE (points) | per teacher |
+|---|---|---|---|
+| student clean | feature sensitivity | **2.99** | 0.7 / 1.2 / 7.2 |
+| student clean | ‖∇x CE‖ | 3.51 | 2.2 / 0.1 / 8.3 |
+| student clean | teacher clean accuracy | 3.45 | 4.7 / 0.4 / 5.2 |
+| student AA | logit margin | 3.05 | 3.3 / 5.5 / 0.4 |
+| student AA | S_w/S_b | 7.95 | 2.6 / 12.0 / 9.3 |
+| student AA | teacher clean accuracy | **0.92** | 0.4 / 0.4 / 2.0 |
+
+The margin predicted $22.5$ and $20.2$ AutoAttack points for the label-smoothing and mixup teachers,
+which actually gave $25.72$ and $25.70$; class separation was worse still, erring by $12.0$ on the
+mixup teacher. Their $0.98$ and $-0.93$ rank correlations on the trajectory were the collinearity with
+training progress that the correlation matrix flagged, not a criterion. **Teacher clean accuracy is the
+better predictor of the robust axis out-of-sample**, erring by $0.92$ points.
+
+The weight-decay teacher is the hard case for every clean-axis rule: at $69.30$ teacher clean accuracy
+with sensitivity $4.13$ it gives a $55.30 / 19.60$ student, and the sensitivity fit errs by $7.2$ points
+there. Sensitivity wins the matched pair, not the general regression.
+
+## What can now be claimed, and what cannot
+
+Supported, including one off-trajectory test: *teacher clean accuracy predicts the student's robustness
+ordering and cannot predict its clean accuracy; the teacher's input sensitivity predicts the clean axis,
+including for two teachers whose accuracies are equal.* n = 12 checkpoints, one architecture, one
+dataset, single student seed.
+
+Not supported, and to be removed from the earlier draft of this note: the margin and class-separation
+rules for the robust axis. On the trajectory they looked strongest; off it they are the weakest of the
+three. This is the reason the accuracy-matched runs were done before rewriting the paper.
