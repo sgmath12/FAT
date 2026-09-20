@@ -375,3 +375,27 @@ rule was applied blind rather than after seeing the students.
 
 One student seed, one dataset, one architecture. If the window passes here, the remaining use for a
 second teacher seed is a repeat; if it fails, no repeat is needed.
+
+## Constructing a teacher instead of selecting one (2026-09-20)
+
+The ladder trades the two student axes against each other because the two teacher quantities that track
+them peak at different times: feature sensitivity early, margin late. A teacher holding both near their
+maxima would turn the selection question into a construction. Two routes were tried.
+
+**Weight averaging along the ladder: dead.** Averaging the 50- and 200-epoch checkpoints gives a network
+at $1.36\%$ clean accuracy; the 40/200 pair $1.06\%$; the average of all six $1.00\%$. The reason is
+structural rather than a bug: the ladder is not a trajectory. Each N-epoch teacher is its own run with
+its own one-cycle schedule, so the checkpoints sit in different basins and averaging their weights is
+meaningless. (An average over snapshots *within* one run would be a different experiment, and the
+snapshot attempt above shows those snapshots are mid-schedule models.)
+
+**Continued training at a small constant learning rate: queued.** Start from the 50-epoch teacher, the
+one whose student has the best clean accuracy, and train $50$ or $150$ further epochs at
+$\mathrm{lr} = 0.01$ without a cycle. Extra training should saturate the margin, while the small
+learning rate may leave the representation less flattened than a 200-epoch one-cycle run does. If either
+constructed teacher lands above the window's right edge on sensitivity while keeping a saturated margin,
+one student decides whether it beats both endpoints; if neither does, the construction idea is closed and
+selection is what remains. Teachers cost $0.1$ and $0.3$ h, the student $1$ h.
+
+Not to be retried: shrinking features toward class prototypes and rotating classes onto a simplex ETF,
+both measured inert or harmful in 2026-08.
