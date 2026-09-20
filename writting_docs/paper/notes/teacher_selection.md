@@ -323,3 +323,55 @@ So the seed-1 ladder is being built the same way as seed 0: one converged run pe
 40, 100, 150, 200 and 300 epochs, $810$ epochs in total and about $1.6$ h
 (`scripts/chain_traj_s1_runs_20260920.sh`). `save_epochs` stays in `main.py` --- it is harmless when
 unset and useful for a constant-learning-rate schedule --- but it is not how this trajectory is built.
+
+# Validation design, rewritten (2026-09-20 15:00)
+
+Three things were wrong or underspecified in the first design, and one of them makes part of the
+original question untestable at this cost.
+
+## 1. The rule needs its checkpoint grid fixed
+
+Both thresholds are relative to the maximum over the checkpoints tested, so the window depends on which
+checkpoints exist. The grid is therefore part of the rule: **20, 40, 100, 150, 200 and 300 epochs**.
+Re-running the frozen rule on seed 0 restricted to that grid still selects $\{150, 200\}$, the same
+window as with all nine, so the reduction does not change the seed-0 result.
+
+## 2. "The window contains the best checkpoint" is not testable here, and a weaker claim is
+
+On seed 0, student NRR over the last four checkpoints is $36.11$, $36.58$, $36.64$, $36.48$: a spread of
+$0.54$ against a student-seed spread of $0.2$ to $0.5$ measured on the repeated ladder cells. Asking
+which of those four is best is asking about noise, and one student per checkpoint cannot answer it.
+
+What is far above noise on seed 0 is the shape: AutoAttack accuracy spans $2.90$ points across the grid
+($22.98$ at 20 epochs to $25.88$ at 200) and clean accuracy $1.55$ ($63.79$ at 40 to $62.24$ at 300). So
+the claim to test is that the window lands on the part of the trajectory where robustness has saturated
+without having paid for it in clean accuracy.
+
+**Criteria, fixed before any seed-1 student runs.** With the window $W$ selected from teacher metrics
+alone and all six students trained:
+
+- **C1** every checkpoint in $W$ has student AA within $0.5$ of the maximum over the six;
+- **C2** some checkpoint in $W$ has student clean accuracy at least $0.5$ above the 300-epoch student's,
+  so that the window is not simply "train the teacher longest";
+- **C3** no checkpoint whose student AA is more than $1.0$ below the maximum falls inside $W$.
+
+On seed 0 the window $\{150, 200\}$ passes all three: AA $25.78$ and $25.88$ against a maximum of
+$25.88$; clean $62.93$ and $62.72$ against the 300-epoch student's $62.24$, so $+0.69$; and the two
+checkpoints more than $1.0$ below the AA maximum, 20 and 40 epochs, are outside. C2 passes by $0.19$
+points of margin, which is thin, and that is worth saying plainly.
+
+Alongside the pass/fail, the graded version is reported: Spearman of teacher feature sensitivity against
+student clean accuracy, and of teacher margin and accuracy against student AA, on the new trajectory's
+six points. That is the same measurement as step 1, now out of sample, and it degrades gracefully where
+the threshold rule only passes or fails.
+
+## 3. Cost, and what is actually queued
+
+Six students, not the window plus neighbours, because the criteria refer to the maximum over the grid.
+Teachers $810$ epochs, about $1.6$ h, already running; students $6 \times 1.05$ h, about $6.3$ h. The
+student chain waits on the teacher chain and starts with the window checkpoints, and the window is
+printed by the teacher chain before the first student begins --- the log order is the evidence that the
+rule was applied blind rather than after seeing the students.
+
+One student seed, one dataset, one architecture. If the window passes here, the remaining use for a
+second teacher seed is a repeat; if it fails, no repeat is needed.
