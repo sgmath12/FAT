@@ -945,9 +945,9 @@ adversarial directions do not point at the student's boundaries.
 Several rows of \Cref{tab:main} run a specific variant of the method they name, or are grouped in a
 way that needs saying. This section is those decisions; the table carries none of them.
 
-\paragraph{ARREST} uses its published 20-epoch recipe in \Cref{tab:baselinestack}. The main table
-instead uses 150 epochs, AdamW, WA, and AWP to compare its objective with CFA under the longer
-training stack; ARREST retains a uniform radius. Both versions start from the same natural teacher.
+\paragraph{ARREST} runs its published recipe in both tables: adversarial finetuning for 20 epochs from
+the natural model with SGD at $0.025$, the angular representation term at $\lambda = 50$, and Noisy
+Replay over the first half at $\phi = 30^\circ$.
 We read its representation after global pooling, where our anchor and geometry measurements are
 defined.
 

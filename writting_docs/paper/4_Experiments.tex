@@ -16,9 +16,7 @@ standard $\epsilon_{\mathrm{train}}=8/255$; ablations use 100 epochs and, where 
 $\epsilon_{\mathrm{train}}=8.8/255$. The Tiny-ImageNet and WideResNet runs also train at $8.8/255$,
 which \Cref{tab:radius} shows moves the operating point along the trade-off rather than improving it:
 at $8/255$ CIFAR-100 gives $63.89/27.78$ against $62.17/28.86$ at $8.8/255$, so a single radius cannot
-be read as tuning. Baselines run their
-authors' recipes, except that the main ARREST row uses 150 epochs with our optimizer, WA, and AWP;
-its 20-epoch recipe appears in \Cref{tab:baselinestack}. Detailed settings are in \Cref{app:repro}.
+be read as tuning. Baselines run their authors' recipes. Detailed settings are in \Cref{app:repro}.
 
 We report clean and AA accuracy, their mean (Avg), and harmonic mean (NRR) on the full test set at
 $\epsilon=8/255$. Distillation baselines receive our natural teacher. Evaluation details and
@@ -48,7 +46,7 @@ results obtained with other teachers are in
     AdaAD & nat. & 85.39 & 46.22 & 65.81 & 59.98 & 59.79 & 23.19 & 41.49 & 33.42 \\
     AdaAD + IGDM & nat. & 85.01 & 45.50 & 65.26 & 59.27 & 48.25 & 19.48 & 33.87 & 27.75 \\
     LBGAT & nat. & -- & -- & -- & -- & 56.46 & 26.02 & 41.24 & 35.62 \\
-    ARREST & nat. & 85.06 & 46.42 & 65.74 & 60.06 & 64.66 & 26.40 & 45.53 & 37.49 \\
+    ARREST & nat. & 85.06 & 46.42 & 65.74 & 60.06 & \textbf{66.97} & 22.78 & 44.88 & 34.00 \\
     \midrule
     HAT & nat. & 84.59 & 48.81 & 66.70 & 61.90 & 60.67 & 24.45 & 42.56 & 34.85 \\
     ADR & self & 83.36 & 49.72 & 66.54 & 62.29 & 59.93 & 27.20 & 43.57 & 37.42 \\
@@ -59,10 +57,11 @@ results obtained with other teachers are in
   \end{tabular}
 \end{table}
 
-CFA attains the highest AA and NRR on both CIFAR datasets (\Cref{tab:main}). On CIFAR-100 it
-improves over ARREST by $1.58$ AA points at comparable clean accuracy ($64.75\%$ versus $64.66\%$),
-and exceeds ADR, the next closest baseline in NRR, by $1.65$ points. On CIFAR-10, its NRR exceeds
-the closest baseline by $1.85$ points.
+CFA attains the highest AA and NRR on both CIFAR datasets (\Cref{tab:main}). On CIFAR-100 it exceeds
+ADR, the closest baseline in NRR, by $0.78$ AA and $1.65$ NRR points while also gaining $4.82$ clean
+points; ARREST holds the highest clean accuracy of the table and gives up $5.20$ AA points, a different
+point on the trade-off rather than a better one. On CIFAR-10, CFA's NRR exceeds the closest baseline by
+$1.85$ points.
 
 \subsection{Generalization Across Data and Model Scale}
 
