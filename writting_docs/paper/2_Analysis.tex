@@ -1,10 +1,9 @@
 \section{Analysis}
 \label{sec:analysis}
 
-A natural teacher's clean accuracy need not indicate how well it will guide a robust student.
-We first establish a simple regression target and characterize what it controls, then examine
-how teacher selection changes the student's clean--robust trade-off. This separates the choice of
-supervisory target from the choice of teacher that supplies it.
+A natural teacher offers accurate clean predictions, but these need not be the most useful targets
+for adversarial training. We compare predictive and feature targets, establish what a fixed clean
+target controls, and then ask how the teacher checkpoint changes the student's behavior.
 
 \subsection{Preliminaries}
 
@@ -53,29 +52,30 @@ the full clean feature, which defines
   \includegraphics[width=\linewidth]{figure/analysis_targets.pdf}
   \caption{Target comparison on CIFAR-100 (ResNet-18). (a) Teacher-target entropy approaches the
   uniform value as $\tau$ increases. (b) Nondominated settings within each
-  KD variant, alongside fixed-head logit and feature regression. AA$_2$ combines APGD-CE and
-  APGD-T. The full temperature sweep is reported in
+  KD variant, alongside fixed-head logit and feature regression. The full temperature sweep is in
   \Cref{tab:targetcomparison_values}.}
   \label{fig:targetcomparison}
 \end{figure}
 
-We train for 50 epochs at $\epsilon=8/255$, without weight averaging or AWP.
+We train for 50 epochs at $\epsilon=8/255$.
 Across the full sweep, teacher-only softening improves robustness until the target becomes nearly
 uniform, but changes clean accuracy little. Shared-temperature KD avoids this turnover and approaches
 logit regression (\Cref{fig:targetcomparison}). Feature regression is only $0.13$ clean and $0.19$
-AA$_2$ points higher: both regression targets are effective without temperature selection, but this
-does not establish feature superiority. Moreover, KD updates the classifier whereas regression uses
-a fixed head, so this comparison evaluates training designs rather than isolating the target alone.
+AA points higher: both regression targets are effective without temperature selection. Moreover,
+KD updates the classifier whereas regression uses a fixed head, so this comparison evaluates
+training designs rather than isolating the target alone.
 
 \label{sec:sole_target}
-These results support direct regression to clean teacher targets in either space.
-We use features to preserve the representation supplied to the inherited classifier, including
-directions that logit regression need not constrain, and next examine what this single target controls.
+The comparison points to a fixed clean target rather than a particular temperature. We use the
+full feature to preserve the representation supplied to the inherited classifier, including
+directions that logit regression need not constrain. The small gap above does not establish a
+feature-specific performance advantage; it motivates examining what the single anchor controls.
 
 \subsection{What the Anchor Controls}
 \label{sec:decomp}
 
-The anchor provides a common reference for clean fidelity and local variation. Let
+The fixed target links agreement with the teacher at the clean input to variation of the student's
+features around it. To make this relation precise, let
 $x\in\mathcal X$ and $B=B(x,\epsilon)$, and define
 \begin{equation}
 L=\max_{x'\in B}\lVert\Phi_s(x')-\Phi_t(x)\rVert_2,\quad
@@ -110,15 +110,14 @@ the teacher's clean margin. The same argument applies to norm-based logit regres
 joint control by a fixed target, not a feature-specific advantage. Finite-step PGD does not certify $L$.
 
 \FloatBarrier
-\subsection{Does Teacher Accuracy Predict Transfer?}
+\subsection{How Does the Teacher Checkpoint Affect Transfer?}
 \label{sec:teacher_transfer}
 \label{sec:geometry}
 
-The bound above describes training against a given target, but does not identify which teacher
-to choose. A natural criterion is the teacher's clean accuracy. To test it, we vary the checkpoint
-along one natural-training trajectory while keeping the student training procedure fixed. Each
-checkpoint supplies the initialization, feature targets, and inherited classifier; the experiment
-therefore evaluates teacher selection as a whole, rather than changing the targets alone.
+The bound holds for any fixed target, but cannot say which teacher will produce the best student.
+The most obvious choice is the checkpoint with the highest clean accuracy. We test this by training
+the same student procedure from different checkpoints of a natural teacher. Each checkpoint provides
+the initialization, feature target, and classifier, so the comparison measures their combined effect.
 
 \begin{figure}[!htbp]
   \centering
@@ -130,25 +129,46 @@ therefore evaluates teacher selection as a whole, rather than changing the targe
   \label{fig:teacherladder}
 \end{figure}
 
-Across the sweep, the teacher gains $2.51$ clean points while the student loses $2.04$;
-student AA$_2$ nevertheless rises from $24.38\%$ to $25.80\%$ (\Cref{fig:teacherladder}a).
-The more accurate teacher thus shifts the student toward robustness rather than improving both
-accuracies. Selecting the checkpoint with the highest teacher clean accuracy would miss this
-trade-off.
+From 50 to 300 teacher epochs, teacher clean accuracy gains $2.51$ points, whereas student clean
+accuracy falls by $2.04$ and student AA rises from $24.38\%$ to $25.80\%$
+(\Cref{fig:teacherladder}a). The later checkpoint does not improve both student accuracies: it
+moves the operating point toward robustness. Nor is the shift strictly monotone; the 200-epoch
+student has slightly higher AA than the 300-epoch student.
 
-To examine what changes alongside accuracy, we measure $S_w/S_b$ on unit-normalized clean features:
-$S_w$ is the mean squared distance to the corresponding class mean, and $S_b$ is the mean squared
-distance of class means to the global mean. Teacher and student ratios decrease together
-(\Cref{fig:teacherladder}b), indicating stronger class separation. This is an association across
-five checkpoints, not evidence that geometry alone causes the transfer effect.
+An independently trained teacher trajectory shows the same pattern: from 40 to 300 epochs, teacher
+clean accuracy rises from $75.57\%$ to $78.27\%$, while student clean accuracy falls from $64.36\%$
+to $62.34\%$ and AA rises from $23.86\%$ to $25.94\%$ (\Cref{tab:teachertrajectory}). Both
+trajectories therefore reproduce a change in the student's trade-off, rather than a rule that a
+later checkpoint is always better.
 
-Because training time is confounded with teacher accuracy in this sweep, we also compare teachers
-trained with label smoothing and mixup. Their clean accuracies differ by only $0.14$ points, yet their
-students differ by $4.18$ clean points (\Cref{tab:matchedteacher}); AA$_2$ differs by $0.02$ points
-in these runs. Thus teacher accuracy alone does not determine the student's clean accuracy. Feature
-sensitivity, $\lVert\Phi_t(x+\delta)-\Phi_t(x)\rVert_2/\lVert\delta\rVert_2$, also differs between
-the two teachers in the direction of student clean accuracy. This pair suggests a useful diagnostic,
-but cannot by itself establish a teacher-selection rule.
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{6pt}
+  \caption{Independent CIFAR-100 teacher trajectory (ResNet-18; 50-epoch students). Full results
+  are in \Cref{tab:teacherladder_seed1}.}
+  \label{tab:teachertrajectory}
+  \begin{tabular}{rrrrr}
+    \toprule
+    Teacher epoch & Teacher clean & Student clean & Student AA & Student NRR \\
+    \midrule
+    40 & 75.57 & 64.36 & 23.86 & 34.81 \\
+    100 & 77.27 & 63.68 & 25.61 & 36.53 \\
+    200 & 77.90 & 63.02 & 26.16 & 36.97 \\
+    300 & 78.27 & 62.34 & 25.94 & 36.64 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+To examine what accompanies this shift, we measure the within-to-between scatter ratio $S_w/S_b$
+on unit-normalized clean features. Teacher and student ratios decrease together
+(\Cref{fig:teacherladder}b), consistent with stronger class separation. This association does not
+identify which change in the teacher causes the student shift.
+
+The checkpoint sweep entangles training stage and teacher accuracy. To see whether accuracy alone
+describes transfer, we also compare a label-smoothed and a mixup teacher with nearly equal clean
+accuracy. Their students differ by $4.18$ clean points but only $0.02$ AA points
+(\Cref{tab:matchedteacher}). Thus even at a similar teacher accuracy, the inherited representation
+can lead to a different student. The teachers' feature sensitivities differ in the same order as
+student clean accuracy, but one matched pair cannot establish a general predictor.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
@@ -159,16 +179,15 @@ but cannot by itself establish a teacher-selection rule.
     \toprule
     & \multicolumn{2}{c}{Teacher} && \multicolumn{2}{c}{Student} \\
     \cmidrule(lr){2-3}\cmidrule(lr){5-6}
-    Natural training & Clean & Sensitivity && Clean & AA$_2$ \\
+    Natural training & Clean & Sensitivity && Clean & AA \\
     \midrule
-    Label smoothing $0.1$ & 78.76 & 3.17 && 59.62 & 25.72 \\
-    Mixup & 78.62 & 4.81 && 63.80 & 25.70 \\
+    Label smoothing $0.1$ & 78.76 & 3.16 && 59.62 & 25.72 \\
+    Mixup & 78.62 & 4.82 && 63.80 & 25.70 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Together, the sweep and matched comparison suggest looking for a range of teachers rather than the
-checkpoint with the highest clean accuracy. Teacher margin and feature sensitivity identify the
-150--200-epoch range on this trajectory (\Cref{app:teachersel}), although the criterion remains
-exploratory. We use the 200-epoch teacher in subsequent experiments. With the teacher fixed, we next
-ask how to allocate the perturbation budget across examples.
+These results make teacher accuracy an incomplete guide to student performance, not a checkpoint
+selection rule. We use the 200-epoch teacher for subsequent experiments and turn to a choice that
+remains even when the teacher is fixed: the same pixel radius need not change the anchor loss equally
+across examples.

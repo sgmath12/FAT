@@ -3,17 +3,18 @@ Adversarial training significantly improves adversarial robustness, but robust m
 substantially lower standard accuracy than naturally trained ones.
 This accuracy gap has motivated a line of work that brings a naturally trained network into
 adversarial training.
-Existing methods distill its logits into the robust model or add its predictions as an auxiliary
-regularizer beside the label loss.
+Prior methods commonly transfer its logits or combine representation guidance with a label loss.
 We also employ a naturally trained network, but we exploit it far more directly: the label loss is
 discarded entirely and the backbone is trained against the natural network alone.
 In this paper, we propose Clean Feature Anchoring (CFA), which anchors the adversarial feature of the
 student to the clean feature of the teacher rather than to its logits.
-We prove that this single objective bounds both fidelity to the teacher and local stability of the
-student up to a constant factor, so that no balancing coefficient is required.
+Because one fixed target bounds both clean fidelity and local feature variation, the objective needs no
+coefficient balancing two losses and no temperature.
 We further assign the attack radius per sample according to the input sensitivity of the loss under a
 fixed total budget, approximately equalizing the first-order loss change across examples.
-Experimental results show that CFA recovers standard accuracy without sacrificing robustness.
+Controlled experiments separate the anchor from the training recipe: replacing it by label
+cross-entropy costs $4.63$ standard and $4.45$ AutoAttack points under matched conditions, and giving
+ten baselines the same warm start and stack leaves all of them behind CFA.
 Particularly, CFA attains $64.75\%$ standard accuracy at $27.98\%$ AutoAttack accuracy on CIFAR-100
 with the ResNet-18 architecture, and consistent improvements are observed on CIFAR-10 and
 Tiny-ImageNet.

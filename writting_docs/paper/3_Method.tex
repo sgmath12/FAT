@@ -1,9 +1,9 @@
 \section{Method}
 \label{sec:method}
 
-CFA combines a clean-feature training objective with sample-dependent perturbation budgets.
-Teacher selection fixes the reference representation; radius allocation determines the
-neighborhood over which each example is trained to preserve it.
+CFA combines a clean-feature training objective with sample-dependent perturbation budgets. The
+chosen teacher fixes the reference representation; radius allocation determines the neighborhood
+over which each example is trained to preserve it.
 
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
@@ -28,10 +28,10 @@ uses no label loss; inference uses $h_t\circ\Phi_s$. \Cref{alg:cfa} gives the co
 \subsection{Sensitivity-Matched $\epsilon$}
 \label{sec:angeps}
 
-A uniform pixel radius fixes the size of each input neighborhood, but not the change it induces
-in the anchor loss. An example whose loss is locally sensitive can experience a larger increase
-than another example given the same radius. We use this discrepancy to allocate a fixed batch
-budget, rather than increasing the mean radius or adding another loss term. For
+A uniform pixel radius gives every example the same input-space budget, but not the same potential
+increase in anchor loss. We therefore allocate radii using the local sensitivity of the objective
+used for both attack generation and student training. The batch's mean radius remains fixed; only
+its assignment across examples changes. For
 $\ell_{\mathrm{anc}}(x';x_i)=\lVert\Phi_s(x')-\Phi_t(x_i)\rVert_2^2$, define
 \begin{equation}
 g_i=\left.\lVert\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\rVert_1\right|_{x'=x_i},
@@ -51,8 +51,10 @@ $\sum_i\epsilon_i=N\epsilon$ gives
 \label{eqn:angeps_ideal}
 \end{equation}
 where $p=0$ recovers a uniform radius and $p=1$ gives inverse-sensitivity allocation.
-The conserved sum separates redistribution from a change in the mean training budget. This is a
-local approximation to loss growth, not a claim that nonlinear adversarial losses become equal.
+The conserved sum separates redistribution from a change in the mean training budget. Unlike a
+sample-weighted outer loss, this rule changes the perturbations seen during training without
+changing the coefficient of each example in the training average. It is a local approximation to
+loss growth, not a claim that nonlinear adversarial losses become equal.
 
 We implement $p=1$ with an $\ell_2$ gradient norm, measured by one backward pass at the clean input.
 The $\ell_1$ norm follows exactly from the linearized $\ell_\infty$ problem, but the $\ell_2$ proxy
@@ -60,7 +62,8 @@ performs slightly better here (\Cref{app:box}). Thus the first-order argument mo
 without uniquely determining its implementation. Clipping and renormalization preserve the batch
 budget, and PGD step sizes scale with the assigned radii; implementation details are in
 \Cref{app:box}.
-The key test is whether sensitivity assigns the budget usefully, not merely whether varying
-radii helps. Accordingly, \Cref{tab:allocation} includes a control that keeps the exact multiset
-of sensitivity-derived multipliers but reassigns them by sample difficulty. Together with uniform
-and margin-based controls, this distinguishes the allocation signal from the spread of radii.
+The key test is whether sensitivity assigns the budget usefully, not merely whether varying radii
+helps. Accordingly, \Cref{tab:allocation} compares uniform and alternative signals, including a
+control that keeps the exact multiset of sensitivity-derived multipliers but assigns them by sample
+difficulty. If the spread of radii alone explains the gain, this reassignment should preserve it;
+otherwise, which example receives each radius matters.

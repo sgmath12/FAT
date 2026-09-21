@@ -1,9 +1,10 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-A natural teacher can guide adversarial training without a separate label loss, but its checkpoints
-are not interchangeable: a more accurate teacher can produce a less accurate student while improving
-robustness. CFA exposes this trade-off with one clean feature target, and sensitivity-based radii
-allocate the perturbation budget according to that target's local response. Across three datasets,
-this yields strong clean--robust trade-offs. More broadly, target, teacher, and perturbation budget
-are distinct choices in natural-teacher distillation.
+A natural teacher can guide adversarial training through a single clean-feature target, without a
+separate label loss. Yet the teacher checkpoint matters: later natural training shifts the student
+toward robustness in two trajectories, and similar teacher clean accuracy need not yield similar
+student clean accuracy. With the teacher fixed, sensitivity-based radii improve clean accuracy at
+nearly unchanged AutoAttack accuracy in the final recipe. CFA thus separates three decisions often
+treated together in natural-teacher distillation: the target, the teacher, and the perturbation
+budget.

@@ -1,8 +1,8 @@
 \section{Experiments}
 \label{sec:exp}
 
-We test CFA across datasets and architectures, then separate the effects of the anchor,
-radius allocation, and the training stack.
+We test CFA across datasets and architectures, then examine the clean-feature objective and the
+allocation of perturbation radii. We report the contribution of weight averaging and AWP separately.
 
 \subsection{Experimental Settings}
 
@@ -13,15 +13,17 @@ and its AA is zero on all three datasets. Unless stated otherwise, the ResNet-18
 initialized from that teacher and trained with AdamW, a one-cycle schedule, and 10-step PGD, with
 sensitivity matching ($p=1$), weight averaging, and AWP. The main CIFAR results use 150 epochs at the
 standard $\epsilon_{\mathrm{train}}=8/255$; ablations use 100 epochs and, where stated,
-$\epsilon_{\mathrm{train}}=8.8/255$, and \Cref{tab:radius} sweeps the radius. Baselines run their
-authors' recipes. Detailed settings are in \Cref{app:repro}.
+$\epsilon_{\mathrm{train}}=8.8/255$. The Tiny-ImageNet and WideResNet runs also train at $8.8/255$,
+which \Cref{tab:radius} shows moves the operating point along the trade-off rather than improving it:
+at $8/255$ CIFAR-100 gives $63.89/27.78$ against $62.17/28.86$ at $8.8/255$, so a single radius cannot
+be read as tuning. Baselines run their
+authors' recipes, except that the main ARREST row uses 150 epochs with our optimizer, WA, and AWP;
+its 20-epoch recipe appears in \Cref{tab:baselinestack}. Detailed settings are in \Cref{app:repro}.
 
-We evaluate the final-epoch model on the full test set at $\epsilon=8/255$, reporting clean accuracy,
-the APGD-CE/APGD-T cascade (AA), their mean (Avg), and their harmonic mean (NRR); a four-attack
-AutoAttack validation of the 100-epoch CIFAR-100 model gives the same robust accuracy
-(\Cref{app:gradmask}). Other baseline settings follow their published recipes with our evaluation
-pipeline, and the distillation baselines receive our natural
-teacher; published results obtained with other teachers are collected in \Cref{tab:published}.
+We report clean and AA accuracy, their mean (Avg), and harmonic mean (NRR) on the full test set at
+$\epsilon=8/255$. Distillation baselines receive our natural teacher. Evaluation details and
+results obtained with other teachers are in
+\Cref{app:repro,app:gradmask,tab:published}.
 
 \subsection{Main Results}
 
@@ -67,8 +69,7 @@ the closest baseline by $1.85$ points.
 \begin{table}[!htbp]
   \centering \footnotesize \setlength{\tabcolsep}{3.2pt}
   \caption{A larger dataset and a larger network, both measured in our framework: Tiny-ImageNet-200
-  with ResNet-18, and CIFAR-10 with WideResNet-34-10. \Cref{tab:wrn100} reports WideResNet-34-10 on
-  CIFAR-100.}
+  with ResNet-18, and CIFAR-10 with WideResNet-34-10.}
   \label{tab:scale}
   \begin{tabular}{llrrrrrrrr}
     \toprule
@@ -98,8 +99,9 @@ On Tiny-ImageNet, CFA attains the highest Avg and NRR while maximizing neither e
 higher on clean accuracy and ADR is $0.31$ points higher on AA (\Cref{tab:scale}). The
 teacher-checkpoint effect transfers here too, since the 80-epoch teacher moves the student from
 $55.16/20.54$ to $57.08/18.96$ clean/AA. On CIFAR-10 with WideResNet-34-10 CFA is highest on both axes,
-matching ADR's clean accuracy ($88.67\%$ versus $88.64\%$) with $2.95$ points more AA; CIFAR-100 on that
-network is in \Cref{tab:wrn100}, where CFA again leads ADR on both.
+matching ADR's clean accuracy ($88.67\%$ versus $88.64\%$) with $2.95$ points more AA. On CIFAR-100
+with the same network, CFA reaches $65.04/30.14$ clean/AA, against ADR's $64.50/29.04$
+(\Cref{tab:wrn100}).
 
 \subsection{What Produces the Gain?}
 \label{sec:components}
@@ -168,18 +170,40 @@ isolate the target from classifier and radius choices.
 \end{table}
 
 The additions raise NRR for nine of twelve baselines, yet none reaches CFA; ADR is closest at
-$38.00$ versus $39.07$. ADR already uses a SAM-style weight perturbation in its own recipe, so its
-left column is not stack-free.
+$38.00$ versus $39.07$. ARREST's rows here use its 20-epoch recipe, unlike its 150-epoch
+comparison in \Cref{tab:main}. ADR already uses a SAM-style weight perturbation in its own recipe.
 
 \subsection{Radius Allocation and Training Components}
 
+\paragraph{Does allocation help in the final recipe?}
+Holding the teacher, training schedule, mean radius, weight averaging, and AWP fixed, we replace the
+uniform radius with sensitivity matching in the 150-epoch CIFAR-100 run. Clean accuracy increases by
+$2.35$ points, while AA changes by $0.14$ points (\Cref{tab:finalallocation}). The gain therefore
+persists at the configuration reported in \Cref{tab:main}; it is not confined to the shorter ablation
+runs. The comparison primarily supports a clean-accuracy gain at similar robustness; the $0.14$-point
+AA difference is too small to interpret without repeated runs of both arms.
+
+\begin{table}[!htbp]
+  \centering \small \setlength{\tabcolsep}{7pt}
+  \caption{Radius allocation in the final CIFAR-100 recipe (ResNet-18, 150 epochs,
+  $\epsilon_{\mathrm{train}}=8/255$). The two runs differ only in $p$.}
+  \label{tab:finalallocation}
+  \begin{tabular}{lrrr}
+    \toprule
+    Radius & Clean & AA & NRR \\
+    \midrule
+    Uniform ($p=0$) & 62.40 & 27.84 & 38.50 \\
+    Sensitivity-matched ($p=1$) & \textbf{64.75} & \textbf{27.98} & \textbf{39.07} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \paragraph{Which signal should allocate the radius?}
-\Cref{tab:allocation} holds the mean training radius fixed and changes the allocation signal under the
-full recipe, where sensitivity improves clean/AA by $1.75/0.44$ over a uniform radius. Preserving the
-rule's exact multipliers but reassigning them so easier examples receive larger radii costs $0.80$ AA,
-and difficulty and margin signals also have lower NRR, which supports allocating from the anchor's own
-input sensitivity. These are signal controls inspired by adaptive-radius methods rather than
-reproductions of those algorithms.
+At 100 epochs, we compare the sensitivity signal with alternative assignments of the same mean
+budget (\Cref{tab:allocation}). Reassigning the \emph{same radii} by sample difficulty loses $0.80$
+AA points relative to sensitivity, so varying radii alone does not explain the gain. Difficulty and
+margin signals also have lower NRR. These are controls on the allocation signal, not reproductions of
+other adaptive-radius algorithms.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
@@ -199,15 +223,9 @@ reproductions of those algorithms.
   \end{tabular}
 \end{table}
 
-\paragraph{Adding weight averaging and AWP.}
-Sensitivity matching improves the anchor's clean/AA by $1.80/0.38$ points; weight averaging and AWP
-then add $1.95$ and $1.17$ AA points, respectively (\Cref{tab:ladder}). The ordered ablation does
-not isolate interactions; radius and stack comparisons are in \Cref{tab:radius,tab:stackboth}.
+\paragraph{Weight averaging and AWP.}
+We also apply weight averaging and AWP in the final training recipe. In the ordered ablation, they
+add $1.95$ and $1.17$ AA points, respectively (\Cref{tab:ladder}). This sequence does not isolate
+interactions; radius and stack comparisons are in \Cref{tab:radius,tab:stackboth}.
 
-\subsection{Reliability and Scope}
-
-The full AutoAttack suite (APGD-CE, APGD-T, FAB-T, Square) reaches $28.73\%$ on the 100-epoch
-CIFAR-100 repeat, identical to the two-attack cascade, and PGD accuracy falls to zero at $64/255$
-(\Cref{app:gradmask}). That repeat gives $62.00/28.74$ clean/AA against $62.17/28.86$ for seed $0$, so
-two seeds do not establish the significance of small ablation differences (\Cref{app:repro}). Teacher
-and student training take $0.39$ and $2.07$ hours on one RTX 5080 (\Cref{tab:compute}).
+Attack and repeat-seed diagnostics are in \Cref{app:gradmask,app:repro}.

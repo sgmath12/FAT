@@ -70,9 +70,9 @@ is right, minimizing our objective should leave $b$ large.
 \label{prop:l1}
 With the inner maximum exact,
 $J(a,b) = \mathbb{E}[R^2] + 2\epsilon\lvert b\rvert\,\mathbb{E}\lvert R\rvert + \epsilon^2 b^2$ with
-$R = a x_1 + (b-1)m$, kinked at $b = 0$ with subgradient jump
-$2\epsilon\,\mathbb{E}\lvert R(a,0)\rvert > 0$; above a threshold $\epsilon_0$ the minimizer has
-$b^\star = 0$ exactly.
+$R = a x_1 + (b-1)m$. Its one-sided slopes at $b=0$ differ by
+$4\epsilon\,\mathbb{E}\lvert R(a,0)\rvert$; above a threshold $\epsilon_0$, every minimizer has
+$b^\star = 0$.
 \end{proposition}
 
 \begin{proof}
@@ -92,7 +92,8 @@ exactly when
 \big\lvert \mathbb{E}[R(a,0)\,m] \big\rvert \;\le\; \epsilon\,\mathbb{E}\lvert R(a,0)\rvert .
 \label{eqn:kink}
 \end{equation}
-At $b=0$ the objective in $a$ is $\mathbb{E}(a x_1 - m)^2$, minimized at
+At $b=0$ the objective in $a$ is $\mathbb{E}(a x_1 - m)^2$. Writing $q=2p-1$ for the mean
+label-alignment of $x_1$, it is minimized at
 $a^\star = \mathbb{E}[x_1 m]/\mathbb{E}[x_1^2] = q\eta$, and there
 $\mathbb{E}[R(a^\star,0)\,m] = q^2\eta^2 - (\eta^2 + \tfrac1d) = -c$ with
 \begin{equation}
@@ -104,9 +105,13 @@ c \;=\; \eta^2 v + \tfrac{1}{d}, \qquad v = 1-q^2 .
 \epsilon \;\ge\; \epsilon_0 \;=\; \frac{c}{\mathbb{E}\lvert q\eta x_1 - m\rvert},
 \label{eqn:eps0}
 \end{equation}
-which is the stated threshold. The mechanism is visible in \Cref{eqn:kink}: the left side is fixed
-while the right grows linearly in $\epsilon$, so the kink's slope overtakes the quadratic gain at a
-finite radius rather than asymptotically.
+which is the stated threshold. For fixed $x_1,m$ and $\bar\delta\in[-\epsilon,\epsilon]$,
+$(a x_1+(b-1)m+b\bar\delta)^2$ is convex in $(a,b)$. Its maximum over $\bar\delta$ and then its
+expectation are convex, so $J$ is jointly convex. At $(a^\star,0)$ the $a$-derivative vanishes,
+and \Cref{eqn:kink} puts zero in the $b$-subgradient; hence this point is a global minimizer. If
+$\epsilon>\epsilon_0$, the directional derivative from $(a^\star,0)$ is strictly positive in
+every direction with nonzero $b$. Along $b=0$, $\mathbb E(a x_1-m)^2$ has a unique minimizer.
+Thus every global minimizer has $b=0$ above the threshold.
 \end{proof}
 
 \paragraph{Why the coefficient is deleted rather than shrunk.} The adversary contributes
@@ -124,13 +129,9 @@ $\mathbb{E}\lvert q\eta x_1 - m\rvert = 0.0529$, hence $\epsilon_0 = 0.843\,\eta
 bracket $(0.5\eta,\,1.0\eta)$ that the Monte-Carlo minimization returns, and far below the $2\eta$ at
 which the model is usually stated.
 
-Two caveats are worth stating rather than leaving to be found. First, \Cref{eqn:eps0} is a condition
-for $b=0$ to minimize along $b$ at $a = a^\star$; $J$ is not jointly convex, because
-$\lvert b\rvert\,\mathbb{E}\lvert R\rvert$ is a product of two convex factors, so global minimality is
-what the numerical check below supplies and not what the argument proves. Second, the model assumes
-$x_1$ is unperturbable and $z$ fully perturbable, so \emph{some} suppression of $z$ is built in before
-anything is shown. What is not built in is exactness, the threshold, and the $\epsilon$-independence
-that follows it.
+The model assumes $x_1$ is unperturbable and $z$ fully perturbable, so some suppression of $z$ is
+built in. The proposition establishes the exact threshold behavior within this restricted model;
+it does not describe the geometry of real image classifiers.
 
 That the exactness is the kink's doing, and not a general consequence of adding an adversary, is
 visible from dropping it. With the $\lvert b\rvert$ term removed,
@@ -160,15 +161,13 @@ The two columns agree below $\epsilon_0$ and separate above it: the quadratic su
 non-robust coefficient and never deletes it, which is the ordinary picture, while the kinked objective
 sets it to zero and keeps it there.
 
-Since every $\epsilon$
-in $J$ multiplies $b$, at $b^\star = 0$ the objective is $\mathbb{E}(a x_1 - m)^2$ and is
-$\epsilon$-free---past the threshold a larger radius costs the anchor nothing, which matches the
-saturation measured in \Cref{tab:radius}, where AutoAttack and CW at $10/255$ are identical to the last
-decimal to those at $8.8/255$ on both datasets.
+Since every $\epsilon$ in $J$ multiplies $b$, at $b^\star=0$ the objective reduces to
+$\mathbb{E}(a x_1-m)^2$ and no longer depends on the radius. This saturation is a property of the
+two-feature model, not a prediction of the empirical radius sweep in \Cref{tab:radius}.
 
-This model rules out the paper's effect by construction, so \Cref{prop:l1} cannot be the explanation of
-it: its reliability spectrum has two atoms and no mass near $\eta_j/\epsilon = 1$, where the effect
-lives. It is a statement about the free half only.
+The two-feature model cannot explain the measured clean--robust trade-off: it has only a robust and
+a fragile direction. It shows the narrower point that a robust student need not copy the fragile
+route by which its natural teacher computes the clean target.
 
 \subsection{What Robust Accuracy Tracks Is the Loss Measured Against a Margin}
 
@@ -288,14 +287,17 @@ $25.4^\circ$ to $29.8^\circ$---while their mean within-class angle remains nearl
 between-class geometry, but they remain observational because the teacher's accuracy and geometry
 change together. The numerical values underlying the two analysis figures are collected below.
 
+The target comparison uses the 50-epoch base regime at $\epsilon=8/255$, without weight averaging
+or AWP.
+
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4pt}
   \caption{Numerical values for the target comparison in \Cref{fig:targetcomparison}.
-  $H(q_t^\tau)$ is measured in nats, and NRR is the harmonic mean of clean and AA$_2$ accuracy.}
+  $H(q_t^\tau)$ is measured in nats, and NRR is the harmonic mean of clean and AA accuracy.}
   \label{tab:targetcomparison_values}
   \begin{tabular}{lcrrrr}
     \toprule
-    Target & $\tau$ & $H(q_t^\tau)$ & Clean & AA$_2$ & NRR \\
+    Target & $\tau$ & $H(q_t^\tau)$ & Clean & AA & NRR \\
     \midrule
     \multicolumn{6}{l}{\emph{Teacher-only temperature}} \\
     KL & 1  & 0.76 & 58.26 & 20.84 & 30.70 \\
@@ -324,7 +326,7 @@ change together. The numerical values underlying the two analysis figures are co
     \toprule
     & \multicolumn{2}{c}{Teacher} & \multicolumn{3}{c}{Student} \\
     \cmidrule(lr){2-3}\cmidrule(lr){4-6}
-    Checkpoint & Clean & $S_w/S_b$ & Clean & $S_w/S_b$ & AA$_2$ \\
+    Checkpoint & Clean & $S_w/S_b$ & Clean & $S_w/S_b$ & AA \\
     \midrule
     50 epochs  & 75.81 & 1.100 & \textbf{64.28} & 0.955 & 24.38 \\
     100 epochs & 76.62 & 0.982 & 63.65 & 0.900 & 25.20 \\
@@ -371,7 +373,7 @@ difference does not establish a general advantage for feature regression.
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{6pt}
   \caption{Fixed-head regression with WA and AWP: CIFAR-100, ResNet-18, 100 epochs,
-  uniform $\epsilon_{\mathrm{train}}=8.8/255$. Evaluation uses the APGD-CE/APGD-T cascade at $8/255$.
+  uniform $\epsilon_{\mathrm{train}}=8.8/255$. Evaluation uses AA at $8/255$.
   Both losses sum squared errors across output coordinates and average over the batch.}
   \label{tab:regression_stack}
   \begin{tabular}{lrr}
@@ -655,9 +657,7 @@ not preserve the box---the rescaling moves the clipped entries back out of it.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
-  \caption{WideResNet-34-10 on CIFAR-100 at $\epsilon = 8/255$, measured in our framework; the
-  CIFAR-10 column of this network is in \Cref{tab:scale}. The CFA entry is a provisional reading of a
-  run whose evaluation is still finishing.}
+  \caption{WideResNet-34-10 on CIFAR-100 at $\epsilon=8/255$, measured in our framework.}
   \label{tab:wrn100}
   \begin{tabular}{llrrrr}
     \toprule
@@ -675,7 +675,7 @@ not preserve the box---the rescaling moves the clipped entries back out of it.
     HAT & nat. & 62.81 & 26.91 & 44.86 & 37.68 \\
     ADR & self & 64.50 & 29.04 & 46.77 & 40.05 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & 65.00 & \textbf{30.00} & \textbf{47.50} & \textbf{41.05} \\
+    \textbf{CFA (ours)} & nat. & 65.04 & \textbf{30.14} & \textbf{47.59} & \textbf{41.19} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -722,15 +722,15 @@ CIFAR-100 ablations use 100 epochs at $8.8/255$, with a 10-epoch AWP warmup.
   Backbone                       & ResNet-18 & ResNet-18 & ResNet-18 \\
   Optimizer                      & AdamW & AdamW & AdamW \\
   Learning rate / schedule       & $0.021$, one-cycle & $0.021$, one-cycle & $0.021$, one-cycle \\
-  Epochs                         & 100 & 150 & 100 \\
+  Epochs                         & 150 & 150 & 100 \\
   Batch size                     & 128 & 128 & 128 \\
-  Training radius $\epsilon_{\mathrm{train}}$ & $8.8/255$ & $8/255$ & $8.8/255$ \\
+  Training radius $\epsilon_{\mathrm{train}}$ & $8/255$ & $8/255$ & $8.8/255$ \\
   Inner attack                   & PGD-10, step $2/255$ & PGD-10, step $2/255$ & PGD-10, step $2/255$ \\
   Allocation exponent $p$        & 1 & 1 & 1 \\
   Radius box $[w_{\mathrm{lo}},w_{\mathrm{hi}}]$ & $[0.5,1.5]$ & $[0.5,1.5]$ & $[0.5,1.5]$ \\
   Classifier head                & frozen & frozen & frozen \\
   Weight averaging (start, decay)& $0.2$, $0.999$ & $0.2$, $0.999$ & $0.2$, $0.999$ \\
-  AWP ($\gamma$, warmup)         & $0.005$, 10 ep & $0.005$, 15 ep & $0.005$, 10 ep \\
+  AWP ($\gamma$, warmup)         & $0.005$, 15 ep & $0.005$, 15 ep & $0.005$, 10 ep \\
   Teacher checkpoint             & clean, 200 ep & clean, 200 ep & clean, 200 ep \\
   \bottomrule
 \end{tabular}
@@ -741,14 +741,10 @@ inherited and never updated, the head-KD term of earlier drafts has no parameter
 switched off entirely. $p$ is not tuned. The training-radius sweep is reported in
 \Cref{tab:radius}; evaluation is at $8/255$ in every cell.
 
-\paragraph{Evaluation.} We report the APGD-CE/APGD-T cascade at $\ell_\infty$ radius
-$\epsilon = 8/255$ on the full test set. A dedicated validation of the CIFAR-100 seed-1 model
-at 100 epochs uses all four attacks in standard AutoAttack; FAB-T and Square leave the two-attack result unchanged
-(\Cref{app:gradmask}). PGD-20 and CW$_\infty$ are also reported (\Cref{app:fullmetrics}), and NRR
-is the harmonic mean of clean and robust accuracy. Where a table reports a method we ported rather than
-quoted, the port uses its published recipe unless stated otherwise. The CIFAR-100 ARREST row in
-HAT and LBGAT retain
-their published schedules because both collapse under ours.
+\paragraph{Evaluation.} We report AutoAttack accuracy at $\ell_\infty$ radius $8/255$ on the full
+test set; NRR is its harmonic mean with clean accuracy. Additional attacks are in
+\Cref{app:gradmask,app:fullmetrics}. Ported baselines retain their published recipes unless stated
+otherwise.
 
 \paragraph{Repeated training.} Each reported row is an individual run. For the 100-epoch CIFAR-100
 configuration at $8.8/255$, seed $1$ gives $62.00/32.49/30.82/28.74$ clean/PGD-20/CW/AA, compared with
@@ -798,89 +794,42 @@ comparison with adversarial distillation is favourable in a way the table unders
 rows assume a robust teacher that the current literature obtains from a WideResNet trained on
 generated data, which is more expensive than every row here combined.
 
-\section{Teacher-Only Metrics and What They Predict}
+\section{Additional Teacher-Checkpoint Results}
 \label{app:teachersel}
 
-\Cref{sec:teacher_transfer} selects a teacher by training students. Here we ask what can be inferred
-from the frozen teacher. Metrics are computed on all $10{,}000$ CIFAR-100 test images: clean accuracy, the
-scatter ratio $S_w/S_b$, the mean logit margin $f_y - \max_{k \ne y} f_k$, the mean $\lVert \nabla_x
-\mathrm{CE} \rVert_2$, and the feature sensitivity $\lVert \Phi_t(x+\delta) - \Phi_t(x) \rVert_2 /
-\lVert \delta \rVert_2$ for uniform $\delta$ at $8/255$. All students use the same 50-epoch protocol;
-five of the nine checkpoint results appear in \Cref{tab:teacherladder_values}.
+\Cref{fig:teacherladder} shows one natural-training trajectory; \Cref{tab:teacherladder_seed1}
+reports an independently trained trajectory. Each listed teacher was trained to completion under
+its own one-cycle schedule, then used to initialize a 50-epoch student with the same training
+procedure. These experiments vary the teacher checkpoint, not just the target features.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4pt}
-  \caption{Left: Spearman correlation between a teacher-only metric and the student it produced, over
-  the nine trajectory checkpoints. Right: Spearman between the metrics themselves, which is what makes
-  the left block hard to read --- teacher clean accuracy has correlation $1.00$ with the epoch index,
-  so any quantity monotone in training time inherits its correlations.}
-  \label{tab:teachermetrics}
-  \begin{tabular}{lrrrcrrr}
+  \caption{Independent CIFAR-100 teacher trajectory (teacher seed 1; 50-epoch students with
+  seed 0). Teacher metrics are measured on held-out data.}
+  \label{tab:teacherladder_seed1}
+  \begin{tabular}{lrrrrrr}
     \toprule
-    & \multicolumn{3}{c}{Student} && \multicolumn{3}{c}{Teacher metric} \\
-    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
-    Teacher metric & Clean & AA$_2$ & NRR && Epoch & Clean & Margin \\
+    & \multicolumn{3}{c}{Teacher} & \multicolumn{3}{c}{Student} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-7}
+    Epoch & Clean & Margin & Sensitivity & Clean & AA & NRR \\
     \midrule
-    Clean accuracy        &  0.18 &  0.95 &  0.95 &&  1.00 &  1.00 &  0.90 \\
-    $S_w/S_b$             & -0.17 & -0.93 & -0.93 && -0.98 & -0.98 & -0.88 \\
-    Logit margin          &  0.30 &  \textbf{0.98} &  \textbf{0.98} &&  0.90 &  0.90 &  1.00 \\
-    $\lVert\nabla_x\mathrm{CE}\rVert$ &  0.90 &  0.48 &  0.48 &&  0.43 &  0.43 &  0.53 \\
-    Feature sensitivity   &  \textbf{0.93} &  0.40 &  0.40 &&  0.32 &  0.32 &  0.47 \\
-    Margin $/$ sensitivity &  0.18 &  0.95 &  0.95 &&  1.00 &  1.00 &  0.90 \\
+    20       & 73.87 & 3.074 & 3.911 & 63.82 & 23.22 & 34.05 \\
+    40       & 75.57 & 3.931 & 4.542 & 64.36 & 23.86 & 34.81 \\
+    100      & 77.27 & 4.506 & 4.678 & 63.68 & 25.61 & 36.53 \\
+    150      & 77.68 & 4.495 & 4.262 & 63.37 & 25.49 & 36.36 \\
+    200      & 77.90 & 4.542 & 4.129 & 63.02 & \textbf{26.16} & \textbf{36.97} \\
+    300      & 78.27 & 4.523 & 3.835 & 62.34 & 25.94 & 36.64 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Two diagnostics temper the left block. Leave-one-checkpoint-out, fitting a line on eight checkpoints
-and predicting the ninth, the student's AutoAttack accuracy is predictable to $0.56$ points from the
-margin and $0.78$ from teacher accuracy, against $2.47$ for predicting the mean; the student's clean
-accuracy is much harder, $1.32$ points from the gradient norm and $1.72$ from teacher accuracy against
-$1.90$ for the mean. And regressing the student on teacher accuracy leaves residuals whose rank
-correlation with the margin is $0.48$ and with feature sensitivity $0.30$, neither of which $n = 9$
-supports. The trajectory therefore selects candidates; it does not test them.
-
-\begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Out-of-trajectory prediction: each line is fit on the nine trajectory checkpoints and
-  applied to the two teachers in \Cref{tab:matchedteacher} and a weight-decay teacher. Mean absolute
-  error in accuracy points, and the error on each teacher.}
-  \label{tab:teacherpredict}
-  \begin{tabular}{llrrrr}
-    \toprule
-    Predicted & From & MAE & Label sm. & Mixup & Weight decay \\
-    \midrule
-    Student clean & Feature sensitivity & \textbf{2.99} & 0.7 & 1.2 & 7.2 \\
-    Student clean & $\lVert\nabla_x\mathrm{CE}\rVert$ & 3.51 & 2.2 & 0.1 & 8.3 \\
-    Student clean & Teacher clean accuracy & 3.45 & 4.7 & 0.4 & 5.2 \\
-    \midrule
-    Student AA$_2$ & Logit margin & 3.05 & 3.3 & 5.5 & 0.4 \\
-    Student AA$_2$ & $S_w/S_b$ & 7.95 & 2.6 & 12.0 & 9.3 \\
-    Student AA$_2$ & Teacher clean accuracy & \textbf{0.92} & 0.4 & 0.4 & 2.0 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-The trajectory correlations of margin and $S_w/S_b$ do not carry over to these differently trained
-teachers. Feature sensitivity has the lowest student-clean prediction error among the tested metrics,
-but this small sample does not establish a selection rule. In particular, the weight-decay teacher
-has lower clean accuracy ($69.30\%$) than the matched pair ($78.76\%$ and $78.62\%$), so its larger
-prediction error cannot isolate the role of sensitivity. Label smoothing also changes logit scale,
-complicating comparisons based on margin or the cross-entropy gradient.
-
-\paragraph{Exploratory checkpoint window.}
-Let $m_e$ and $s_e$ denote the teacher's mean margin and feature sensitivity at epoch $e$. Retaining
-checkpoints with $m_e\geq0.99\max_j m_j$ and $s_e\geq0.85\max_j s_j$ selects epochs 150 and 200 on
-the original trajectory. This window includes the best student AA$_2$ and NRR but excludes the
-clean-accuracy maximum at epoch 50. The thresholds were set after examining this trajectory and
-therefore require validation on independent trajectories.
-
-One measurement was retracted rather than reported. A cosine-schedule checkpoint was to be a fourth
-off-trajectory teacher, and its metrics looked decisive: a margin of $0.22$ at $73.00$ clean accuracy.
-It is the normalized-feature variant of this network, carrying a feature-scale parameter the plain
-network does not, and the metric script had loaded it with that parameter dropped. Its student could not
-be trained at all, which is how the error surfaced. The script now refuses a checkpoint whose parameters
-do not match the network; the two teachers in \Cref{tab:matchedteacher} and the weight-decay teacher
-use the same network as the ladder.
+The second trajectory again moves from higher student clean accuracy at earlier checkpoints to
+higher AA at later ones. The strongest AA occurs at 200 rather than 300 epochs, although the
+difference is small. Feature sensitivity has only moderate rank correlation with student clean
+accuracy on these six checkpoints (Spearman $0.54$, versus $0.83$ on the same grid of the first
+trajectory). The matched teachers in \Cref{tab:matchedteacher} further show that teacher clean
+accuracy alone does not determine student clean accuracy. None of these measurements supplies a
+validated teacher-only selection rule.
 
 \section{The Recipe Controls}
 \label{app:recipe}
@@ -940,21 +889,14 @@ single runs or claiming exhaustive tuning of the alternatives.
 \section{Gradient Masking}
 \label{app:gradmask}
 
-We validate the reported robustness with the full standard AutoAttack suite and additional
-gradient-masking diagnostics \citep{athalye2018obfuscated}. The evaluated model is the CIFAR-100
-seed-1 repeat of the 100-epoch configuration at $8.8/255$, with $62.00\%$ clean accuracy and $28.74\%$ in its original
-two-attack evaluation. In the dedicated validation on all $10000$ test images, both the two-attack
-cascade and the full four-attack suite yield $28.73\%$ (\Cref{tab:gradmask}). This establishes that
-FAB-T and Square do not reduce robust accuracy further for this checkpoint; it does not substitute
-for a four-attack evaluation of other checkpoints.
+We test for gradient masking with AutoAttack, independent attacks, and PGD sweeps
+\citep{athalye2018obfuscated}. \Cref{tab:gradmask} reports these checks for a 100-epoch CIFAR-100
+repeat with $62.00\%$ clean accuracy.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{5pt}
-  \caption{Gradient-masking checks, all $10000$ test images, $\epsilon = 8/255$. The first block runs
-  each attack \emph{independently} from the clean test set, which is what compares their strengths;
-  the second runs them as AutoAttack does, each attack seeing only the points the previous ones left
-  standing. The teacher-transfer row builds PGD-20 examples on the natural teacher and evaluates them
-  on the student, which shares the teacher's classifier.}
+  \caption{Gradient-masking checks on all $10{,}000$ CIFAR-100 test images at $8/255$.
+  Individual attacks are evaluated independently.}
   \label{tab:gradmask}
   \begin{tabular}{llr}
     \toprule
@@ -966,9 +908,7 @@ for a four-attack evaluation of other checkpoints.
     FAB-T              & white box, boundary   & 29.16 \\
     Square             & \textbf{black box}, 5000 queries & 34.82 \\
     \midrule
-    \multicolumn{3}{l}{\emph{as a cascade}} \\
-    APGD-CE $\rightarrow$ APGD-T & two-attack validation & 28.73 \\
-    \quad $\rightarrow$ FAB-T $\rightarrow$ Square & AutoAttack's \texttt{standard} version & 28.73 \\
+    AutoAttack & standard evaluation & 28.73 \\
     \midrule
     \multicolumn{3}{l}{\emph{radius sweep}, PGD-20} \\
     $\epsilon = 2/255$  & & 54.62 \\
@@ -988,12 +928,9 @@ for a four-attack evaluation of other checkpoints.
   \end{tabular}
 \end{table}
 
-Square leaves $5.99$ points more accuracy than the strongest individual white-box attack, APGD-T.
-In the standard cascade, neither FAB-T nor Square successfully perturbs any of the $2873$ examples
-that survive APGD-CE and APGD-T, leaving robust accuracy unchanged at $28.73\%$. PGD accuracy
-decreases monotonically over the tested radii, reaching zero at $64/255$, and decreases with the
-number of steps, with smaller changes beyond $50$. Together, these checks provide no indication of
-gradient masking under the evaluated attacks, without establishing worst-case robustness.
+AutoAttack yields $28.73\%$ accuracy. PGD accuracy falls monotonically with attack radius, reaching
+zero at $64/255$, and decreases with additional steps. These checks show no indication of gradient
+masking under the evaluated attacks.
 
 The transfer row is worth reading separately. The student inherits the teacher's classifier and is
 initialized at the teacher's features, so adversarial examples built on the teacher might be expected
@@ -1008,10 +945,11 @@ adversarial directions do not point at the student's boundaries.
 Several rows of \Cref{tab:main} run a specific variant of the method they name, or are grouped in a
 way that needs saying. This section is those decisions; the table carries none of them.
 
-\paragraph{ARREST} runs its published recipe on both datasets: adversarial finetuning for 20 epochs
-from the natural model with SGD at $0.025$, the angular representation term at $\lambda = 50$, and
-Noisy Replay over the first half at $\phi = 30^\circ$. We read its representation after global
-pooling, where our anchor and every geometry measurement in this paper are defined.
+\paragraph{ARREST} uses its published 20-epoch recipe in \Cref{tab:baselinestack}. The main table
+instead uses 150 epochs, AdamW, WA, and AWP to compare its objective with CFA under the longer
+training stack; ARREST retains a uniform radius. Both versions start from the same natural teacher.
+We read its representation after global pooling, where our anchor and geometry measurements are
+defined.
 
 \paragraph{LBGAT, and why its CIFAR-10 cell is empty.} The authors release a training script for
 CIFAR-100 only, and their CIFAR-10 entries are released as pretrained WideResNet checkpoints. Running
