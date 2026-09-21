@@ -1,0 +1,42 @@
+# Logit MSE at the final recipe, uniform radius, 2026-09-21.
+# One of the four cells of the 2x2: {feature MSE, fixed-head logit MSE} x {uniform, sample-wise eps},
+# all at the 200-epoch teacher, teacher initialization, frozen head, 150 epochs, 8/255, WA and AWP.
+
+method : logit_mse
+dataset : CIFAR100
+arch: ResNet18
+optim : AdamW
+lr : 0.021
+alpha : 1.0
+lamda : 0.0
+beta : 1.0
+tau : 1
+kappa : 0.999
+eta : 512
+aug : none
+eps : 8/255
+steps : 10
+step_size : 2/255/1
+train_eps : 0.031372549019607843
+epochs : 150
+batch_size : 128
+interval : 5
+aa : True
+log : True
+load : True
+finetune : True
+evaluate : True
+reformation : False
+student_norm : False
+teacher_norm : False
+teacher_cos_head : False
+cyclic : True
+weight_avg : True
+wa_start : 0.2
+awp_gamma : 0.005
+awp_warmup : 15
+checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+finetune_checkpoint : CIFAR100/checkpoint/clean_200ep/clean_last.pkl
+data_root : ./data
+awp_style : proxy
+logitmse_angeps_p : 0.0

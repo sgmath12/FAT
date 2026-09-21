@@ -5022,6 +5022,7 @@ def train_logit_mse(model, train_loader, optimizer, origin_model, epoch, config,
         _p.requires_grad_(False)
     if epoch == 0:
         logging.info({"train_logit_mse": True, "frozen_head": True, "eps": st.eps})
+    _first_batch = True
 
     for x, y in tqdm(train_loader):
         x = x.cuda()
@@ -5044,6 +5045,33 @@ def train_logit_mse(model, train_loader, optimizer, origin_model, epoch, config,
             st.after_step(scheduler, exp_avg)
             continue
 
+        # SENSITIVITY-MATCHED RADIUS FOR THIS LOSS (logitmse_angeps_p, 2026-09-21).  The feature cell
+        # allocates the batch budget from the input gradient of ITS OWN loss, so the logit cell has to
+        # do the same or the 2x2 confounds the objective with whose sensitivity set the radii: the
+        # signal here is d||h(Phi_s(x)) - h(Phi_t(x))||^2 / dx at the clean point.  Same [0.5, 1.5]
+        # clip, same restoration to mean one, same scaling of the step size.  p = 0 (default) is the
+        # uniform radius, bit-identical to before.
+        eps_use, step_use = st.eps, config.step_size
+        _ap = float(getattr(config, "logitmse_angeps_p", 0.0) or 0.0)
+        if _ap > 0:
+            _lo = float(getattr(config, "featdir_angeps_lo", 0.5) or 0.5)
+            _hi = float(getattr(config, "featdir_angeps_hi", 1.5) or 1.5)
+            model.eval()
+            _xg = x.clone().detach().requires_grad_(True)
+            with torch.enable_grad():
+                _l0 = (model(_xg) - t_logits).pow(2).sum()
+            _gn = torch.autograd.grad(_l0, [_xg])[0].detach().flatten(1).norm(dim=1).clamp(min=1e-12)
+            model.train()
+            _w = ((_gn.mean() / _gn).pow(_ap)).clamp(_lo, _hi)
+            _w = _w * (_w.numel() / _w.sum())
+            eps_use = st.eps * _w.view(-1, 1, 1, 1)
+            step_use = config.step_size * _w.view(-1, 1, 1, 1)
+            if _first_batch:
+                logging.info({"logitmse_angeps_p": _ap, "w_min": round(_w.min().item(), 3),
+                              "w_max": round(_w.max().item(), 3), "w_std": round(_w.std().item(), 3),
+                              "epoch": epoch})
+                _first_batch = False
+
         # inner maximization on the same quantity the outer problem minimizes
         model.eval()
         x_adv = x.detach() + 0.001 * torch.randn(x.shape).cuda().detach()
@@ -5052,8 +5080,8 @@ def train_logit_mse(model, train_loader, optimizer, origin_model, epoch, config,
             with torch.enable_grad():
                 l_in = (model(x_adv) - t_logits).pow(2).sum(dim=1).mean()
             grad = torch.autograd.grad(l_in, [x_adv])[0]
-            x_adv = x_adv.detach() + config.step_size * torch.sign(grad.detach())
-            x_adv = torch.min(torch.max(x_adv, x - st.eps), x + st.eps)
+            x_adv = x_adv.detach() + step_use * torch.sign(grad.detach())
+            x_adv = torch.min(torch.max(x_adv, x - eps_use), x + eps_use)
             x_adv = torch.clamp(x_adv, 0.0, 1.0)
         x_adv = x_adv.detach()
         model.train()
