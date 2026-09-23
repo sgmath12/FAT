@@ -29,7 +29,8 @@ results obtained with other teachers are in
   \centering \footnotesize \setlength{\tabcolsep}{3.2pt}
   \caption{ResNet-18 results at $\ell_\infty$, $\epsilon=8/255$. All values are measured in our
   framework. \emph{T.} denotes the teacher assumed by the method: none (--), a natural model
-  (nat.), or the method's own weight average (self).}
+  (nat.), or the method's own weight average (self). The CIFAR-100 CFA row is the mean of three
+  student seeds; all other rows are individual runs.}
   \label{tab:main}
   \begin{tabular}{llrrrrrrrr}
     \toprule
@@ -52,14 +53,14 @@ results obtained with other teachers are in
     ADR & self & 83.36 & 49.72 & 66.54 & 62.29 & 59.93 & 27.20 & 43.57 & 37.42 \\
     RPAT++ & -- & 82.41 & 50.75 & 66.58 & 62.82 & 55.93 & 27.36 & 41.64 & 36.74 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & \textbf{87.37} & \textbf{51.33} & \textbf{69.35} & \textbf{64.67} & \textbf{64.75} & \textbf{27.98} & \textbf{46.37} & \textbf{39.07} \\
+    \textbf{CFA (ours)} & nat. & \textbf{87.37} & \textbf{51.33} & \textbf{69.35} & \textbf{64.67} & \textbf{64.82} & \textbf{28.04} & \textbf{46.43} & \textbf{39.15} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 CFA attains the highest AA and NRR on both CIFAR datasets (\Cref{tab:main}). On CIFAR-100 it exceeds
-ADR, the closest baseline in NRR, by $0.78$ AA and $1.65$ NRR points while also gaining $4.82$ clean
-points; ARREST holds the highest clean accuracy of the table and gives up $5.20$ AA points, a different
+ADR, the closest baseline in NRR, by $0.84$ AA and $1.73$ NRR points while also gaining $4.89$ clean
+points; ARREST holds the highest clean accuracy of the table and gives up $5.26$ AA points, a different
 point on the trade-off rather than a better one. On CIFAR-10, CFA's NRR exceeds the closest baseline by
 $1.85$ points.
 
@@ -134,10 +135,12 @@ same additions to the baselines' own recipes helps most but does not close the g
 \paragraph{Regression and probability targets.}
 Logit regression remains effective with WA and AWP: at a uniform $8.8/255$ and 100 epochs, logit MSE
 reaches $60.36/28.02$ clean/AA against feature regression's $60.42/28.42$
-(\Cref{tab:regression_stack}), so with the base-regime comparison of \Cref{sec:fragile}, effective
-clean-target regression is not confined to feature space. Teacher-only KL reaches $56.97/26.96$ at its
-best tested temperature under the full recipe (\Cref{tab:fullmetrics}), a comparison that does not
-isolate the target from classifier and radius choices.
+(\Cref{tab:regression_stack}). Under the final 150-epoch recipe with sensitivity-matched radii,
+logit regression reaches $64.49/27.85$ (NRR $38.90$), within $0.26/0.13$ clean/AA points of feature
+regression (\Cref{tab:finalallocation}). Thus effective clean-target regression is not confined to
+feature space. Teacher-only KL reaches $56.97/26.96$ at its best tested temperature under the full
+recipe (\Cref{tab:fullmetrics}), a comparison that does not isolate the target from classifier and
+radius choices.
 
 \begin{table}[!htbp]
   \centering \scriptsize \setlength{\tabcolsep}{4pt}
@@ -163,36 +166,42 @@ isolate the target from classifier and radius choices.
     HAT              & 60.67 & 24.45 & 34.85 && 57.63 & 24.74 & 34.62 \\
     ARREST           & 66.44 & 22.99 & 34.16 && 64.95 & 23.02 & 33.99 \\
     \midrule
-    \textbf{CFA (ours)} & \multicolumn{3}{c}{---} && \textbf{64.75} & \textbf{27.98} & \textbf{39.07} \\
+    \textbf{CFA (ours)} & \multicolumn{3}{c}{---} && \textbf{64.82} & \textbf{28.04} & \textbf{39.15} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 The additions raise NRR for nine of twelve baselines, yet none reaches CFA; ADR is closest at
-$38.00$ versus $39.07$. ARREST's rows here use its 20-epoch recipe, unlike its 150-epoch
+$38.00$ versus $39.15$. ARREST's rows here use its 20-epoch recipe, unlike its 150-epoch
 comparison in \Cref{tab:main}. ADR already uses a SAM-style weight perturbation in its own recipe.
 
 \subsection{Radius Allocation and Training Components}
 
 \paragraph{Does allocation help in the final recipe?}
-Holding the teacher, training schedule, mean radius, weight averaging, and AWP fixed, we replace the
-uniform radius with sensitivity matching in the 150-epoch CIFAR-100 run. Clean accuracy increases by
-$2.35$ points, while AA changes by $0.14$ points (\Cref{tab:finalallocation}). The gain therefore
-persists at the configuration reported in \Cref{tab:main}; it is not confined to the shorter ablation
-runs. The comparison primarily supports a clean-accuracy gain at similar robustness; the $0.14$-point
-AA difference is too small to interpret without repeated runs of both arms.
+Holding the teacher, training schedule, mean radius, weight averaging, and AWP fixed, replacing the
+uniform feature-anchor radius with sensitivity matching raises clean accuracy by
+$2.19\mathbin{\pm}0.20$ points across three paired runs, while AA changes by
+$0.03\mathbin{\pm}0.23$ points (\Cref{tab:finalallocation}). The clean gain appears in every seed,
+so it persists at the configuration reported in \Cref{tab:main}; the AA difference is indistinguishable
+from run-to-run variation. The
+concentration of the gain on clean accuracy is an empirical observation, not a consequence predicted
+by the first-order allocation argument. Logit regression with sensitivity matching reaches a similar
+endpoint, but its uniform-radius counterpart was not evaluated, so this row does not estimate a
+radius-allocation gain for the logit objective.
 
 \begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{7pt}
-  \caption{Radius allocation in the final CIFAR-100 recipe (ResNet-18, 150 epochs,
-  $\epsilon_{\mathrm{train}}=8/255$). The two runs differ only in $p$.}
+  \centering \small \setlength{\tabcolsep}{5pt}
+  \caption{Clean-target regression in the final CIFAR-100 recipe (ResNet-18, 150 epochs,
+  $\epsilon_{\mathrm{train}}=8/255$). Feature rows report mean $\pm$ sample standard deviation over
+  three student seeds and differ only in $p$; logit regression is one run at $p=1$.}
   \label{tab:finalallocation}
   \begin{tabular}{lrrr}
     \toprule
-    Radius & Clean & AA & NRR \\
+    Target and radius & Clean & AA & NRR \\
     \midrule
-    Uniform ($p=0$) & 62.40 & 27.84 & 38.50 \\
-    Sensitivity-matched ($p=1$) & \textbf{64.75} & \textbf{27.98} & \textbf{39.07} \\
+    Features, uniform ($p=0$) & $62.63\pm0.22$ & $28.01\pm0.20$ & $38.71\pm0.21$ \\
+    Features, sensitivity-matched ($p=1$) & $\mathbf{64.82\pm0.07}$ & $\mathbf{28.04\pm0.09}$ & $\mathbf{39.15\pm0.09}$ \\
+    Logits, sensitivity-matched ($p=1$) & 64.49 & 27.85 & 38.90 \\
     \bottomrule
   \end{tabular}
 \end{table}

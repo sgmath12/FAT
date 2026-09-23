@@ -1,9 +1,10 @@
 \section{Analysis}
 \label{sec:analysis}
 
-A natural teacher offers accurate clean predictions, but these need not be the most useful targets
-for adversarial training. We compare predictive and feature targets, establish what a fixed clean
-target controls, and then ask how the teacher checkpoint changes the student's behavior.
+A natural teacher offers accurate clean predictions, but robust distillation must decide how those
+predictions become supervision. We first compare softened predictive targets with direct regression
+onto a fixed clean target. We then establish what the feature realization controls and examine how
+the teacher checkpoint changes the resulting student.
 
 \subsection{Preliminaries}
 
@@ -14,12 +15,12 @@ $h:\mathbb R^d\to\mathbb R^C$, $h(z)=Wz+b$, is the classifier for $C$ classes. W
 $t$ and $s$ for the frozen natural teacher and the student. Both networks share the same architecture,
 with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
 
-\subsection{Do Natural Teachers Need Softened Targets?}
+\subsection{From Soft Predictive Targets to a Fixed Clean Target}
 \label{sec:fragile}
 
-Can the natural teacher's concentrated clean predictions provide effective adversarial supervision
-if softened? Motivated by soft-label robust distillation \citep{ard,rslad,adr,bmtard}, we first vary
-target concentration before changing the representation being transferred. Let
+Soft-label robust distillation adjusts the concentration of the predictive target
+\citep{ard,rslad,adr,bmtard}. We first ask how far this operation alone can move the natural
+teacher's clean--robust trade-off. Let
 \begin{equation}
 q_t^\tau(x)=\operatorname{softmax}(f_t(x)/\tau),\qquad
 p_s^\tau(x')=\operatorname{softmax}(f_s(x')/\tau).
@@ -39,8 +40,8 @@ $\bar f=f-C^{-1}\mathbf1\mathbf1^\top f$,
 =\frac{1}{2C}\lVert\bar f_t(x)-\bar f_s(x')\rVert_2^2.
 \label{eqn:kd_limit}
 \end{equation}
-This limit motivates direct regression onto clean teacher logits; we also examine regression onto
-the full clean feature, which defines
+The limit connects shared-temperature KD to direct regression onto centered clean logits. We also
+evaluate regression onto the full clean feature, which gives the CFA objective
 \begin{equation}
 \mathcal L_{\mathrm{anchor}}(x)=
 \max_{x'\in B(x,\epsilon)}\lVert\Phi_s(x')-\Phi_t(x)\rVert_2^2.
@@ -58,18 +59,21 @@ the full clean feature, which defines
 \end{figure}
 
 We train for 50 epochs at $\epsilon=8/255$.
-Across the full sweep, teacher-only softening improves robustness until the target becomes nearly
-uniform, but changes clean accuracy little. Shared-temperature KD avoids this turnover and approaches
-logit regression (\Cref{fig:targetcomparison}). Feature regression is only $0.13$ clean and $0.19$
-AA points higher: both regression targets are effective without temperature selection. Moreover,
-KD updates the classifier whereas regression uses a fixed head, so this comparison evaluates
-training designs rather than isolating the target alone.
+Across the sweep, softening only the teacher target improves robustness until the distribution is
+nearly uniform, but changes clean accuracy little. Shared-temperature KD avoids this turnover and
+approaches logit regression (\Cref{fig:targetcomparison}), consistent with \Cref{eqn:kd_limit}.
+Feature regression is only $0.13$ clean and $0.19$ AA points higher; under the final recipe the gap
+remains $0.26/0.13$ (\Cref{tab:finalallocation}). Thus direct clean-target regression removes the
+need to select a temperature, but the evidence does not privilege feature coordinates over logits.
+Because KD updates the classifier whereas regression fixes it, the sweep compares complete training
+designs rather than isolating the target representation alone.
 
 \label{sec:sole_target}
-The comparison points to a fixed clean target rather than a particular temperature. We use the
-full feature to preserve the representation supplied to the inherited classifier, including
-directions that logit regression need not constrain. The small gap above does not establish a
-feature-specific performance advantage; it motivates examining what the single anchor controls.
+The comparison shifts the question from how to soften a predictive distribution to what a fixed
+clean target controls. CFA uses the full feature to preserve the representation supplied to the
+inherited classifier, including directions that logit regression leaves unconstrained. We next
+analyze this feature realization without claiming that its metric is uniquely responsible for the
+empirical gain.
 
 \subsection{What the Anchor Controls}
 \label{sec:decomp}

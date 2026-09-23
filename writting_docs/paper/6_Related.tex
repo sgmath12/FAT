@@ -10,24 +10,25 @@ regularization, weight averaging, and adversarial weight perturbation
 targets produced by an annealed momentum teacher \citep{adr}. These approaches motivate our study
 of how the supervisory target affects the clean--robust trade-off.
 
-\paragraph{Adversarial distillation.}
+\paragraph{Predictive targets in adversarial distillation.}
 ARD transfers a robust teacher's predictions during adversarial training \citep{ard}. RSLAD emphasizes
 robust soft labels \citep{rslad}, IAD discounts unreliable teacher guidance \citep{iad}, and AdaAD uses
 the teacher in both adversarial-example generation and student optimization \citep{adaad}. IGDM adds
 the teacher's local input geometry to logit-based distillation \citep{igdm}. These methods are designed
-to inherit robustness from an adversarially trained teacher. In contrast, our teacher is trained only
-on clean data, and its clean representation remains fixed during the student's inner maximization.
+to inherit robustness from an adversarially trained teacher. Our target instead comes from a natural
+teacher at the clean input and remains fixed during the student's inner maximization.
 
 \paragraph{Guidance from naturally trained models.}
-BGAT regresses adversarial logits to a fixed natural teacher's clean logits, and LBGAT extends
-this to a jointly trained natural branch \citep{lbgat}. ARREST starts
+BGAT is the closest direct-regression precedent: it matches adversarial logits to a fixed natural
+teacher's clean logits, and LBGAT extends this to a jointly trained natural branch \citep{lbgat}.
+Our logit control confirms that this fixed-clean-target principle is not specific to features. CFA
+uses the full clean representation with an inherited fixed classifier, and our analysis focuses on
+what a single anchor controls, which teacher checkpoint supplies it, and how its neighborhood is
+allocated. ARREST starts
 from a naturally pretrained model and regularizes latent representations while retaining adversarial
 cross-entropy and noisy replay \citep{arrest}. HAT uses a natural helper to label examples outside the
 training ball \citep{hat}, DP-FAT distills direction-preserving logits \citep{dpfat}, and B-MTARD
-combines clean and robust teachers with adaptive temperature and loss balancing \citep{bmtard}. CFA
-uses a fixed clean feature target for both attack generation and backbone learning, with an inherited
-classifier. We study how the natural-teacher checkpoint and sensitivity-based radius allocation
-affect transfer under this objective.
+combines clean and robust teachers with adaptive temperature and loss balancing \citep{bmtard}.
 
 \paragraph{Sample-dependent perturbation budgets.}
 IAAT and CAT adapt the training radius to sample difficulty, while MMA directly increases an

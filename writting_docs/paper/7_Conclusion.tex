@@ -1,10 +1,8 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-A natural teacher can guide adversarial training through a single clean-feature target, without a
-separate label loss. Yet the teacher checkpoint matters: later natural training shifts the student
-toward robustness in two trajectories, and similar teacher clean accuracy need not yield similar
-student clean accuracy. With the teacher fixed, sensitivity-based radii improve clean accuracy at
-nearly unchanged AutoAttack accuracy in the final recipe. CFA thus separates three decisions often
-treated together in natural-teacher distillation: the target, the teacher, and the perturbation
-budget.
+A natural teacher can guide adversarial training through one clean target without a label loss.
+Its checkpoint changes the student's clean--robust operating point, while sensitivity-based radii
+improve clean accuracy at nearly unchanged AutoAttack accuracy. Clean-logit regression reaches a
+similar endpoint, locating the broader mechanism in fixed clean-target regression rather than a
+uniquely superior feature metric. CFA thus separates the target, teacher, and perturbation budget.

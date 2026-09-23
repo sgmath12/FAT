@@ -227,26 +227,24 @@ isolating the target alone.
 \label{app:anchor_measurements}
 \label{sec:empirical_geometry}
 
-The geometry and displacement diagnostics below use the earlier
-100-epoch \texttt{ladder\_p0\_100ep} anchor and \texttt{abl\_ce\_nostack} checkpoints.
-The anchor's backbone uses raw feature regression, while a detached KD term trains its classifier;
-this is distinct from the frozen-head models in \Cref{tab:controls}. Both diagnostics use true-label
-PGD with 10 steps at radius $8.8/255$. The displacement script samples training batches, whereas the
-class-geometry script samples test batches. Consequently, they are complementary descriptive
-measurements rather than a joint causal test on the final model.
+We measure feature geometry on the final 150-epoch CFA model and a label-trained student with the
+same natural initialization, weight averaging, and AWP. Both models are evaluated on 5,000 test
+images under the same 10-step true-label PGD attack at $8/255$; all angular statistics use
+unit-normalized features.
 
 \Cref{prop:decomp} bounds variation within an anchored model, but does not predict a smaller
 variation than label training. Under the matched true-label PGD protocol, the anchor and
-label-trained students move by $0.275$ and $0.254$ of their clean feature norms. These
+label-trained students move by $0.312$ and $0.281$ of their clean feature norms. These
 displacements are not the worst-case diameter $O$ and provide no evidence of smaller relative
-displacement under anchoring. Instead, the stronger difference is in class organization:
-the anchor has a $5.5\times$ smaller clean $S_w/S_b$ and a $2.7\times$ smaller ratio under attack
-(\Cref{tab:anchorgeometry}).
+displacement under anchoring. The reproducible difference is instead within-class concentration:
+CFA has a $5.3\times$ smaller clean $S_w/S_b$ and a $2.85\times$ smaller ratio under attack
+(\Cref{tab:anchorgeometry}). Its class centroids are not farther apart than those learned with labels,
+so the result supports tighter clusters rather than greater inter-class separation.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4pt}
-  \caption{Feature geometry under the same true-label PGD attack, using the earlier base-regime
-  models described above. Angles are measured on unit-normalized features. \emph{Own} is the
+  \caption{Feature geometry of the final models under the same true-label PGD attack. Angles are
+  measured on unit-normalized features. \emph{Own} is the
   sample-to-own-centroid angle; \emph{gap} is the mean angle from each class centroid to its
   nearest other-class centroid.}
   \label{tab:anchorgeometry}
@@ -256,8 +254,8 @@ the anchor has a $5.5\times$ smaller clean $S_w/S_b$ and a $2.7\times$ smaller r
     \cmidrule(lr){2-4}\cmidrule(lr){6-8}
     & $S_w/S_b$ & Own & Gap & & $S_w/S_b$ & Own & Gap \\
     \midrule
-    Anchor & \textbf{0.898} & \textbf{28.1$^\circ$} & \textbf{28.6$^\circ$} && \textbf{2.681} & \textbf{33.3$^\circ$} & 16.2$^\circ$ \\
-    Label CE & 4.960 & 45.4$^\circ$ & 21.6$^\circ$ && 7.143 & 47.0$^\circ$ & 18.3$^\circ$ \\
+    CFA & \textbf{0.709} & \textbf{26.3$^\circ$} & 29.2$^\circ$ && \textbf{1.969} & \textbf{33.5$^\circ$} & 19.2$^\circ$ \\
+    Label CE & 3.744 & 52.2$^\circ$ & \textbf{33.5$^\circ$} && 5.611 & 55.0$^\circ$ & \textbf{28.2$^\circ$} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -272,10 +270,10 @@ or the sensitivity-matched radius, the anchor improves clean and AutoAttack accu
 cross-entropy by $6.69$ and $5.91$ points under the same training conditions. The gains are $4.63$
 and $4.45$ points when cross-entropy uses its own optimizer and schedule
 (\Cref{tab:controls}, \Cref{tab:recipe}). At the full training configuration, the AutoAttack gain
-over cross-entropy with weight averaging and AWP is $2.40$ points. Under a matched attack, the
-students exhibit similar relative feature displacement, while their class separation differs by a
-factor of $5.5$. This suggests a contribution from the learned geometry, but does not establish
-class separation as the sole cause of the robustness gain.
+over cross-entropy with weight averaging and AWP is $2.40$ points. Under a matched attack, CFA has
+slightly larger relative feature displacement and smaller centroid gaps, but substantially tighter
+class-conditional features. This association does not establish concentration as the cause of the
+robustness gain.
 
 The checkpoint ladder in \Cref{fig:teacherladder} further separates within-class concentration from
 between-class separation on unit-normalized features. From the 50-epoch to the 300-epoch teacher,
@@ -746,11 +744,13 @@ test set; NRR is its harmonic mean with clean accuracy. Additional attacks are i
 \Cref{app:gradmask,app:fullmetrics}. Ported baselines retain their published recipes unless stated
 otherwise.
 
-\paragraph{Repeated training.} Each reported row is an individual run. For the 100-epoch CIFAR-100
-configuration at $8.8/255$, seed $1$ gives $62.00/32.49/30.82/28.74$ clean/PGD-20/CW/AA, compared with
-$62.17/32.37/30.93/28.86$ for seed $0$. These two runs provide a limited reproducibility check,
-not a variance estimate or a significance threshold for other comparisons. In particular, small
-differences between regression targets or nearby operating points require further repetitions.
+\paragraph{Repeated training.} We repeat both arms of the final radius-allocation comparison with
+three student seeds. Uniform radii give $62.63\pm0.22$ clean and $28.01\pm0.20$ AA; sensitivity
+matching gives $64.82\pm0.07$ clean and $28.04\pm0.09$ AA (mean $\pm$ sample standard deviation).
+The paired clean gains are $2.35$, $2.24$, and $1.97$ points, whereas the paired AA changes are
+$0.14$, $-0.23$, and $0.18$. Thus the clean gain repeats, while the data support no AA change.
+Other rows remain individual runs, so small differences between regression targets or nearby
+operating points should not be interpreted as significant.
 
 \paragraph{Compute, teacher included.} A single RTX 5080. One student cell is about $2.2$ hours on
 CIFAR-100 at 100 epochs, of which the AutoAttack evaluation is roughly $7$ minutes; Tiny-ImageNet is
@@ -945,9 +945,10 @@ adversarial directions do not point at the student's boundaries.
 Several rows of \Cref{tab:main} run a specific variant of the method they name, or are grouped in a
 way that needs saying. This section is those decisions; the table carries none of them.
 
-\paragraph{ARREST} runs its published recipe in both tables: adversarial finetuning for 20 epochs from
-the natural model with SGD at $0.025$, the angular representation term at $\lambda = 50$, and Noisy
-Replay over the first half at $\phi = 30^\circ$.
+\paragraph{ARREST} uses its published objective: adversarial finetuning from the natural model with
+SGD at $0.025$, the angular representation term at $\lambda = 50$, and Noisy Replay over the first
+half at $\phi = 30^\circ$. \Cref{tab:main} reports its 150-epoch run for the main comparison, whereas
+\Cref{tab:baselinestack} uses its published 20-epoch schedule.
 We read its representation after global pooling, where our anchor and geometry measurements are
 defined.
 
@@ -1033,7 +1034,7 @@ PGD-20 is not a faithful reading of this method.
               & CFA, $\epsilon_{\mathrm{tr}} = 8/255$ & 63.89 & 36.67 & 31.41 & 29.83 & 27.78 & 38.72 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 10/255$& 59.99 & 36.50 & 32.82 & 30.53 & 28.77 & 38.89 \\
               & CFA, no WA / AWP             & 61.29 & 33.97 & 28.23 & 27.19 & 25.36 & 35.88 \\
-              & Logit anchor, our stack      & 56.97 & 35.82 & 33.68 & 28.94 & 26.96 & 36.60 \\
+              & Teacher-only KL, our stack   & 56.97 & 35.82 & 33.68 & 28.94 & 26.96 & 36.60 \\
               & RPAT++ (our reproduction)    & 55.93 & 34.46 & 32.44 & 29.37 & 27.36 & 36.74 \\
     \midrule
     CIFAR-10  & CFA, $\epsilon_{\mathrm{tr}} = 8.8/255$ (shipped) & 84.96 & 59.58 & 52.98 & 53.94 & 51.74 & 64.31 \\
@@ -1147,8 +1148,8 @@ be compared within a source rather than across.
 \end{table}
 
 Read against \Cref{tab:main} and restricted to the ResNet-18 blocks, which are the ones our numbers
-are comparable with, our CFA row exceeds every published Avg and NRR on both datasets: $64.75/27.98$
-at Avg $46.37$ on CIFAR-100 and $87.37/51.33$ at Avg $69.35$ on CIFAR-10.
+are comparable with, our CFA row exceeds every published Avg and NRR on both datasets: $64.82/28.04$
+at Avg $46.43$ on CIFAR-100 and $87.37/51.33$ at Avg $69.35$ on CIFAR-10.
 
 The restriction is not a convenience. The WideResNet-34-10 block exceeds ours on both criteria---
 RPAT++ reaches Avg $70.87$ and NRR $67.30$ there---because a $48.3$M network is a different model, not

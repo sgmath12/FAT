@@ -42,3 +42,6 @@ writting_docs/paper/*.synctex.gz
 
 # Reference baseline repos: upstream checkouts, kept locally, never ours to version
 reference_baseline/
+
+# scratch: page renders and screenshots used while reviewing the draft
+writting_docs/paper/tmp/

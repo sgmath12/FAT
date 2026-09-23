@@ -7,12 +7,12 @@ an adversarially trained teacher \citep{ard,iad,rslad,adaad,igdm}. A naturally t
 cheaper and more accurate on clean inputs, yet vulnerable to attack. What should a robust student
 learn from such a teacher?
 
-Prior methods use natural teachers' predictions or representations
-\citep{lbgat,arrest,dpfat,bmtard}. We study a particularly simple answer: match the teacher's
-\emph{clean feature} throughout adversarial training, with the inherited classifier fixed. The same
-target drives attack generation and student learning, without a separate label loss or temperature
-search. This design exposes two choices beyond the target itself: which natural checkpoint to use,
-and how to allocate perturbations across examples.
+Many distillation methods express supervision as a predictive distribution and tune its softness or
+its weight relative to labels \citep{ard,rslad,adr,bmtard}. Direct regression offers a different
+view: fix what the teacher produces at the clean input and enforce that target throughout the
+student's adversarial neighborhood. We study this principle with the teacher's clean feature as the
+target, an inherited fixed classifier, and no label loss. This design exposes two further choices:
+which natural checkpoint supplies the target, and where to allocate the perturbation budget.
 
 \begin{figure}[t]
   \centering
@@ -20,14 +20,18 @@ and how to allocate perturbations across examples.
   \caption{Clean--AutoAttack trade-off on CIFAR-10 and CIFAR-100 with ResNet-18 at
   $\epsilon=8/255$. Grey points
   are published results (\Cref{tab:published}); the CFA curve varies the training radius over
-  100-epoch runs, and the star marks $\epsilon_{\mathrm{train}}=8.8/255$.}
+  100-epoch runs, and the star denotes the reported 150-epoch result trained at
+  $\epsilon_{\mathrm{train}}=8/255$ (the three-run mean on CIFAR-100).}
   \label{fig:frontier}
 \end{figure}
 
-\textbf{Clean Feature Anchoring} (CFA) makes the target explicit: the student backbone learns to
-match one clean teacher representation even at adversarial inputs. A fixed-anchor bound relates
-this loss to clean teacher fidelity and local feature variation; it does not rely on the teacher
-itself being robust.
+\textbf{Clean Feature Anchoring} (CFA) makes the target explicit: the student backbone matches one
+clean teacher representation even at adversarial inputs. Softening the teacher's predictions mainly
+moves robustness, whereas direct clean-logit and feature regression improve both axes without a
+temperature search. Their near-tie identifies fixed clean-target regression, rather than the choice
+between logit and feature coordinates, as the broader mechanism. We use features because they retain
+the representation supplied to the inherited classifier. A fixed-anchor bound then relates the CFA
+loss to clean teacher fidelity and local feature variation without requiring the teacher to be robust.
 
 The teacher checkpoint changes what the student learns. Across two independent CIFAR-100 training
 trajectories, later natural checkpoints shift students toward higher robustness and lower clean
@@ -36,23 +40,23 @@ students $4.18$ clean points apart. Teacher accuracy alone is therefore not a su
 of the supervision a checkpoint provides.
 
 Even with the teacher fixed, a uniform pixel radius need not perturb the anchor loss equally across
-examples. We allocate a fixed batch budget inversely to the loss's input sensitivity. In the final
-recipe, this changes clean accuracy from $62.40\%$ to $64.75\%$ while AA remains near $28\%$.
+examples. We allocate a fixed batch budget inversely to the loss's input sensitivity. Across three
+runs of the final recipe, this changes clean accuracy from $62.63\%$ to $64.82\%$ while AA remains
+at $28.0\%$.
 A separate control shows that reassigning the same radii by sample difficulty weakens the result.
 The teacher determines the
 reference, while radius allocation determines where to enforce it.
 
 CFA improves the measured trade-off across CIFAR-10, CIFAR-100, and Tiny-ImageNet. On CIFAR-100
-with ResNet-18 it reaches $64.75\%$ clean and $27.98\%$ AA, the highest AutoAttack accuracy and NRR
+with ResNet-18 it reaches $64.82\%$ clean and $28.04\%$ AA on average, the highest AutoAttack accuracy and NRR
 among twelve baselines run in the same framework (\Cref{tab:main}). Target, recipe, and radius controls distinguish the
 anchor's contribution from that of the training stack.
 
 Our contributions are:
 \begin{itemize}
-  \item Adversarial training driven by a natural teacher's clean feature alone, with no label loss and
-  no temperature, separated from the training recipe by objective, initialization, schedule and stack
-  controls; one fixed target bounds clean fidelity and local feature variation together, which is why
-  no balancing coefficient appears.
+  \item A controlled comparison from softened predictive targets to direct clean-target regression,
+  instantiated as label-free CFA; for this feature realization, one anchor jointly bounds clean
+  teacher fidelity and local variation.
   \item Evidence that the teacher checkpoint sets the student's operating point rather than its
   quality: two independent trajectories move clean accuracy and robustness in opposite directions, and
   two teachers of nearly equal clean accuracy produce students $4.18$ clean points apart.
