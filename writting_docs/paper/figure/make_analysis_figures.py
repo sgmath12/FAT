@@ -32,23 +32,10 @@ plt.rcParams.update({
     "savefig.facecolor": "white",
 })
 
-TEACHER_ONLY = np.array([
-    [1, 58.26, 20.84], [2, 59.33, 22.79], [4, 59.39, 24.48],
-    [8, 59.47, 25.19], [16, 57.78, 24.00],
-])
 SHARED_KD = np.array([
-    [4, 60.83, 25.05], [8, 60.99, 25.25],
+    [1, 58.26, 20.84], [4, 60.83, 25.05], [8, 60.99, 25.25],
     [16, 61.85, 25.39], [32, 61.81, 25.50],
 ])
-
-
-def nondominated(rows):
-    """Observed Pareto set, maximizing both clean and robust accuracy."""
-    scores = rows[:, 1:]
-    mask = [not np.any(np.all(scores >= p, axis=1) & np.any(scores > p, axis=1))
-            for p in scores]
-    result = rows[mask]
-    return result[np.argsort(result[:, 1])]
 
 
 def style_axis(ax):
@@ -68,7 +55,7 @@ def make_target_figure():
     for panel in (ax, bx):
         style_axis(panel)
     ax.set_title("(a) Target entropy", loc="left", pad=8)
-    bx.set_title("(b) Best observed trade-offs", loc="left", pad=8)
+    bx.set_title("(b) Temperature sweep", loc="left", pad=8)
     taus = [1, 2, 4, 8, 16, 32]
     entropy = [0.76, 2.40, 4.20, 4.56, 4.60, 4.60]
     ax.set_xscale("log", base=2)
@@ -80,34 +67,36 @@ def make_target_figure():
            ylabel="Entropy (nats)")
     ax.set_xticks(taus, [str(t) for t in taus])
     ax.set_yticks([0, 2, 4])
-    # Filter within each KD variant. Pooled filtering would hide every method
-    # except the feature anchor, defeating the target comparison.
-    for rows, color, marker in ((TEACHER_ONLY, ORANGE, "o"), (SHARED_KD, BLUE, "s")):
-        frontier = nondominated(rows)
-        print("KD Pareto temperatures:", frontier[:, 0].astype(int).tolist())
-        bx.plot(frontier[:, 1], frontier[:, 2], color=color, marker=marker,
+    # At tau=1, teacher-only and shared-temperature KD are identical; use this
+    # common point as the start of the shared-temperature sweep.
+    offsets = {
+        ("shared", 1): (-5, 5), ("shared", 4): (-5, -11),
+        ("shared", 8): (-5, 5),
+        ("shared", 16): (-5, -11), ("shared", 32): (5, 4),
+    }
+    for name, rows, color, marker in (("shared", SHARED_KD, BLUE, "s"),):
+        bx.plot(rows[:, 1], rows[:, 2], color=color, marker=marker,
                 markersize=4, linewidth=0.8, markerfacecolor="white", markeredgewidth=0.9)
-        for tau, clean, aa in frontier:
-            offset = (6, 3) if tau == 8 else (-7, -10) if tau == 16 else (-7, 5)
-            bx.annotate(rf"$\tau={int(tau)}$", (clean, aa), xytext=offset,
+        for tau, clean, aa in rows:
+            offset = offsets[(name, int(tau))]
+            bx.annotate(rf"${int(tau)}$", (clean, aa), xytext=offset,
                         textcoords="offset points", color=color, fontsize=7,
-                        ha="left" if tau == 8 else "right")
+                        ha="left" if offset[0] > 0 else "right")
     bx.plot(62.59, 25.69, "D", color=BLACK, markersize=4,
             markerfacecolor="white", markeredgewidth=0.9)
     bx.plot(62.72, 25.88, "*", color=GREEN, markersize=7, markeredgewidth=0.6)
-    bx.set(xlim=(59.1, 63.05), ylim=(24.98, 26.02),
+    bx.set(xlim=(57.55, 63.05), ylim=(20.35, 26.15),
            xlabel="Clean accuracy (%)", ylabel=r"AA$_2$ (%)")
-    bx.set_xticks([60, 61, 62, 63])
-    bx.set_yticks([25.0, 25.4, 25.8])
+    bx.set_xticks([58, 59, 60, 61, 62, 63])
+    bx.set_yticks([21, 22, 23, 24, 25, 26])
     handles = [Line2D([], [], marker=marker, color=color, linestyle="none",
                       markersize=size, markerfacecolor=face, markeredgewidth=0.8, label=label)
                for label, marker, color, size, face in [
-                   ("Teacher-only KL", "o", ORANGE, 4, "white"),
                    ("Shared-temp. KD", "s", BLUE, 4, "white"),
                    ("Logit MSE", "D", BLACK, 4, "white"),
                    ("Feature anchor", "*", GREEN, 7, GREEN)]]
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.52, 0.005),
-               ncol=4, columnspacing=1.1, handletextpad=0.35)
+               ncol=3, columnspacing=1.5, handletextpad=0.4)
     save(fig, "analysis_targets.pdf")
 
 
