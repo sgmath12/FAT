@@ -1,31 +1,64 @@
 \section{Analysis}
 \label{sec:analysis}
 
-A natural teacher offers accurate clean predictions, but robust distillation must decide how those
-predictions become supervision. We first compare softened predictive targets with direct regression
-onto a fixed clean target. We then establish what the feature realization controls and examine how
-the teacher checkpoint changes the resulting student.
+% A natural teacher offers accurate clean predictions, but robust distillation must decide how those
+% predictions become supervision. We first compare softened predictive targets with direct regression
+% onto a fixed clean target. We then establish what the feature realization controls and examine how
+% the teacher checkpoint changes the resulting student.
+
+Adversarial training often improves robustness at the cost of clean accuracy.
+To mitigate this trade-off, we explore a self-distillation framework that does not begin with adversarial training, but instead first learns a clean self-teacher exclusively from natural images, thereby preserving a high-accuracy clean representation.
+We then transfer the knowledge of this clean self-teacher to the student while adversarially training the student for robustness.
+A central question is therefore how the knowledge encoded by the clean self-teacher should be transferred under adversarial perturbations.
+We first revisit predictive distillation, where the teacher's softened output distribution serves as the supervision target, as commonly adopted in adversarial distillation.
+In contrast, we study direct distillation of the clean self-teacher's feature representation and analyze how anchoring adversarial examples to a fixed clean feature target controls the fidelity of knowledge transfer.
 
 \subsection{Preliminaries}
 
-Let $x\in\mathcal X=[0,1]^D$ and
-$B(x,\epsilon)=\{x'\in\mathcal X:\lVert x'-x\rVert_\infty\le\epsilon\}$. We decompose a network as
-$f=h\circ\Phi$, where $\Phi:\mathcal X\to\mathbb R^d$ is a continuous feature map and
-$h:\mathbb R^d\to\mathbb R^C$, $h(z)=Wz+b$, is the classifier for $C$ classes. We use subscripts
-$t$ and $s$ for the frozen natural teacher and the student. Both networks share the same architecture,
-with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
+% Let $x\in\mathcal X=[0,1]^D$ and
+% $B(x,\epsilon)=\{x'\in\mathcal X:\lVert x'-x\rVert_\infty\le\epsilon\}$. We decompose a network as
+% $f=h\circ\Phi$, where $\Phi:\mathcal X\to\mathbb R^d$ is a continuous feature map and
+% $h:\mathbb R^d\to\mathbb R^C$, $h(z)=Wz+b$, is the classifier for $C$ classes. We use subscripts
+% $t$ and $s$ for the frozen natural teacher and the student. Both networks share the same architecture,
+% with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
+
+Let \(x\in\mathcal X=[0,1]^D\) denote a clean input, and define its \(\ell_\infty\)-bounded perturbation set as
+
+$$
+B(x,\epsilon)=\{x'\in\mathcal X:\lVert x'-x\rVert_\infty\le\epsilon\},
+$$
+
+where \(x'\) denotes a perturbed input within the \(\epsilon\)-neighborhood of \(x\).
+During adversarial training, \(x'\) is chosen to maximize the corresponding student loss over \(B(x,\epsilon)\).
+We decompose a network as \(f=h\circ\Phi\), where \(\Phi:\mathcal X\to\mathbb R^d\) is a continuous feature map and \(h:\mathbb R^d\to\mathbb R^C\), \(h(z)=Wz+b\), is the classifier for \(C\) classes.
+We use subscripts \(t\) and \(s\) for the frozen clean self-teacher and the student, respectively. Both networks share the same architecture, with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
+
 
 \subsection{From Soft Predictive Targets to a Fixed Clean Target}
 \label{sec:fragile}
 
-Soft-label robust distillation adjusts the concentration of the predictive target
-\citep{ard,rslad,adr,bmtard}. We first ask how far this operation alone can move the natural
-teacher's clean--robust trade-off. Let
-\begin{equation}
+% Soft-label robust distillation adjusts the concentration of the predictive target
+% \citep{ard,rslad,adr,bmtard}. We first ask how far this operation alone can move the natural
+% teacher's clean--robust trade-off. Let
+% \begin{equation}
+% q_t^\tau(x)=\operatorname{softmax}(f_t(x)/\tau),\qquad
+% p_s^\tau(x')=\operatorname{softmax}(f_s(x')/\tau).
+% \label{eqn:soft_targets}
+% \end{equation}
+
+Soft-label robust distillation transfers the teacher's predictive distribution from a clean input \(x\) to the student at a perturbed input \(x'\in B(x,\epsilon)\), while adjusting the concentration of the teacher target through temperature scaling \citep{ard,rslad,adr,bmtard}.
+We first examine how far this form of predictive supervision can move the clean--robust trade-off when the teacher is a fixed clean self-teacher.
+
+Specifically, let
+
+$$
 q_t^\tau(x)=\operatorname{softmax}(f_t(x)/\tau),\qquad
-p_s^\tau(x')=\operatorname{softmax}(f_s(x')/\tau).
-\label{eqn:soft_targets}
-\end{equation}
+p_s^\tau(x')=\operatorname{softmax}(f_s(x')/\tau),
+$$
+
+where the teacher is evaluated only on the clean input \(x\), whereas the student is evaluated on its perturbed counterpart \(x'\).
+
+
 We compare softening only the teacher target with conventional shared-temperature KD:
 \begin{equation}
 D_{\mathrm{KL}}(q_t^\tau(x)\|p_s^1(x')),\qquad
