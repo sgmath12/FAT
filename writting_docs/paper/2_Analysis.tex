@@ -1,10 +1,6 @@
 \section{Analysis}
 \label{sec:analysis}
 
-% A natural teacher offers accurate clean predictions, but robust distillation must decide how those
-% predictions become supervision. We first compare softened predictive targets with direct regression
-% onto a fixed clean target. We then establish what the feature realization controls and examine how
-% the teacher checkpoint changes the resulting student.
 
 Adversarial training often improves robustness at the cost of clean accuracy.
 To mitigate this trade-off, we explore a self-distillation framework that does not begin with adversarial training, but instead first learns a clean self-teacher exclusively from natural images, thereby preserving a high-accuracy clean representation.
@@ -15,98 +11,99 @@ In contrast, we study direct distillation of the clean self-teacher's feature re
 
 \subsection{Preliminaries}
 
-% Let $x\in\mathcal X=[0,1]^D$ and
-% $B(x,\epsilon)=\{x'\in\mathcal X:\lVert x'-x\rVert_\infty\le\epsilon\}$. We decompose a network as
-% $f=h\circ\Phi$, where $\Phi:\mathcal X\to\mathbb R^d$ is a continuous feature map and
-% $h:\mathbb R^d\to\mathbb R^C$, $h(z)=Wz+b$, is the classifier for $C$ classes. We use subscripts
-% $t$ and $s$ for the frozen natural teacher and the student. Both networks share the same architecture,
-% with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
-
 Let \(x\in\mathcal X=[0,1]^D\) denote a clean input, and define its \(\ell_\infty\)-bounded perturbation set as
+\begin{equation}
+B(x,\epsilon)
+=============
 
-$$
-B(x,\epsilon)=\{x'\in\mathcal X:\lVert x'-x\rVert_\infty\le\epsilon\},
-$$
+{x'\in\mathcal X:\lVert x'-x\rVert_\infty\le\epsilon},
+\end{equation}
+where \(x'\) denotes a perturbed input within the \(\epsilon\)-neighborhood of \(x\). During adversarial training, \(x'\) is chosen to maximize the corresponding student loss over \(B(x,\epsilon)\).
 
-where \(x'\) denotes a perturbed input within the \(\epsilon\)-neighborhood of \(x\).
-During adversarial training, \(x'\) is chosen to maximize the corresponding student loss over \(B(x,\epsilon)\).
-We decompose a network as \(f=h\circ\Phi\), where \(\Phi:\mathcal X\to\mathbb R^d\) is a continuous feature map and \(h:\mathbb R^d\to\mathbb R^C\), \(h(z)=Wz+b\), is the classifier for \(C\) classes.
-We use subscripts \(t\) and \(s\) for the frozen clean self-teacher and the student, respectively. Both networks share the same architecture, with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
-
+We decompose a network as \(f=h\circ\Phi\), where \(\Phi:\mathcal X\to\mathbb R^d\) is a continuous feature map and \(h:\mathbb R^d\to\mathbb R^C\), \(h(z)=Wz+b\), is the classifier for \(C\) classes. We use subscripts \(t\) and \(s\) for the frozen clean self-teacher and the student, respectively. Both networks share the same architecture, with fixed network statistics for the analysis; feature distances are Euclidean unless stated otherwise.
 
 \subsection{From Soft Predictive Targets to a Fixed Clean Target}
 \label{sec:fragile}
 
-% Soft-label robust distillation adjusts the concentration of the predictive target
-% \citep{ard,rslad,adr,bmtard}. We first ask how far this operation alone can move the natural
-% teacher's clean--robust trade-off. Let
-% \begin{equation}
-% q_t^\tau(x)=\operatorname{softmax}(f_t(x)/\tau),\qquad
-% p_s^\tau(x')=\operatorname{softmax}(f_s(x')/\tau).
-% \label{eqn:soft_targets}
-% \end{equation}
-
-Soft-label robust distillation transfers the teacher's predictive distribution from a clean input \(x\) to the student at a perturbed input \(x'\in B(x,\epsilon)\), while adjusting the concentration of the teacher target through temperature scaling \citep{ard,rslad,adr,bmtard}.
-We first examine how far this form of predictive supervision can move the clean--robust trade-off when the teacher is a fixed clean self-teacher.
+Soft-label robust distillation transfers the teacher's predictive distribution from a clean input \(x\) to the student at a perturbed input \(x'\in B(x,\epsilon)\), while adjusting the concentration of the teacher target through temperature scaling \citep{ard,rslad,adr,bmtard}. We first examine how far this form of predictive supervision can move the clean--robust trade-off when the teacher is a fixed clean self-teacher.
 
 Specifically, let
+\begin{equation}
+q_t^\tau(x)
+===========
 
-$$
-q_t^\tau(x)=\operatorname{softmax}(f_t(x)/\tau),\qquad
-p_s^\tau(x')=\operatorname{softmax}(f_s(x')/\tau),
-$$
+\operatorname{softmax}(f_t(x)/\tau),
+\qquad
+p_s^\tau(x')
+============
 
+\operatorname{softmax}(f_s(x')/\tau),
+\label{eqn:soft_targets}
+\end{equation}
 where the teacher is evaluated only on the clean input \(x\), whereas the student is evaluated on its perturbed counterpart \(x'\).
-
 
 We compare softening only the teacher target with conventional shared-temperature KD:
 \begin{equation}
-D_{\mathrm{KL}}(q_t^\tau(x)\|p_s^1(x')),\qquad
-\tau^2D_{\mathrm{KL}}(q_t^\tau(x)\|p_s^\tau(x')).
+D_{\mathrm{KL}}
+\bigl(q_t^\tau(x)|p_s^1(x')\bigr),
+\qquad
+\tau^2
+D_{\mathrm{KL}}
+\bigl(q_t^\tau(x)|p_s^\tau(x')\bigr).
 \label{eqn:kd_variants}
 \end{equation}
-As $\tau\to\infty$, the teacher target approaches a uniform distribution in both cases, but the
-scaled shared-temperature loss retains logit information. For fixed logits and
-$\bar f=f-C^{-1}\mathbf1\mathbf1^\top f$,
+
+As \(\tau\to\infty\), the teacher target approaches a uniform distribution in both cases. However, the scaled shared-temperature objective retains information about the teacher and student logits. For fixed logits and
+
+$$
+\bar f
+=
+f-C^{-1}\mathbf 1\mathbf 1^\top f,
+$$
+
+we have
 \begin{equation}
-\lim_{\tau\to\infty}\tau^2D_{\mathrm{KL}}(q_t^\tau(x)\|p_s^\tau(x'))
-=\frac{1}{2C}\lVert\bar f_t(x)-\bar f_s(x')\rVert_2^2.
+\lim_{\tau\to\infty}
+\tau^2
+D_{\mathrm{KL}}
+\bigl(q_t^\tau(x)|p_s^\tau(x')\bigr)
+====================================
+
+\frac{1}{2C}
+\lVert
+\bar f_t(x)-\bar f_s(x')
+\rVert_2^2.
 \label{eqn:kd_limit}
 \end{equation}
-The limit connects shared-temperature KD to direct regression onto centered clean logits. We also
-evaluate regression onto the full clean feature, which gives the CFA objective
+
+This limit connects shared-temperature KD to direct regression of the student's perturbed logits onto the centered clean logits of the self-teacher. Motivated by this connection, we additionally consider direct regression in feature space. Rather than matching predictive distributions, CFA anchors the student's representation under perturbation to the fixed representation produced by the clean self-teacher:
 \begin{equation}
-\mathcal L_{\mathrm{anchor}}(x)=
-\max_{x'\in B(x,\epsilon)}\lVert\Phi_s(x')-\Phi_t(x)\rVert_2^2.
+\mathcal L_{\mathrm{anchor}}(x)
+===============================
+
+\max_{x'\in B(x,\epsilon)}
+\lVert
+\Phi_s(x')-\Phi_t(x)
+\rVert_2^2.
 \label{eqn:anchor_percell}
 \end{equation}
+Here, the teacher feature \(\Phi_t(x)\) is computed from the clean input and remains fixed, while the student is optimized against the worst-case perturbed input within \(B(x,\epsilon)\).
 
 \begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=\linewidth]{figure/analysis_targets.pdf}
-  \caption{Target comparison on CIFAR-100 (ResNet-18). (a) Teacher-target entropy approaches the
-  uniform value as $\tau$ increases. (b) Nondominated settings within each
-  KD variant, alongside fixed-head logit and feature regression. The full temperature sweep is in
-  \Cref{tab:targetcomparison_values}.}
-  \label{fig:targetcomparison}
+\centering
+\includegraphics[width=\linewidth]{figure/analysis_targets.pdf}
+\caption{Target comparison on CIFAR-100 (ResNet-18). (a) Teacher-target entropy approaches the uniform value as \(\tau\) increases. (b) Nondominated settings within each KD variant, alongside fixed-head logit and feature regression. The full temperature sweep is in \Cref{tab:targetcomparison_values}.}
+\label{fig:targetcomparison}
 \end{figure}
 
-We train for 50 epochs at $\epsilon=8/255$.
-Across the sweep, softening only the teacher target improves robustness until the distribution is
-nearly uniform, but changes clean accuracy little. Shared-temperature KD avoids this turnover and
-approaches logit regression (\Cref{fig:targetcomparison}), consistent with \Cref{eqn:kd_limit}.
-Feature regression is only $0.13$ clean and $0.19$ AA points higher; under the final recipe the gap
-remains $0.26/0.13$ (\Cref{tab:finalallocation}). Thus direct clean-target regression removes the
-need to select a temperature, but the evidence does not privilege feature coordinates over logits.
-Because KD updates the classifier whereas regression fixes it, the sweep compares complete training
-designs rather than isolating the target representation alone.
+We train for 50 epochs at \(\epsilon=8/255\). Across the temperature sweep, softening only the teacher target improves robustness until the target distribution becomes nearly uniform, while producing little change in clean accuracy. Shared-temperature KD avoids this turnover and progressively approaches the behavior of direct logit regression (\Cref{fig:targetcomparison}), consistent with the limiting relation in \Cref{eqn:kd_limit}.
+
+Direct feature regression yields only \(0.13\) and \(0.19\) percentage-point improvements in clean accuracy and AA, respectively, over logit regression. Under the final training recipe, the corresponding differences remain small at \(0.26/0.13\) points (\Cref{tab:finalallocation}). These results suggest that direct regression onto a fixed clean target can remove the need to tune the distillation temperature, while the empirical comparison alone does not establish an inherent advantage of feature coordinates over logits. We also note that KD updates the classifier whereas the regression variants keep it fixed; therefore, this sweep compares complete training designs rather than isolating the target representation alone.
 
 \label{sec:sole_target}
-The comparison shifts the question from how to soften a predictive distribution to what a fixed
-clean target controls. CFA uses the full feature to preserve the representation supplied to the
-inherited classifier, including directions that logit regression leaves unconstrained. We next
-analyze this feature realization without claiming that its metric is uniquely responsible for the
-empirical gain.
+
+The comparison therefore shifts our focus from how a predictive target should be softened to what is controlled by anchoring the student to a fixed clean target. CFA performs this anchoring in feature space, directly preserving the representation supplied by the clean self-teacher to the inherited classifier, including feature directions that are not constrained by logit regression. In the following section, we characterize what this feature-space anchor controls under adversarial perturbations, while separating this property from any claim that feature-space matching is itself uniquely responsible for the empirical improvement.
+
 
 \subsection{What the Anchor Controls}
 \label{sec:decomp}
