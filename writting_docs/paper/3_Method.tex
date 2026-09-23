@@ -1,69 +1,125 @@
 \section{Method}
 \label{sec:method}
 
-CFA is the feature-space realization of fixed clean-target regression, combined with
-sample-dependent perturbation budgets. The chosen teacher fixes the reference representation;
-radius allocation determines the neighborhood over which each example must preserve it.
+The preceding analysis motivates two design choices for transferring clean
+knowledge during adversarial training. First, the clean self-teacher provides
+a fixed representation target, allowing the student to preserve the teacher's
+clean representation while controlling its variation under perturbations.
+Second, even with the teacher fixed, a uniform input-space radius need not
+induce a comparable change in the anchoring objective across examples.
+Based on these observations, we construct CFA by combining clean feature
+anchoring with sample-dependent perturbation budgets. We first describe the
+feature-anchoring objective and then introduce a sensitivity-based rule for
+allocating the perturbation radius across training examples.
+
 
 \subsection{Clean Feature Anchoring}
 \label{sec:anchor}
 
-Let $\Phi_t$ and $h_t$ be the frozen feature map and classifier of the natural teacher. The student
-inherits both, $\Phi_s\leftarrow\Phi_t$ and $h_s=h_t$, after which only $\Phi_s$ is optimized. For a
-clean example $x$, CFA solves
+We first instantiate the fixed-target principle by using the clean
+self-teacher's feature representation as the anchor for adversarial training.
+Let \(\Phi_t\) and \(h_t\) denote the frozen feature map and classifier of
+the clean self-teacher. The student inherits both,
+\(\Phi_s\leftarrow\Phi_t\) and \(h_s=h_t\), after which only \(\Phi_s\)
+is optimized.
+
+For a clean example \(x\), CFA solves
 \begin{equation}
 \begin{aligned}
 x_{\mathrm{adv}}
-&=\operatorname*{arg\,max}_{x'\in B(x,\epsilon)}
-  \lVert\Phi_s(x')-\Phi_t(x)\rVert_2^2,\\
+&=
+\operatorname*{arg\,max}_{x'\in B(x,\epsilon)}
+\lVert\Phi_s(x')-\Phi_t(x)\rVert_2^2,\\
 \mathcal L_{\mathrm{CFA}}
-&=\mathbb E_x\!\left[\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\rVert_2^2\right].
+&=
+\mathbb E_x
+\left[
+\lVert\Phi_s(x_{\mathrm{adv}})-\Phi_t(x)\rVert_2^2
+\right].
 \end{aligned}
 \label{eqn:anchor}
 \end{equation}
-We approximate the inner maximization with randomly initialized PGD against the fixed target
-$\Phi_t(x)$ and minimize the same discrepancy over the backbone. This adversarial-training stage
-uses no label loss; inference uses $h_t\circ\Phi_s$. \Cref{alg:cfa} gives the complete procedure.
 
-\subsection{Sensitivity-Matched $\epsilon$}
+We approximate the inner maximization with randomly initialized PGD against
+the fixed clean target \(\Phi_t(x)\) and minimize the same discrepancy over
+the student backbone. This adversarial-training stage uses no label loss,
+while inference uses \(h_t\circ\Phi_s\).
+\Cref{alg:cfa} summarizes the complete procedure.
+
+
+\subsection{Sensitivity-Matched \(\epsilon\)}
 \label{sec:angeps}
 
-A uniform pixel radius gives every example the same input-space budget, but not the same potential
-increase in anchor loss. We therefore allocate radii using the local sensitivity of the objective
-used for both attack generation and student training. The batch's mean radius remains fixed; only
-its assignment across examples changes. For
-$\ell_{\mathrm{anc}}(x';x_i)=\lVert\Phi_s(x')-\Phi_t(x_i)\rVert_2^2$, define
+The anchoring objective above still leaves the perturbation radius to be
+specified. A uniform pixel radius gives every example the same input-space
+budget, but does not account for how strongly the anchor loss responds to
+that perturbation. We therefore allocate the perturbation budget according
+to the local sensitivity of the anchoring objective. The mean radius within
+each batch is kept fixed, so the procedure redistributes rather than
+increases the overall training budget.
+
+For
+\[
+\ell_{\mathrm{anc}}(x';x_i)
+=
+\lVert
+\Phi_s(x')-\Phi_t(x_i)
+\rVert_2^2,
+\]
+consider its first-order change around the clean input \(x_i\). Under an
+\(\ell_\infty\) perturbation of radius \(e\),
 \begin{equation}
-g_i=\left.\lVert\nabla_{x'}\ell_{\mathrm{anc}}(x';x_i)\rVert_1\right|_{x'=x_i},
-\qquad
 \max_{\lVert\delta\rVert_\infty\le e}
-\langle\nabla_{x'}\ell_{\mathrm{anc}},\delta\rangle=e g_i.
+\left\langle
+\nabla_{x'}
+\ell_{\mathrm{anc}}(x';x_i)\big|_{x'=x_i},
+\delta
+\right\rangle
+=
+e
+\left\lVert
+\nabla_{x'}
+\ell_{\mathrm{anc}}(x';x_i)\big|_{x'=x_i}
+\right\rVert_1.
 \label{eqn:firstorder}
 \end{equation}
-The linearized worst-case loss increase under radius $\epsilon_i$ is therefore $\epsilon_i g_i$.
-To keep this local increase comparable across examples, a more sensitive example should receive
-a smaller radius. For $g_i>0$, equalizing the products subject to
-$\sum_i\epsilon_i=N\epsilon$ gives
+Thus, the local increase in anchor loss scales with both the perturbation
+radius and the sensitivity of the anchoring objective.
+
+Motivated by this relation, let \(g_i>0\) denote a local sensitivity score
+for example \(x_i\). We assign smaller perturbation radii to more sensitive
+examples and larger radii to less sensitive ones according to
 \begin{equation}
-\epsilon_i=N\epsilon\frac{g_i^{-1}}{\sum_jg_j^{-1}},
-\qquad\text{or more generally}\qquad
-\epsilon_i\propto g_i^{-p},
+\epsilon_i
+=
+N\epsilon
+\frac{g_i^{-p}}
+{\sum_{j=1}^{N} g_j^{-p}},
 \label{eqn:angeps_ideal}
 \end{equation}
-where $p=0$ recovers a uniform radius and $p=1$ gives inverse-sensitivity allocation.
-The conserved sum separates redistribution from a change in the mean training budget. Unlike a
-sample-weighted outer loss, this rule changes the perturbations seen during training without
-changing the coefficient of each example in the training average. It is a local approximation to
-loss growth, not a claim that nonlinear adversarial losses become equal.
+where \(N\) is the batch size and \(\epsilon\) is the mean perturbation
+radius. The exponent \(p\) controls the strength of sensitivity matching:
+\(p=0\) recovers a uniform radius, while larger \(p\) increasingly allocates
+smaller radii to more sensitive examples.
 
-We implement $p=1$ with an $\ell_2$ gradient norm, measured by one backward pass at the clean input.
-The $\ell_1$ norm follows exactly from the linearized $\ell_\infty$ problem, but the $\ell_2$ proxy
-performs slightly better here (\Cref{app:box}). Thus the first-order argument motivates the rule
-without uniquely determining its implementation. Clipping and renormalization preserve the batch
-budget, and PGD step sizes scale with the assigned radii; implementation details are in
-\Cref{app:box}.
-The key test is whether sensitivity assigns the budget usefully, not merely whether varying radii
-helps. Accordingly, \Cref{tab:allocation} compares uniform and alternative signals, including a
-control that keeps the exact multiset of sensitivity-derived multipliers but assigns them by sample
-difficulty. If the spread of radii alone explains the gain, this reassignment should preserve it;
-otherwise, which example receives each radius matters.
+By construction,
+\[
+\sum_{i=1}^{N}\epsilon_i=N\epsilon,
+\]
+so sensitivity matching changes only how the perturbation budget is
+distributed across examples, rather than the average strength of adversarial
+training. Unlike sample weighting in the outer objective, this allocation
+changes the perturbation neighborhood assigned to each example while
+retaining equal weight for each example in the training average.
+
+The first-order relation in \Cref{eqn:firstorder} motivates sensitivity as
+the quantity governing radius allocation, rather than asserting that the
+resulting nonlinear adversarial losses are exactly equalized. The key
+empirical question is therefore whether sensitivity provides a useful
+assignment of the perturbation budget. Accordingly, \Cref{tab:allocation}
+compares sensitivity matching with a uniform radius and alternative
+assignment rules, including a control that preserves the same multiset of
+sensitivity-derived radius multipliers but reassigns them according to
+sample difficulty. If the gain arises merely from introducing heterogeneous
+radii, this reassignment should preserve the improvement; otherwise, which
+example receives each radius matters.

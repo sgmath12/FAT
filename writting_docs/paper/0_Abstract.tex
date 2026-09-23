@@ -1,15 +1,32 @@
 \begin{abstract}
-Robust distillation commonly treats supervision as a predictive distribution whose softness and
-weight must be chosen. We ask whether a naturally trained teacher can instead supervise adversarial
-training through one fixed clean target, without a label objective. Clean Feature Anchoring (CFA)
-instantiates this principle by matching the student's adversarial feature to the teacher's clean
-feature while keeping the inherited classifier fixed. A matched clean-logit control reaches a
-similar endpoint, indicating that direct clean-target regression, rather than a uniquely privileged
-feature metric, is the broader mechanism. For the feature realization, we show that one anchor
-jointly controls clean teacher fidelity and local feature variation. We then allocate a fixed batch
-budget of attack radii according to the anchor loss's input sensitivity. Across three runs of the
-final CIFAR-100 recipe, this raises clean accuracy by $2.19$ points on average while leaving
-AutoAttack accuracy unchanged. CFA attains $64.82\mathbin{\pm}0.07\%$ clean and
-$28.04\mathbin{\pm}0.09\%$ AutoAttack accuracy on CIFAR-100 with ResNet-18, with strong results
-also on CIFAR-10 and Tiny-ImageNet.
+
+Adversarial training improves robustness but often sacrifices accuracy on
+clean data, leading to a persistent clean--robust trade-off.
+We address this trade-off by first learning a high-accuracy clean
+self-teacher exclusively from natural images and then preserving its clean
+knowledge while adversarially training the student.
+We propose Clean Feature Anchoring (CFA), which matches the student's
+adversarial representation to the fixed clean representation of the
+self-teacher while retaining its classifier, requiring no label-based
+objective during adversarial training.
+
+We show that this formulation can be understood as direct regression onto a
+fixed clean target rather than predictive distillation through softened
+probabilities.
+For the feature-space realization, controlling the anchor jointly bounds
+clean teacher--student discrepancy and local feature variation.
+We further show that teacher clean accuracy alone does not determine how much
+clean performance is retained after robust transfer.
+
+To account for example-dependent responses to perturbations, we additionally
+allocate a fixed batch budget of attack radii according to the local
+sensitivity of the anchoring objective.
+On CIFAR-100 with ResNet-18, sensitivity matching improves clean accuracy by
+\(2.19\) percentage points on average across three runs while leaving
+AutoAttack accuracy nearly unchanged.
+CFA achieves \(64.82\mathbin{\pm}0.07\%\) clean accuracy and
+\(28.04\mathbin{\pm}0.09\%\) AutoAttack accuracy, and the resulting
+clean--robust improvements extend to CIFAR-10, Tiny-ImageNet, and
+WideResNet-34-10.
+
 \end{abstract}
