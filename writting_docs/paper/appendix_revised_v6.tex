@@ -916,46 +916,60 @@ choice.
 
 \begin{table}[!htbp]
   \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Weight averaging crossed with AWP on the CIFAR-100 ResNet-18 anchor (100 epochs, the
-  sensitivity-matched radius with $p=1$ in every cell, evaluated at $\epsilon=8/255$). The two panels
-  repeat the same $2\times2$ design at the two training radii. The top-left cell of each panel is the
-  anchor with no stack component.}
+  \caption{Weight averaging crossed with AWP on the ResNet-18 anchor (100 epochs, the
+  sensitivity-matched radius with $p=1$ in every cell, evaluated at $\epsilon=8/255$). The three panels
+  repeat the same $2\times2$ design at two training radii on CIFAR-100 and at the reported radius on
+  CIFAR-10. The first row of each panel is the anchor with no stack component.}
   \label{tab:ladder}
   \begin{tabular}{llrrrr}
     \toprule
     WA & AWP & Clean & AA & Avg & NRR \\
     \midrule
-    \multicolumn{6}{l}{\emph{$\epsilon_{\mathrm{train}}=8/255$}} \\
+    \multicolumn{6}{l}{\emph{CIFAR-100, $\epsilon_{\mathrm{train}}=8/255$}} \\
     --      & --      & 64.11 & 24.90 & 44.50 & 35.87 \\
     --      & \checkmark  & 65.01 & 27.62 & \textbf{46.32} & \textbf{38.77} \\
     \checkmark  & --      & 63.54 & 26.75 & 45.14 & 37.65 \\
     \checkmark  & \checkmark  & 63.89 & 27.78 & 45.84 & 38.72 \\
     \midrule
-    \multicolumn{6}{l}{\emph{$\epsilon_{\mathrm{train}}=8.8/255$}} \\
+    \multicolumn{6}{l}{\emph{CIFAR-100, $\epsilon_{\mathrm{train}}=8.8/255$}} \\
     --      & --      & 63.09 & 25.74 & 44.41 & 36.56 \\
     --      & \checkmark  & 63.11 & 27.97 & \textbf{45.54} & 38.76 \\
     \checkmark  & --      & 62.30 & 27.69 & 44.99 & 38.34 \\
     \checkmark  & \checkmark  & 62.17 & 28.86 & 45.52 & \textbf{39.42} \\
+    \midrule
+    \multicolumn{6}{l}{\emph{CIFAR-10, $\epsilon_{\mathrm{train}}=8/255$}} \\
+    --      & --      & 87.55 & 44.24 & 65.89 & 58.78 \\
+    --      & \checkmark  & 87.76 & 50.44 & 69.10 & 64.06 \\
+    \checkmark  & --      & 86.67 & 49.20 & 67.94 & 62.77 \\
+    \checkmark  & \checkmark  & 87.22 & 51.15 & \textbf{69.19} & \textbf{64.48} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Both components raise AA on their own, and their effects on AA are sub-additive. At $8/255$ AWP alone
-is worth $+2.72$ AA and $+2.90$ NRR over the bare anchor, while weight averaging alone is worth
-$+1.85$ AA and $+1.78$ NRR; adding weight averaging on top of AWP then returns only $+0.16$ AA, and
-its clean cost of $1.12$ points leaves NRR flat ($-0.05$). The same ordering holds at $8.8/255$,
-where AWP alone gives $+2.20$ NRR and weight averaging alone $+1.78$, but the second component adds
-only $+0.66$ and $+1.08$ NRR respectively. The two components also differ in sign on clean accuracy:
-AWP never costs clean accuracy here and at $8/255$ gains $0.90$ points of it, whereas weight
-averaging costs between $0.57$ and $1.12$ clean points in all four of its cells.
+Both components raise AA on their own, and their effects on AA are sub-additive in all three panels.
+On CIFAR-100 at $8/255$, AWP alone is worth $+2.72$ AA and $+2.90$ NRR over the bare anchor and weight
+averaging alone $+1.85$ AA and $+1.78$ NRR, but adding weight averaging on top of AWP returns only
+$+0.16$ AA, and its clean cost of $1.12$ points leaves NRR flat ($-0.05$). At $8.8/255$ the first
+component is worth $+2.20$ NRR (AWP) or $+1.78$ (weight averaging) and the second only $+0.66$ or
+$+1.08$. CIFAR-10 shows the same shape with larger numbers: AWP alone gains $+6.20$ AA and weight
+averaging alone $+4.96$, but weight averaging added on top of AWP is worth only $+0.71$ AA and AWP
+added on top of weight averaging only $+1.95$.
 
-Two readings are consistent with this table --- much of what the stack contributes is available from
-AWP alone, and the two components overlap in what they contribute --- and we do not try to separate
-them further. We keep the full stack as the reported recipe because it gives the best AA in both
-panels and the best NRR at $8.8/255$; at $8/255$ AWP alone is ahead of it by $0.05$ NRR, which is
-smaller than the seed-to-seed spread we measure at the reported configuration. Either choice leaves
-the comparisons in \Cref{tab:main} unaffected, since every CFA row and every stack-matched baseline
-row carries the same two components.
+The two components also differ on clean accuracy, consistently across datasets. Weight averaging
+costs clean accuracy in all six of its cells, by between $0.54$ and $1.12$ points. AWP gains clean
+accuracy in five of its six, by up to $0.90$ points, and the exception is a $0.13$-point loss at
+$8.8/255$ with weight averaging already present. So the components are not interchangeable even where
+their NRR contributions are similar: one buys robustness at essentially no clean cost, the other pays
+for it.
+
+Two readings are consistent with these panels --- much of what the stack contributes is available from
+either component alone, and the two overlap in what they contribute --- and we do not try to separate
+them further. We keep the full stack as the reported recipe because it gives the best AA in every
+panel, the best NRR at $8.8/255$, and the best Avg and NRR on CIFAR-10; the one cell where it is not
+first is CIFAR-100 at $8/255$, where AWP alone is ahead by $0.05$ NRR, smaller than the seed-to-seed
+spread we measure at the reported configuration. Either choice leaves the comparisons in
+\Cref{tab:main} unaffected, since every CFA row and every stack-matched baseline row carries the same
+two components.
 
 \section{Gradient Masking}
 \label{app:gradmask}
