@@ -1,5 +1,6 @@
-# The no-stack cell of the CIFAR-10 2x2 (2026-09-24).  The chain that was supposed to run this on
-# 09-22 passed --dataset CIFAR100, so only the CIFAR-100 copy exists.
+# AWP WITHOUT WEIGHT AVERAGING (2026-09-24).  tab:ladder adds the stack in one order, WA then AWP, so
+# it never measures AWP on its own and cannot separate the two from their interaction.  This is the
+# missing cell of the 2x2 {WA off, on} x {AWP off, on} at p = 1; everything else matches champ_eps8.
 
 method : feat_direction
 featdir_freeze_head : True
@@ -36,7 +37,7 @@ teacher_norm : False
 cyclic : True
 weight_avg : False
 awp_style : proxy
-awp_gamma : 0.0
+awp_gamma : 0.005
 awp_warmup : 10
 checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
 finetune_checkpoint : CIFAR10/checkpoint/clean_200ep/clean_last.pkl
