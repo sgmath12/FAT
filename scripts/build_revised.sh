@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../writting_docs/paper"
 PAPER="$PWD"
 OUT="${1:-/tmp/fat_revised_build}"
 mkdir -p "$OUT"
-BODY="${BODY:-main_totel_revised_v6.tex}"
+BODY="${BODY:-main_revised_v6.tex}"
 APPENDIX="${APPENDIX:-appendix_revised_v6.tex}"
 echo "body: $BODY  appendix: $APPENDIX"
 sed -E "s|\\\\input\\{appendix[A-Za-z0-9_]*(\\.tex)?\\}|\\\\input{$APPENDIX}|" "$BODY" > main_revised.tex
