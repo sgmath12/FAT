@@ -1,65 +1,121 @@
 \section{Introduction}
 \label{sec:intro}
 
-Adversarial training improves worst-case accuracy but often sacrifices clean accuracy
-\citep{PGD,tsipras2018robustness,TRADES}. Robust distillation can soften this trade-off, but requires
-an adversarially trained teacher \citep{ard,iad,rslad,adaad,igdm}. A naturally trained teacher is
-cheaper and more accurate on clean inputs, yet vulnerable to attack. What should a robust student
-learn from such a teacher?
+Adversarial training is one of the most effective approaches to improving
+robustness against adversarial perturbations, but this robustness often comes
+at the cost of accuracy on clean data
+\citep{PGD,tsipras2018robustness,TRADES}.
+This clean--robust trade-off raises a natural question: can a model acquire
+robustness while retaining more of the representation that supports strong
+clean performance?
 
-Many distillation methods express supervision as a predictive distribution and tune its softness or
-its weight relative to labels \citep{ard,rslad,adr,bmtard}. Direct regression offers a different
-view: fix what the teacher produces at the clean input and enforce that target throughout the
-student's adversarial neighborhood. We study this principle with the teacher's clean feature as the
-target, an inherited fixed classifier, and no label loss. This design exposes two further choices:
-which natural checkpoint supplies the target, and where to allocate the perturbation budget.
+We approach this problem by separating the learning of clean knowledge from
+the learning of robustness.
+Before adversarial training, we first train a clean self-teacher exclusively
+on natural images, allowing it to learn a high-accuracy clean representation
+without adversarial perturbations.
+We then initialize a student from this model and adversarially train the
+student while preserving the knowledge encoded by the clean self-teacher.
+The role of the teacher is therefore not to provide robustness.
+Instead, it provides a clean reference that the student seeks to retain while
+learning robustness.
+
+This perspective differs from conventional robust distillation, which often
+transfers knowledge through predictive distributions and balances
+distillation against label-based supervision
+\citep{ard,rslad,adr,bmtard}.
+We instead ask whether the clean knowledge of the self-teacher can serve
+directly as a fixed target throughout the student's adversarial neighborhood.
+This leads to \textbf{Clean Feature Anchoring (CFA)}, in which the student's
+adversarial representation is matched to the clean representation of the
+self-teacher while the inherited classifier remains fixed.
+The adversarial-training stage therefore requires no label-based objective:
+the clean self-teacher defines what should be preserved, while adversarial
+perturbations define the neighborhood over which it should be preserved.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figure/frontier.pdf}
-  \caption{Clean--AutoAttack trade-off on CIFAR-10 and CIFAR-100 with ResNet-18 at
-  $\epsilon=8/255$. Grey points
-  are published results (\Cref{tab:published}); the CFA curve varies the training radius over
-  100-epoch runs, and the star denotes the reported 150-epoch result trained at
-  $\epsilon_{\mathrm{train}}=8/255$ (the three-run mean on CIFAR-100).}
+  \caption{
+  Clean--AutoAttack trade-off on CIFAR-10 and CIFAR-100 with ResNet-18 at
+  \(\epsilon=8/255\).
+  Grey points are published results (\Cref{tab:published}); the CFA curve
+  varies the training radius over 100-epoch runs, and the star denotes the
+  reported 150-epoch result trained at
+  \(\epsilon_{\mathrm{train}}=8/255\) (the three-run mean on CIFAR-100).
+  }
   \label{fig:frontier}
 \end{figure}
 
-\textbf{Clean Feature Anchoring} (CFA) makes the target explicit: the student backbone matches one
-clean teacher representation even at adversarial inputs. Softening the teacher's predictions mainly
-moves robustness, whereas direct clean-logit and feature regression improve both axes without a
-temperature search. Their near-tie identifies fixed clean-target regression, rather than the choice
-between logit and feature coordinates, as the broader mechanism. We use features because they retain
-the representation supplied to the inherited classifier. A fixed-anchor bound then relates the CFA
-loss to clean teacher fidelity and local feature variation without requiring the teacher to be robust.
+We study this formulation from two complementary perspectives.
+First, we examine how the clean self-teacher should supervise the robust
+student.
+Increasing the temperature of predictive distillation connects softened
+prediction matching to regression onto a fixed clean logit target.
+This motivates direct clean-target regression and places CFA as its
+feature-space realization.
+Feature and logit regression reach similar empirical operating points,
+suggesting that the broader mechanism is the use of a fixed clean target
+rather than an inherent advantage of feature coordinates.
+For the feature realization, we further show that controlling a single
+clean anchor simultaneously bounds the student's discrepancy from the clean
+teacher and its local feature variation, without requiring the teacher itself
+to be robust.
 
-The teacher checkpoint changes what the student learns. Across two independent CIFAR-100 training
-trajectories, later natural checkpoints shift students toward higher robustness and lower clean
-accuracy. Moreover, label-smoothed and mixup teachers with nearly identical clean accuracy produce
-students $4.18$ clean points apart. Teacher accuracy alone is therefore not a sufficient description
-of the supervision a checkpoint provides.
+Second, we examine what determines the clean knowledge that is transferred.
+A teacher with higher clean accuracy does not necessarily yield a student
+with higher clean accuracy after adversarial training.
+Across independent teacher-training trajectories, improvements in teacher
+clean accuracy are accompanied by different clean--robust operating points
+of the resulting students.
+Moreover, clean self-teachers with nearly identical clean accuracy can
+produce substantially different student clean accuracy.
+These observations indicate that teacher clean accuracy alone is an
+incomplete description of transferability.
 
-Even with the teacher fixed, a uniform pixel radius need not perturb the anchor loss equally across
-examples. We allocate a fixed batch budget inversely to the loss's input sensitivity. Across three
-runs of the final recipe, this changes clean accuracy from $62.63\%$ to $64.82\%$ while AA remains
-at $28.0\%$.
-A separate control shows that reassigning the same radii by sample difficulty weakens the result.
-The teacher determines the
-reference, while radius allocation determines where to enforce it.
+The fixed clean target specifies what the student should preserve, but a
+uniform perturbation radius treats all training examples identically in input
+space.
+The same radius, however, need not induce a comparable change in the
+anchoring objective for every example.
+We therefore introduce sensitivity-matched perturbation budgets, which
+redistribute a fixed batch budget according to the local sensitivity of the
+anchor loss.
+This complements clean feature anchoring: the self-teacher determines the
+reference representation, while sensitivity matching determines the
+neighborhood over which each example is trained to preserve it.
 
-CFA improves the measured trade-off across CIFAR-10, CIFAR-100, and Tiny-ImageNet. On CIFAR-100
-with ResNet-18 it reaches $64.82\%$ clean and $28.04\%$ AA on average, the highest AutoAttack accuracy and NRR
-among twelve baselines run in the same framework (\Cref{tab:main}). Target, recipe, and radius controls distinguish the
-anchor's contribution from that of the training stack.
+Empirically, CFA improves the clean--robust trade-off across CIFAR-10,
+CIFAR-100, and Tiny-ImageNet, and extends to WideResNet-34-10.
+On CIFAR-100 with ResNet-18, CFA achieves
+\(64.82\mathbin{\pm}0.07\%\) clean accuracy and
+\(28.04\mathbin{\pm}0.09\%\) AutoAttack accuracy across three runs.
+Sensitivity matching improves clean accuracy by \(2.19\) percentage points
+on average over a uniform-radius counterpart while leaving AutoAttack
+accuracy nearly unchanged.
+Extensive objective, target, allocation, and training-stack controls further
+separate the effects of clean anchoring and radius allocation from those of
+the surrounding training recipe.
 
-Our contributions are:
+Our contributions are summarized as follows:
 \begin{itemize}
-  \item A controlled comparison from softened predictive targets to direct clean-target regression,
-  instantiated as label-free CFA; for this feature realization, one anchor jointly bounds clean
-  teacher fidelity and local variation.
-  \item Evidence that the teacher checkpoint sets the student's operating point rather than its
-  quality: two independent trajectories move clean accuracy and robustness in opposite directions, and
-  two teachers of nearly equal clean accuracy produce students $4.18$ clean points apart.
-  \item A radius allocation read from the loss's own input sensitivity, which holds at the reported
-  configuration and survives controls that keep the budget, and even the multiset of radii, fixed.
+
+  \item We introduce a clean self-teacher framework for mitigating the
+  clean--robust trade-off, in which clean knowledge is learned before
+  adversarial training and subsequently preserved through a fixed clean
+  target. CFA instantiates this principle in feature space without a
+  label-based objective during adversarial training.
+
+  \item We characterize fixed clean-target transfer both theoretically and
+  empirically. High-temperature predictive distillation connects to fixed
+  clean-logit regression, while the feature-space realization jointly
+  controls clean teacher--student discrepancy and local feature variation.
+  We further show that teacher clean accuracy alone is insufficient to
+  characterize how clean performance transfers to the robust student.
+
+  \item We introduce sensitivity-matched perturbation budgets that
+  redistribute a fixed batch budget according to the local response of the
+  anchoring objective, improving clean accuracy without an observed loss in
+  robustness in the final CIFAR-100 configuration.
+
 \end{itemize}
