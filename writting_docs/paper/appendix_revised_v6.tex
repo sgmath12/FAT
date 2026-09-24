@@ -383,7 +383,7 @@ the baseline recipes. Most baselines improve, but none reaches CFA's NRR.
                  && 54.24 & 25.56 & 34.75 \\
     Consistency-AT & 57.53 & 20.01 & 29.69
                    && 60.74 & 25.38 & 35.80 \\
-    LBGAT & 56.46 & 26.02 & 35.62
+    LBGAT & 57.29 & 26.22 & 35.98
           && 53.91 & 25.16 & 34.31 \\
     ADR & 59.93 & 27.20 & \textbf{37.42}
         && 59.84 & 27.84 & \textbf{38.00} \\
@@ -821,7 +821,7 @@ on the same machine.
     ARD                            & 100 adv.  & 0.39 & 1.52 & 1.91 \\
     RSLAD                          & 100 adv.  & 0.39 & 1.71 & 2.10 \\
     AdaAD                          & 100 adv.  & 0.39 & 2.79 & 3.18 \\
-    LBGAT                          & 100 adv.  & joint & 1.88 & 1.88 \\
+    LBGAT                          & 100 adv.  & joint & 2.00 & 2.00 \\
     HAT                            & 50 adv.   & 0.39 & 1.10 & 1.49 \\
     ADR                            & 200 adv.  & self  & 3.52 & 3.52 \\
     \bottomrule
@@ -1023,20 +1023,31 @@ half at $\phi = 30^\circ$. \Cref{tab:main} reports its 150-epoch run for the mai
 We read its representation after global pooling, where our anchor and geometry measurements are
 defined.
 
-\paragraph{LBGAT, and why its CIFAR-10 cell is empty.} The authors release a training script for
-CIFAR-100 only, and their CIFAR-10 entries are released as pretrained WideResNet checkpoints. Running
-their CIFAR-100 recipe on CIFAR-10 diverges here within thirty steps: the squared error is reduced
-with \texttt{mean} over batch and classes, so a ten-class problem receives ten times the gradient of
-a hundred-class one at equal logit error, and $\mathrm{lr} = 0.1$ is above the stability threshold
-that follows. Lowering the learning rate trains (at $0.01$ the natural branch reaches $49\%$ within
-$180$ steps), but a learning rate we chose is not their recipe, so the cell is left empty rather than
-filled with a number of our own construction. LBGAT trains its natural branch jointly with the robust
-one, so unlike the distillation
+\paragraph{LBGAT} trains its natural branch jointly with the robust one, so unlike the distillation
 rows its teacher is not obtained for free, and we group it accordingly. The two datasets run different
 variants because the authors publish different ones: CIFAR-100 is LBGAT6 and CIFAR-10 is LBGAT0, their
 release lists CIFAR-10 checkpoints under LBGAT0 alone, and $\beta = 6$ is their CIFAR-100 setting. We
 report the configuration each dataset has a published counterpart for rather than forcing one $\beta$
 across both.
+
+Its CIFAR-10 cell was empty in an earlier version of this paper, and the reason was a transcription
+error of ours rather than a property of their method. Their \texttt{adjust\_learning\_rate} is indexed
+from one and runs before each epoch, so their first epoch trains at $0.02$ and the decays take effect
+at epochs $76$ and $91$; we compared their epoch thresholds against a zero-based fractional epoch,
+which moved the warmup to the second epoch and both decays one epoch late, leaving the first optimizer
+step at the full $0.1$. Their target term is a mean over batch \emph{and} classes, so at equal
+per-logit error a ten-class problem produces ten times the gradient of a hundred-class one, and that
+first epoch is where it matters: CIFAR-100 absorbed the shift, while CIFAR-10 sat at chance from the
+first step in both published variants. With the schedule corrected to match theirs at every epoch,
+CIFAR-10 trains normally and is reported above. CIFAR-100 was re-measured under the same correction
+and moved from $56.46/26.02$ to $57.29/26.22$, or $0.36$ NRR.
+
+That correction postdates the Tiny-ImageNet and WideResNet LBGAT cells, which were measured before it
+and are not re-run: a Tiny-ImageNet run costs $30$ hours here and the WideResNet AutoAttack evaluation
+is launch-bound on this hardware. Neither collapsed, and the CIFAR-100 difference above bounds the
+expected shift at well under half an NRR point for a hundred-class or two-hundred-class problem, but
+they are one schedule revision behind the CIFAR ResNet-18 cells and we state that rather than imply a
+single recipe across every LBGAT row.
 
 \paragraph{HAT} uses a naturally trained network only to \emph{label} helper points beyond the ball,
 never as a target, so it belongs with the trade-off methods and not the distillation ones. It is run
