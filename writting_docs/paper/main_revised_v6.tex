@@ -611,52 +611,49 @@ diagnostics, and additional controls are provided in
   \caption{
   ResNet-18 results under \(\ell_\infty\) perturbations with
   \(\epsilon=8/255\). All values are measured in our framework.
-  \emph{T.} denotes the teacher assumed by each method: none (--),
-  a natural model (nat.), or the method's own weight average (self).
   The CIFAR-100 CFA row reports the mean of three student seeds;
   all other rows are individual runs.
   }
   \label{tab:main}
-  \begin{tabular}{llrrrrrrrr}
+  \begin{tabular}{lrrrrrrrr}
     \toprule
-    & & \multicolumn{4}{c}{CIFAR-10}
+    & \multicolumn{4}{c}{CIFAR-10}
       & \multicolumn{4}{c}{CIFAR-100} \\
-    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
-    Method & T. & Clean & AA & Avg & NRR
+    \cmidrule(lr){2-5}\cmidrule(lr){6-9}
+    Method & Clean & AA & Avg & NRR
            & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT & -- & 84.54 & 43.57 & 64.06 & 57.50
+    PGD-AT & 84.54 & 43.57 & 64.06 & 57.50
                  & 57.36 & 20.34 & 38.85 & 30.03 \\
-    TRADES & -- & 81.71 & 49.16 & 65.44 & 61.39
+    TRADES & 81.71 & 49.16 & 65.44 & 61.39
                  & 55.28 & 23.55 & 39.42 & 33.03 \\
-    MART   & -- & 80.41 & 45.56 & 62.99 & 58.16
+    MART   & 80.41 & 45.56 & 62.99 & 58.16
                  & 53.86 & 22.72 & 38.29 & 31.96 \\
     \midrule
-    ARD & nat. & 84.58 & 43.75 & 64.16 & 57.67
+    ARD & 84.58 & 43.75 & 64.16 & 57.67
                & 57.61 & 20.24 & 38.93 & 29.96 \\
-    RSLAD & nat. & 85.15 & 42.91 & 64.03 & 57.06
+    RSLAD & 85.15 & 42.91 & 64.03 & 57.06
                  & 59.68 & 21.30 & 40.49 & 31.40 \\
-    AdaAD & nat. & 85.39 & 46.22 & 65.81 & 59.98
+    AdaAD & 85.39 & 46.22 & 65.81 & 59.98
                  & 59.79 & 23.19 & 41.49 & 33.42 \\
-    AdaAD + IGDM & nat. & 85.01 & 45.50 & 65.26 & 59.27
+    AdaAD + IGDM & 85.01 & 45.50 & 65.26 & 59.27
                         & 48.25 & 19.48 & 33.87 & 27.75 \\
-    LBGAT & nat. & -- & -- & -- & --
+    LBGAT & -- & -- & -- & --
                  & 56.46 & 26.02 & 41.24 & 35.62 \\
-    ARREST & nat. & 85.06 & 46.42 & 65.74 & 60.06
-                  & \textbf{66.97} & 22.78 & 44.88 & 34.00 \\
+    ARREST & 85.06 & 46.42 & 65.74 & 60.06
+                  & 66.97 & 22.78 & 44.88 & 34.00 \\
     \midrule
-    HAT & nat. & 84.59 & 48.81 & 66.70 & 61.90
+    HAT & 84.59 & 48.81 & 66.70 & 61.90
                & 60.67 & 24.45 & 42.56 & 34.85 \\
-    ADR & self & 83.36 & 49.72 & 66.54 & 62.29
+    ADR & 83.36 & 49.72 & 66.54 & 62.29
                & 59.93 & 27.20 & 43.57 & 37.42 \\
-    RPAT++ & -- & 82.41 & 50.75 & 66.58 & 62.82
+    RPAT++ & 82.41 & 50.75 & 66.58 & 62.82
                   & 55.93 & 27.36 & 41.64 & 36.74 \\
     \midrule
     \textbf{CFA (ours)}
-      & nat.
-      & \textbf{87.37} & \textbf{51.33}
+      & 87.37 & 51.33
       & \textbf{69.35} & \textbf{64.67}
-      & \textbf{64.82} & \textbf{28.04}
+      & 64.82 & 28.04
       & \textbf{46.43} & \textbf{39.15} \\
     \bottomrule
   \end{tabular}
@@ -683,40 +680,39 @@ default CIFAR/ResNet-18 setting.
   WideResNet-34-10, measured in our framework.
   }
   \label{tab:scale}
-  \begin{tabular}{llrrrrrrrr}
+  \begin{tabular}{lrrrrrrrr}
     \toprule
-    & & \multicolumn{4}{c}{Tiny-ImageNet, ResNet-18}
+    & \multicolumn{4}{c}{Tiny-ImageNet, ResNet-18}
       & \multicolumn{4}{c}{CIFAR-10, WRN-34-10} \\
-    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
-    Method & T. & Clean & AA & Avg & NRR
+    \cmidrule(lr){2-5}\cmidrule(lr){6-9}
+    Method & Clean & AA & Avg & NRR
            & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT & -- & 49.72 & 14.45 & 32.09 & 22.39
+    PGD-AT & 49.72 & 14.45 & 32.09 & 22.39
                  & 86.00 & 45.71 & 65.86 & 59.69 \\
-    TRADES & -- & 46.98 & 15.95 & 31.46 & 23.83
+    TRADES & 46.98 & 15.95 & 31.46 & 23.83
                  & 85.13 & 48.99 & 67.06 & 62.19 \\
-    MART & -- & 46.01 & 16.90 & 31.46 & 24.73
+    MART & 46.01 & 16.90 & 31.46 & 24.73
                & 85.29 & 47.06 & 66.18 & 60.65 \\
     \midrule
-    ARD & nat. & 49.74 & 14.48 & 32.11 & 22.43
+    ARD & 49.74 & 14.48 & 32.11 & 22.43
                & 86.35 & 45.52 & 65.94 & 59.61 \\
-    RSLAD & nat. & 51.26 & 17.02 & 34.14 & 25.56
+    RSLAD & 51.26 & 17.02 & 34.14 & 25.56
                  & 86.41 & 45.80 & 66.10 & 59.87 \\
-    AdaAD & nat. & 51.59 & 16.79 & 34.19 & 25.33
+    AdaAD & 51.59 & 16.79 & 34.19 & 25.33
                  & 86.80 & 46.84 & 66.82 & 60.85 \\
-    LBGAT & nat. & 51.04 & 18.47 & 34.75 & 27.13
+    LBGAT & 51.04 & 18.47 & 34.75 & 27.13
                  & 81.56 & 51.79 & 66.68 & 63.35 \\
-    ARREST & nat. & \textbf{59.38} & 16.06 & 37.72 & 25.28
+    ARREST & 59.38 & 16.06 & 37.72 & 25.28
                   & 87.54 & 48.83 & 68.19 & 62.69 \\
-    HAT & nat. & 52.57 & 17.28 & 34.93 & 26.01
+    HAT & 52.57 & 17.28 & 34.93 & 26.01
                & 87.15 & 53.21 & 70.18 & 66.07 \\
-    ADR & self & 47.66 & \textbf{20.85} & 34.25 & 29.01
+    ADR & 47.66 & 20.85 & 34.25 & 29.01
                & 88.64 & 52.34 & 70.49 & 65.82 \\
     \midrule
     \textbf{CFA (ours)}
-      & nat.
       & 55.16 & 20.54 & \textbf{37.85} & \textbf{29.93}
-      & \textbf{88.67} & \textbf{55.29}
+      & 88.67 & 55.29
       & \textbf{71.98} & \textbf{68.11} \\
     \bottomrule
   \end{tabular}
@@ -768,11 +764,11 @@ class centroid to its nearest other-class centroid (\emph{Gap}).
     && \(S_w/S_b\) & Own & Gap \\
     \midrule
     CFA
-      & \textbf{0.709} & \textbf{26.3\(^{\circ}\)} & 29.2\(^{\circ}\)
-      && \textbf{1.969} & \textbf{33.5\(^{\circ}\)} & 19.2\(^{\circ}\) \\
+      & 0.709 & 26.3\(^{\circ}\) & 29.2\(^{\circ}\)
+      && 1.969 & 33.5\(^{\circ}\) & 19.2\(^{\circ}\) \\
     Label CE
-      & 3.744 & 52.2\(^{\circ}\) & \textbf{33.5\(^{\circ}\)}
-      && 5.611 & 55.0\(^{\circ}\) & \textbf{28.2\(^{\circ}\)} \\
+      & 3.744 & 52.2\(^{\circ}\) & 33.5\(^{\circ}\)
+      && 5.611 & 55.0\(^{\circ}\) & 28.2\(^{\circ}\) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -816,8 +812,8 @@ whether heterogeneous radii alone are sufficient.
       & \(28.01\pm0.20\)
       & \(38.71\pm0.21\) \\
     Features, sensitivity-matched (\(p=1\))
-      & \(\mathbf{64.82\pm0.07}\)
-      & \(\mathbf{28.04\pm0.09}\)
+      & \(64.82\pm0.07\)
+      & \(28.04\pm0.09\)
       & \(\mathbf{39.15\pm0.09}\) \\
     Logits, sensitivity-matched (\(p=1\))
       & 64.49 & 27.85 & 38.90 \\
@@ -849,7 +845,7 @@ regression, consistent with the fixed-target interpretation.
     Uniform
       & 0 & 60.42 & 28.42 & 38.66 \\
     Sensitivity
-      & 0.32 & \textbf{62.17} & \textbf{28.86} & \textbf{39.42} \\
+      & 0.32 & 62.17 & 28.86 & \textbf{39.42} \\
     Same multipliers, difficulty order
       & 0.32 & 60.90 & 28.06 & 38.42 \\
     Difficulty magnitude

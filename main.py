@@ -201,23 +201,31 @@ def main(config,npt):
     # usual 10). Added so a 200-epoch scratch run can be schedule-matched to that baseline instead
     # of FAT's OneCycle default. methods.* call scheduler.step() once per BATCH, so this is a
     # per-iteration LambdaLR (t = fractional epoch), which is exactly how ReBAT computes it too.
-    # lr_schedule: lbgat (2026-09-03) = LBGAT's own adjust_learning_rate, transcribed exactly from
-    # train_lbgat_cifar100.py: 0.1, then 0.02 during epoch 1 only, then 0.01 from 76 and 0.001 from 91.
+    # lr_schedule: lbgat (2026-09-03) = LBGAT's own adjust_learning_rate, transcribed from
+    # train_lbgat_cifar100.py: 0.02 for epoch 1, then 0.1, then 0.01 from 76 and 0.001 from 91.
     # The epoch-1 dip looks like a typo and is theirs; it is kept because it is not ours to fix, and
-    # because it is evidently load-bearing.  Under our flat-0.1 protocol LBGAT trains fine on CIFAR-100
-    # (8.52 -> 22.66 -> 32.06 clean over the first three evaluations) and dies instantly on CIFAR-10,
-    # pinned at 9.9999 from step 0 with an identical config.  Reporting that 10.00 as LBGAT's number
-    # would be publishing our optimizer failure as their result.
+    # because it is load-bearing.  2026-09-24: it was off by one epoch.  Their loop is
+    # `for epoch in range(1, epochs+1)` and calls adjust_learning_rate(epoch) before training, so
+    # THEIR FIRST EPOCH runs at 0.02; ours returned 1.0 for t in [0,1) and put the dip on the second
+    # epoch instead, leaving step 0 at the full 0.1.  That is what killed CIFAR-10: LBGAT's target
+    # term is `nn.MSELoss()`, a mean over batch AND classes, so at equal per-logit error a ten-class
+    # problem produces ten times the gradient of a hundred-class one.  CIFAR-100 survived the shift
+    # (8.52 -> 22.66 -> 32.06 clean over the first three evaluations); CIFAR-10 sat at chance from
+    # step 0 in both published variants.  Both datasets are rerun under the corrected schedule.
     if str(getattr(config, "lr_schedule", None) or "") == "lbgat":
         steps_per_epoch = len(train_loader)
 
         def _lbgat_lr(step):
-            t = step / steps_per_epoch
-            if 1 <= t < 2:
+            # Their epoch index is 1-based and adjust_learning_rate runs before the epoch, so their
+            # epoch e covers our fractional t in [e-1, e).  Convert once, then mirror their function
+            # literally; comparing their thresholds against t directly is what shifted all three
+            # boundaries one epoch late.
+            e = int(step / steps_per_epoch) + 1
+            if e == 1:
                 return 0.2                      # 0.02 / 0.1
-            if t >= 91:
+            if e >= 91:
                 return 0.01
-            if t >= 76:
+            if e >= 76:
                 return 0.1
             return 1.0
 

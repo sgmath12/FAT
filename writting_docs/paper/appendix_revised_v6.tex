@@ -227,8 +227,8 @@ perturbed response.
     \toprule
     Teacher target & Clean & AA & NRR \\
     \midrule
-    \(\Phi_t(x)\) & 61.33 & \textbf{26.19} & \textbf{36.71} \\
-    \(\Phi_t(x_{\rm adv})\) & \textbf{76.11} & 0.00 & 0.00 \\
+    \(\Phi_t(x)\) & 61.33 & 26.19 & \textbf{36.71} \\
+    \(\Phi_t(x_{\rm adv})\) & 76.11 & 0.00 & 0.00 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -266,24 +266,6 @@ CFA has a $5.3\times$ smaller clean $S_w/S_b$ and a $2.85\times$ smaller ratio u
 (\Cref{tab:anchorgeometry}). Its class centroids are not farther apart than those learned with labels,
 so the result supports tighter clusters rather than greater inter-class separation.
 
-\begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4pt}
-  \caption{Feature geometry of the final models under the same true-label PGD attack. Angles are
-  measured on unit-normalized features. \emph{Own} is the
-  sample-to-own-centroid angle; \emph{gap} is the mean angle from each class centroid to its
-  nearest other-class centroid.}
-  \label{tab:anchorgeometry}
-  \begin{tabular}{lrrrcrrr}
-    \toprule
-    & \multicolumn{3}{c}{Clean} & & \multicolumn{3}{c}{Adversarial} \\
-    \cmidrule(lr){2-4}\cmidrule(lr){6-8}
-    & $S_w/S_b$ & Own & Gap & & $S_w/S_b$ & Own & Gap \\
-    \midrule
-    CFA & \textbf{0.709} & \textbf{26.3$^\circ$} & 29.2$^\circ$ && \textbf{1.969} & \textbf{33.5$^\circ$} & 19.2$^\circ$ \\
-    Label CE & 3.744 & 52.2$^\circ$ & \textbf{33.5$^\circ$} && 5.611 & 55.0$^\circ$ & \textbf{28.2$^\circ$} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 % The former L/F/O diagnostic paragraph is withheld pending corrected evaluation.
 % Its source, settings, and network-mode mismatch are recorded in
@@ -326,7 +308,7 @@ or AWP.
     KL & 1  & 0.76 & 58.26 & 20.84 & 30.70 \\
     KL & 2  & 2.40 & 59.33 & 22.79 & 32.93 \\
     KL & 4  & 4.20 & 59.39 & 24.48 & 34.67 \\
-    KL & 8  & 4.56 & 59.47 & 25.19 & 35.39 \\
+    KL & 8  & 4.56 & 59.47 & 25.19 & \textbf{35.39} \\
     KL & 16 & 4.60 & 57.78 & 24.00 & 33.91 \\
     \midrule
     \multicolumn{6}{l}{\emph{Shared-temperature KD}} \\
@@ -338,7 +320,7 @@ or AWP.
     KL & 32 & 4.60 & 61.81 & 25.50 & 36.11 \\
     \midrule
     Logit regression, fixed head  & --- & --- & 62.59 & 25.69 & 36.43 \\
-    \textbf{Feature anchor, fixed head} & --- & --- & \textbf{62.72} & \textbf{25.88} & \textbf{36.64} \\
+    \textbf{Feature anchor, fixed head} & --- & --- & 62.72 & 25.88 & \textbf{36.64} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -353,11 +335,11 @@ or AWP.
     \cmidrule(lr){2-3}\cmidrule(lr){4-6}
     Checkpoint & Clean & $S_w/S_b$ & Clean & $S_w/S_b$ & AA \\
     \midrule
-    50 epochs  & 75.81 & 1.100 & \textbf{64.28} & 0.955 & 24.38 \\
+    50 epochs  & 75.81 & 1.100 & 64.28 & 0.955 & 24.38 \\
     100 epochs & 76.62 & 0.982 & 63.65 & 0.900 & 25.20 \\
     150 epochs & 77.52 & 0.887 & 62.93 & 0.875 & 25.78 \\
-    200 epochs & 77.66 & 0.808 & 62.72 & 0.850 & \textbf{25.88} \\
-    300 epochs & \textbf{78.32} & \textbf{0.712} & 62.24 & \textbf{0.829} & 25.80 \\
+    200 epochs & 77.66 & 0.808 & 62.72 & 0.850 & 25.88 \\
+    300 epochs & 78.32 & 0.712 & 62.24 & 0.829 & 25.80 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -403,8 +385,8 @@ the baseline recipes. Most baselines improve, but none reaches CFA's NRR.
                    && 60.74 & 25.38 & 35.80 \\
     LBGAT & 56.46 & 26.02 & 35.62
           && 53.91 & 25.16 & 34.31 \\
-    ADR & 59.93 & 27.20 & 37.42
-        && 59.84 & 27.84 & 38.00 \\
+    ADR & 59.93 & 27.20 & \textbf{37.42}
+        && 59.84 & 27.84 & \textbf{38.00} \\
     HAT & 60.67 & 24.45 & 34.85
         && 57.63 & 24.74 & 34.62 \\
     ARREST & 66.44 & 22.99 & 34.16
@@ -412,7 +394,7 @@ the baseline recipes. Most baselines improve, but none reaches CFA's NRR.
     \midrule
     \textbf{CFA (ours)}
       & \multicolumn{3}{c}{---}
-      && \textbf{64.82} & \textbf{28.04} & \textbf{39.15} \\
+      && 64.82 & 28.04 & 39.15 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -456,7 +438,7 @@ difference does not establish a general advantage for feature regression.
     \midrule
     IGDM's robust teachers (LTD / BDM-AT / IKL-AT, published) & 0.012 / 0.012 / 0.016 \\
     PGD-AT ResNet-18 (ours)          & 0.0111 \\
-    \textbf{Natural teacher (ours)}  & \textbf{0.4763} \\
+    \textbf{Natural teacher (ours)}  & 0.4763 \\
     Anchored student, $p=0$          & 0.0029 \\
     Anchored student, reported recipe & 0.0202 \\
     \bottomrule
@@ -477,7 +459,7 @@ difference does not establish a general advantage for feature regression.
     Logit target only, $\tau=16$              & 57.78 & 31.57 & 26.11 & 24.00 & 33.91 \\
     Feature anchor + head KD, $\tau=1$        & 62.34 & 26.34 & 26.11 & 23.93 & 34.58 \\
     Feature anchor + head KD, $\tau=16$       & 62.61 & 32.47 & 27.32 & 25.61 & 36.35 \\
-    \textbf{Feature anchor, head untouched}   & \textbf{62.72} & 28.69 & \textbf{27.80} & \textbf{25.88} & \textbf{36.64} \\
+    \textbf{Feature anchor, head untouched}   & 62.72 & 28.69 & 27.80 & 25.88 & \textbf{36.64} \\
     \quad head refit, adversarial CE          & 62.77 & 29.93 & 27.66 & 25.65 & 36.42 \\
     \quad head refit, adv.\ CE + smoothing 0.1& 62.57 & 30.43 & 27.55 & 25.66 & 36.39 \\
     \quad head refit, clean CE                & 62.70 & 28.90 & 27.23 & 25.15 & 35.90 \\
@@ -506,11 +488,11 @@ analysis; CFA does not rely on a cosine objective.
     & Clean & AA & NRR \\
     \midrule
     \multicolumn{4}{l}{\emph{(a) With the stack: WA, AWP, $\epsilon_{\mathrm{train}} = 8.8/255$}} \\
-    Raw features (squared $\ell_2$)            & 60.21 & \textbf{28.14} & 38.35 \\
-    Both normalized (cosine)                   & \textbf{61.41} & 28.07 & \textbf{38.53} \\
+    Raw features (squared $\ell_2$)            & 60.21 & 28.14 & 38.35 \\
+    Both normalized (cosine)                   & 61.41 & 28.07 & \textbf{38.53} \\
     \midrule
     \multicolumn{4}{l}{\emph{(b) Base regime: no WA, no AWP, $\epsilon_{\mathrm{train}} = 8/255$}} \\
-    Raw features (squared $\ell_2$)            & \textbf{62.40} & \textbf{24.34} & \textbf{35.02} \\
+    Raw features (squared $\ell_2$)            & 62.40 & 24.34 & \textbf{35.02} \\
     Both normalized (cosine)                   & 61.52 & 22.90 & 33.38 \\
     Asymmetric: student normalized, teacher raw & 61.28 & 22.98 & 33.43 \\
     \bottomrule
@@ -527,18 +509,18 @@ analysis; CFA does not rely on a cosine objective.
     & Clean & PGD-20 & CW & AA & NRR \\
     \midrule
     \multicolumn{6}{l}{\emph{CIFAR-100}} \\
-    $6/255$      & \textbf{68.07} & 28.40 & 28.16 & 25.82 & 37.44 \\
+    $6/255$      & 68.07 & 28.40 & 28.16 & 25.82 & 37.44 \\
     $7/255$      & 65.61 & 30.34 & 29.64 & 27.44 & 38.70 \\
     $8/255$      & 63.89 & 31.41 & 29.83 & 27.78 & 38.72 \\
-    $8.8/255$\dg & 62.17 & 32.37 & \textbf{30.93} & \textbf{28.86} & \textbf{39.42} \\
-    $10/255$\dg  & 59.99 & \textbf{32.82} & 30.53 & 28.77 & 38.89 \\
+    $8.8/255$\dg & 62.17 & 32.37 & 30.93 & 28.86 & \textbf{39.42} \\
+    $10/255$\dg  & 59.99 & 32.82 & 30.53 & 28.77 & 38.89 \\
     \midrule
     \multicolumn{6}{l}{\emph{CIFAR-10}} \\
-    $6/255$      & \textbf{89.64} & 49.29 & 50.20 & 47.88 & 62.42 \\
+    $6/255$      & 89.64 & 49.29 & 50.20 & 47.88 & 62.42 \\
     $7/255$      & 88.30 & 51.43 & 52.64 & 50.27 & 64.07 \\
     $8/255$\dg   & 87.22 & 52.43 & 53.55 & 51.15 & \textbf{64.48} \\
-    $8.8/255$\dg & 84.96 & 52.98 & \textbf{53.94} & 51.74 & 64.31 \\
-    $10/255$\dg  & 83.29 & \textbf{53.25} & 53.88 & \textbf{51.79} & 63.87 \\
+    $8.8/255$\dg & 84.96 & 52.98 & 53.94 & 51.74 & 64.31 \\
+    $10/255$\dg  & 83.29 & 53.25 & 53.88 & 51.79 & 63.87 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -559,11 +541,11 @@ analysis; CFA does not rely on a cosine objective.
     \midrule
     \multicolumn{7}{l}{\emph{CIFAR-100}} \\
     $8/255$   & 63.54 & 26.75 & 37.65 & 63.89 & 27.78 & 38.72 \\
-    $8.8/255$ & 62.30 & 27.69 & 38.34 & 62.17 & 28.86 & 39.42 \\
+    $8.8/255$ & 62.30 & 27.69 & \textbf{38.34} & 62.17 & 28.86 & \textbf{39.42} \\
     \midrule
     \multicolumn{7}{l}{\emph{CIFAR-10}} \\
-    $8/255$   & 86.67 & 49.20 & 62.77 & 87.22 & 51.15 & 64.48 \\
-    $8.8/255$ & 85.16 & 50.15 & 63.13 & 84.96 & 51.74 & 64.31 \\
+    $8/255$   & 86.67 & 49.20 & 62.77 & 87.22 & 51.15 & \textbf{64.48} \\
+    $8.8/255$ & 85.16 & 50.15 & \textbf{63.13} & 84.96 & 51.74 & 64.31 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -589,7 +571,7 @@ analysis; CFA does not rely on a cosine objective.
     AdaAD + IGDM & 48.25 & 19.48 & 27.75 && 85.01 & 45.50 & 59.27 \\
     \quad + teacher initialization & 49.67 & 20.15 & 28.67 && -- & -- & -- \\
     \midrule
-    PGD-AT, teacher initialization & 57.73 & \textbf{26.46} & 36.29 && 82.23 & \textbf{50.72} & 62.74 \\
+    PGD-AT, teacher initialization & 57.73 & 26.46 & \textbf{36.29} && 82.23 & 50.72 & \textbf{62.74} \\
     CFA, no WA/AWP & 61.29 & 25.36 & 35.88 && -- & -- & -- \\
     \bottomrule
   \end{tabular}
@@ -612,7 +594,7 @@ analysis; CFA does not rely on a cosine objective.
     & Clean & AA & NRR & & Clean & AA & NRR \\
     \midrule
     RPAT++ (its own recipe)   & 57.05 & 26.61 & 36.30 & & 55.93 & 27.37 & 36.74 \\
-    \quad $+$ AWP             & 57.48 & \textbf{28.05} & \textbf{37.70} & & 57.50 & \textbf{27.92} & \textbf{37.60} \\
+    \quad $+$ AWP             & 57.48 & 28.05 & \textbf{37.70} & & 57.50 & 27.92 & \textbf{37.60} \\
     \quad $+$ AWP $+$ teacher initialization & 57.83 & 27.47 & 37.25 & & 57.80 & 27.59 & 37.36 \\
     \bottomrule
   \end{tabular}
@@ -716,23 +698,23 @@ not preserve the box---the rescaling moves the clipped entries back out of it.
   \centering \small \setlength{\tabcolsep}{5pt}
   \caption{WideResNet-34-10 on CIFAR-100 at $\epsilon=8/255$, measured in our framework.}
   \label{tab:wrn100}
-  \begin{tabular}{llrrrr}
+  \begin{tabular}{lrrrr}
     \toprule
-    Method & T. & Clean & AA & Avg & NRR \\
+    Method & Clean & AA & Avg & NRR \\
     \midrule
-    PGD-AT & -- & 58.97 & 22.84 & 40.91 & 32.93 \\
-    TRADES & -- & 57.35 & 25.60 & 41.48 & 35.40 \\
-    MART & -- & 57.16 & 22.43 & 39.80 & 32.22 \\
+    PGD-AT & 58.97 & 22.84 & 40.91 & 32.93 \\
+    TRADES & 57.35 & 25.60 & 41.48 & 35.40 \\
+    MART & 57.16 & 22.43 & 39.80 & 32.22 \\
     \midrule
-    ARD & nat. & 59.52 & 23.05 & 41.29 & 33.25 \\
-    RSLAD & nat. & 60.48 & 21.63 & 41.06 & 31.87 \\
-    AdaAD & nat. & 61.66 & 25.62 & 43.64 & 36.20 \\
-    LBGAT & nat. & 59.63 & 28.55 & 44.09 & 38.61 \\
-    ARREST & nat. & \textbf{67.69} & 24.69 & 46.19 & 36.18 \\
-    HAT & nat. & 62.81 & 26.91 & 44.86 & 37.68 \\
-    ADR & self & 64.50 & 29.04 & 46.77 & 40.05 \\
+    ARD & 59.52 & 23.05 & 41.29 & 33.25 \\
+    RSLAD & 60.48 & 21.63 & 41.06 & 31.87 \\
+    AdaAD & 61.66 & 25.62 & 43.64 & 36.20 \\
+    LBGAT & 59.63 & 28.55 & 44.09 & 38.61 \\
+    ARREST & 67.69 & 24.69 & 46.19 & 36.18 \\
+    HAT & 62.81 & 26.91 & 44.86 & 37.68 \\
+    ADR & 64.50 & 29.04 & 46.77 & 40.05 \\
     \midrule
-    \textbf{CFA (ours)} & nat. & 65.04 & \textbf{30.14} & \textbf{47.59} & \textbf{41.19} \\
+    \textbf{CFA (ours)} & 65.04 & 30.14 & \textbf{47.59} & \textbf{41.19} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -833,7 +815,7 @@ on the same machine.
     \midrule
     Natural teacher (ours, reused) & 200 clean & --   & 0.39 & 0.39 \\
     \midrule
-    \textbf{CFA (ours)}            & 100 adv.  & 0.39 & 2.07 & \textbf{2.46} \\
+    \textbf{CFA (ours)}            & 100 adv.  & 0.39 & 2.07 & 2.46 \\
     Label CE at our regime         & 100 adv.  & 0.39 & 3.22 & 3.61 \\
     PGD-AT, initialized at the teacher & 100 adv. & 0.39 & 1.72 & 2.11 \\
     ARD                            & 100 adv.  & 0.39 & 1.52 & 1.91 \\
@@ -874,7 +856,7 @@ procedure. These experiments vary the teacher checkpoint, not just the target fe
     40       & 75.57 & 3.931 & 4.542 & 64.36 & 23.86 & 34.81 \\
     100      & 77.27 & 4.506 & 4.678 & 63.68 & 25.61 & 36.53 \\
     150      & 77.68 & 4.495 & 4.262 & 63.37 & 25.49 & 36.36 \\
-    200      & 77.90 & 4.542 & 4.129 & 63.02 & \textbf{26.16} & \textbf{36.97} \\
+    200      & 77.90 & 4.542 & 4.129 & 63.02 & 26.16 & \textbf{36.97} \\
     300      & 78.27 & 4.523 & 3.835 & 62.34 & 25.94 & 36.64 \\
     \bottomrule
   \end{tabular}
@@ -908,9 +890,9 @@ carries no weight averaging, no AWP and a uniform radius, on CIFAR-100 with ResN
     \toprule
     Objective & Recipe & Clean & AA & Avg & NRR \\
     \midrule
-    Anchor              & ours, teacher init   & \textbf{61.29} & 25.36 & \textbf{43.33} & \textbf{35.88} \\
+    Anchor              & ours, teacher init   & 61.29 & 25.36 & \textbf{43.33} & \textbf{35.88} \\
     Anchor              & ours, random init    & 60.81 & 25.21 & 43.01 & 35.66 \\
-    Anchor              & theirs, teacher init & 59.65 & \textbf{25.54} & 42.60 & 35.77 \\
+    Anchor              & theirs, teacher init & 59.65 & 25.54 & 42.60 & 35.77 \\
     \midrule
     Label cross-entropy & ours, teacher init   & 54.60 & 19.45 & 37.03 & 28.68 \\
     Label cross-entropy & theirs, teacher init & 56.66 & 20.91 & 38.79 & 30.55 \\
@@ -945,15 +927,15 @@ choice.
     \midrule
     \multicolumn{6}{l}{\emph{$\epsilon_{\mathrm{train}}=8/255$}} \\
     --      & --      & 64.11 & 24.90 & 44.50 & 35.87 \\
-    --      & \checkmark  & \textbf{65.01} & 27.62 & \textbf{46.32} & \textbf{38.77} \\
+    --      & \checkmark  & 65.01 & 27.62 & \textbf{46.32} & \textbf{38.77} \\
     \checkmark  & --      & 63.54 & 26.75 & 45.14 & 37.65 \\
-    \checkmark  & \checkmark  & 63.89 & \textbf{27.78} & 45.84 & 38.72 \\
+    \checkmark  & \checkmark  & 63.89 & 27.78 & 45.84 & 38.72 \\
     \midrule
     \multicolumn{6}{l}{\emph{$\epsilon_{\mathrm{train}}=8.8/255$}} \\
     --      & --      & 63.09 & 25.74 & 44.41 & 36.56 \\
-    --      & \checkmark  & \textbf{63.11} & 27.97 & 45.54 & 38.76 \\
+    --      & \checkmark  & 63.11 & 27.97 & \textbf{45.54} & 38.76 \\
     \checkmark  & --      & 62.30 & 27.69 & 44.99 & 38.34 \\
-    \checkmark  & \checkmark  & 62.17 & \textbf{28.86} & \textbf{45.52} & \textbf{39.42} \\
+    \checkmark  & \checkmark  & 62.17 & 28.86 & 45.52 & \textbf{39.42} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -993,9 +975,9 @@ repeat with $62.00\%$ clean accuracy.
     \midrule
     \multicolumn{3}{l}{\emph{white box against black box}} \\
     APGD-CE            & white box, untargeted & 31.80 \\
-    APGD-T             & white box, targeted   & \textbf{28.83} \\
+    APGD-T             & white box, targeted   & 28.83 \\
     FAB-T              & white box, boundary   & 29.16 \\
-    Square             & \textbf{black box}, 5000 queries & 34.82 \\
+    Square             & black box, 5000 queries & 34.82 \\
     \midrule
     AutoAttack & standard evaluation & 28.73 \\
     \midrule
@@ -1006,7 +988,7 @@ repeat with $62.00\%$ clean accuracy.
     $\epsilon = 12/255$ & & 20.88 \\
     $\epsilon = 16/255$ & & 11.94 \\
     $\epsilon = 32/255$ & & 1.05 \\
-    $\epsilon = 64/255$ & & \textbf{0.00} \\
+    $\epsilon = 64/255$ & & 0.00 \\
     \midrule
     \multicolumn{3}{l}{\emph{step sweep}, $\epsilon = 8/255$} \\
     PGD-10 / 20 / 50 / 100 & & 33.17 / 32.57 / 32.30 / 32.24 \\
@@ -1114,7 +1096,7 @@ PGD-20 is not a faithful reading of this method.
     \toprule
     Dataset & Cell & Clean & FGSM & PGD-20 & CW & AA & NRR \\
     \midrule
-    CIFAR-100 & CFA, head frozen (100 ep.)   & 62.17 & 36.91 & 32.37 & 30.93 & 28.86 & 39.42 \\
+    CIFAR-100 & CFA, head frozen (100 ep.)   & 62.17 & 36.91 & 32.37 & 30.93 & 28.86 & \textbf{39.42} \\
               & \quad the same cell at seed 1 & 62.00 & 36.79 & 32.49 & 30.82 & 28.74 & 39.27 \\
               & \quad $\ell_1$ gradient norm  & 62.16 & 36.48 & 31.97 & 30.56 & 28.57 & 39.15 \\
               & CFA, head-KD term retained   & 62.35 & 38.80 & 36.26 & 30.65 & 28.68 & 39.29 \\
@@ -1129,7 +1111,7 @@ PGD-20 is not a faithful reading of this method.
     CIFAR-10  & CFA, $\epsilon_{\mathrm{tr}} = 8.8/255$ (100 ep.) & 84.96 & 59.58 & 52.98 & 53.94 & 51.74 & 64.31 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 6/255$  & 89.64 & 59.37 & 49.29 & 50.20 & 47.88 & 62.42 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 7/255$  & 88.30 & 59.59 & 51.43 & 52.64 & 50.27 & 64.07 \\
-              & CFA, $\epsilon_{\mathrm{tr}} = 8/255$  & 87.22 & 59.92 & 52.43 & 53.55 & 51.15 & 64.48 \\
+              & CFA, $\epsilon_{\mathrm{tr}} = 8/255$  & 87.22 & 59.92 & 52.43 & 53.55 & 51.15 & \textbf{64.48} \\
               & CFA, $\epsilon_{\mathrm{tr}} = 10/255$ & 83.29 & 58.98 & 53.25 & 53.88 & 51.79 & 63.87 \\
               & RPAT++ (our reproduction)    & 82.41 & 59.73 & 55.72 & 52.88 & 50.75 & 62.82 \\
     \bottomrule
@@ -1179,59 +1161,59 @@ be compared within a source rather than across.
   comparable with \Cref{tab:main}. These were produced by other codebases, schedules and
   checkpoint-selection rules, so they should be compared within a source rather than across.}
   \label{tab:published}
-  \begin{tabular}{llrrrrl}
+  \begin{tabular}{lrrrrl}
     \toprule
-    Method & Teacher & Clean & AA & Avg & NRR & Source \\
+    Method & Clean & AA & Avg & NRR & Source \\
     \midrule
-    \multicolumn{7}{l}{\emph{CIFAR-100, ResNet-18}} \\
-    PGD-AT                    & --      & 56.56 & 25.02 & 40.79 & 34.69 & RPAT \\
-    TRADES                    & --      & 55.39 & 24.51 & 39.95 & 33.98 & RPAT \\
-    MART                      & --      & 49.83 & 25.00 & 37.41 & 33.30 & RPAT \\
-    Consistency-AT            & --      & 58.53 & 25.39 & 41.96 & 35.42 & RPAT \\
-    Consistency-AT + RPAT     & --      & 60.33 & 26.31 & 43.32 & 36.64 & RPAT \\
-    F\textsuperscript{2}AT    & --      & 54.19 & 23.24 & 38.71 & 32.53 & \citet{f2at} \\
-    Generalist++              & co-tr.  & 62.97 & 23.96 & 43.47 & 34.71 & \citet{generalist} \\
-    ADR (AT + ADR)            & self    & 56.10 & 26.87 & 41.48 & 36.34 & ADR \\
-    ADR (AT + WA + AWP + ADR) & self    & 57.36 & 28.50 & 42.93 & 38.08 & ADR \\
+    \multicolumn{6}{l}{\emph{CIFAR-100, ResNet-18}} \\
+    PGD-AT                    & 56.56 & 25.02 & 40.79 & 34.69 & RPAT \\
+    TRADES                    & 55.39 & 24.51 & 39.95 & 33.98 & RPAT \\
+    MART                      & 49.83 & 25.00 & 37.41 & 33.30 & RPAT \\
+    Consistency-AT            & 58.53 & 25.39 & 41.96 & 35.42 & RPAT \\
+    Consistency-AT + RPAT     & 60.33 & 26.31 & 43.32 & 36.64 & RPAT \\
+    F\textsuperscript{2}AT    & 54.19 & 23.24 & 38.71 & 32.53 & \citet{f2at} \\
+    Generalist++              & 62.97 & 23.96 & \textbf{43.47} & 34.71 & \citet{generalist} \\
+    ADR (AT + ADR)            & 56.10 & 26.87 & 41.48 & 36.34 & ADR \\
+    ADR (AT + WA + AWP + ADR) & 57.36 & 28.50 & 42.93 & \textbf{38.08} & ADR \\
     \midrule
-    \multicolumn{7}{l}{\emph{CIFAR-10, ResNet-18}} \\
-    PGD-AT                    & --      & 82.78 & 44.63 & 63.71 & 57.99 & CURE \\
-    TRADES                    & --      & 82.41 & 48.37 & 65.39 & 60.96 & CURE \\
-    MART                      & --      & 80.70 & 47.49 & 64.10 & 59.79 & CURE \\
-    ST-AT                     & --      & 83.10 & 50.50 & 66.80 & 62.82 & CURE \\
-    IAD                       & robust  & 80.63 & 50.17 & 65.40 & 61.85 & CURE \\
-    Consistency-AT + RPAT     & --      & 84.12 & 48.98 & 66.55 & 61.91 & RPAT \\
-    Generalist++              & co-tr.  & 89.09 & 46.07 & 67.58 & 60.73 & \citet{generalist} \\
-    ARREST                    & natural & 86.63 & 46.14 & 66.39 & 60.21 & ARREST \\
-    CURE                      & self    & 86.76 & 49.69 & 68.23 & 63.19 & CURE \\
-    ADR (AT + ADR)            & self    & 82.41 & 50.38 & 66.40 & 62.53 & ADR \\
+    \multicolumn{6}{l}{\emph{CIFAR-10, ResNet-18}} \\
+    PGD-AT                    & 82.78 & 44.63 & 63.71 & 57.99 & CURE \\
+    TRADES                    & 82.41 & 48.37 & 65.39 & 60.96 & CURE \\
+    MART                      & 80.70 & 47.49 & 64.10 & 59.79 & CURE \\
+    ST-AT                     & 83.10 & 50.50 & 66.80 & 62.82 & CURE \\
+    IAD                       & 80.63 & 50.17 & 65.40 & 61.85 & CURE \\
+    Consistency-AT + RPAT     & 84.12 & 48.98 & 66.55 & 61.91 & RPAT \\
+    Generalist++              & 89.09 & 46.07 & 67.58 & 60.73 & \citet{generalist} \\
+    ARREST                    & 86.63 & 46.14 & 66.39 & 60.21 & ARREST \\
+    CURE                      & 86.76 & 49.69 & \textbf{68.23} & \textbf{63.19} & CURE \\
+    ADR (AT + ADR)            & 82.41 & 50.38 & 66.40 & 62.53 & ADR \\
     \midrule
-    \multicolumn{7}{l}{\emph{CIFAR-10, PreActResNet-18}} \\
-    WA \citep{swa}            & --      & 83.50 & 49.89 & 66.70 & 62.46 & RPAT \\
-    AWP \citep{2020_awp}      & --      & 81.11 & 50.09 & 65.60 & 61.93 & RPAT \\
-    KD\,+\,SWA \citep{kdswa}   & robust  & 84.06 & 49.82 & 66.94 & 62.56 & RPAT \\
-    TE \citep{te}             & --      & 82.04 & 50.12 & 66.08 & 62.23 & RPAT \\
-    ReBAT \citep{rebat}       & --      & 82.09 & 50.72 & 66.41 & 62.70 & RPAT \\
-    RPAT++ \citep{rpat}       & --      & 82.63 & 51.00 & 66.82 & 63.07 & RPAT \\
+    \multicolumn{6}{l}{\emph{CIFAR-10, PreActResNet-18}} \\
+    WA \citep{swa}            & 83.50 & 49.89 & 66.70 & 62.46 & RPAT \\
+    AWP \citep{2020_awp}      & 81.11 & 50.09 & 65.60 & 61.93 & RPAT \\
+    KD\,+\,SWA \citep{kdswa}   & 84.06 & 49.82 & \textbf{66.94} & 62.56 & RPAT \\
+    TE \citep{te}             & 82.04 & 50.12 & 66.08 & 62.23 & RPAT \\
+    ReBAT \citep{rebat}       & 82.09 & 50.72 & 66.41 & 62.70 & RPAT \\
+    RPAT++ \citep{rpat}       & 82.63 & 51.00 & 66.82 & \textbf{63.07} & RPAT \\
     \midrule
-    \multicolumn{7}{l}{\emph{CIFAR-100, PreActResNet-18}} \\
-    WA \citep{swa}            & --      & 57.26 & 25.83 & 41.55 & 35.60 & RPAT \\
-    AWP \citep{2020_awp}      & --      & 54.10 & 25.16 & 39.63 & 34.35 & RPAT \\
-    KD\,+\,SWA \citep{kdswa}   & robust  & 57.17 & 25.66 & 41.42 & 35.42 & RPAT \\
-    TE \citep{te}             & --      & 56.41 & 25.84 & 41.13 & 35.44 & RPAT \\
-    ReBAT \citep{rebat}       & --      & 56.13 & 27.60 & 41.87 & 37.00 & RPAT \\
-    RPAT++ \citep{rpat}       & --      & 56.84 & 27.68 & 42.26 & 37.23 & RPAT \\
+    \multicolumn{6}{l}{\emph{CIFAR-100, PreActResNet-18}} \\
+    WA \citep{swa}            & 57.26 & 25.83 & 41.55 & 35.60 & RPAT \\
+    AWP \citep{2020_awp}      & 54.10 & 25.16 & 39.63 & 34.35 & RPAT \\
+    KD\,+\,SWA \citep{kdswa}   & 57.17 & 25.66 & 41.42 & 35.42 & RPAT \\
+    TE \citep{te}             & 56.41 & 25.84 & 41.13 & 35.44 & RPAT \\
+    ReBAT \citep{rebat}       & 56.13 & 27.60 & 41.87 & 37.00 & RPAT \\
+    RPAT++ \citep{rpat}       & 56.84 & 27.68 & \textbf{42.26} & \textbf{37.23} & RPAT \\
     \midrule
-    \multicolumn{7}{l}{\emph{CIFAR-10, WideResNet-34-10}} \\
-    WA \citep{swa}            & --      & 87.66 & 52.65 & 70.16 & 65.79 & RPAT \\
-    MMA \citep{mma}           & --      & 87.80 & 43.10 & 65.45 & 57.82 & RPAT \\
-    AWP \citep{2020_awp}      & --      & 85.63 & 53.32 & 69.48 & 65.72 & RPAT \\
-    KD\,+\,SWA \citep{kdswa}   & robust  & 87.45 & 53.59 & 70.52 & 66.46 & RPAT \\
-    TE \citep{te}             & --      & 85.97 & 52.88 & 69.43 & 65.48 & RPAT \\
-    ReBAT \citep{rebat}       & --      & 85.25 & 54.78 & 70.02 & 66.70 & RPAT \\
-    ADR \citep{adr}           & self    & 84.67 & 53.25 & 68.96 & 65.38 & RPAT \\
-    CURE \citep{cure}         & self    & 87.05 & 52.10 & 69.58 & 65.19 & RPAT \\
-    RPAT++ \citep{rpat}       & --      & 86.76 & 54.97 & 70.87 & 67.30 & RPAT \\
+    \multicolumn{6}{l}{\emph{CIFAR-10, WideResNet-34-10}} \\
+    WA \citep{swa}            & 87.66 & 52.65 & 70.16 & 65.79 & RPAT \\
+    MMA \citep{mma}           & 87.80 & 43.10 & 65.45 & 57.82 & RPAT \\
+    AWP \citep{2020_awp}      & 85.63 & 53.32 & 69.48 & 65.72 & RPAT \\
+    KD\,+\,SWA \citep{kdswa}   & 87.45 & 53.59 & 70.52 & 66.46 & RPAT \\
+    TE \citep{te}             & 85.97 & 52.88 & 69.43 & 65.48 & RPAT \\
+    ReBAT \citep{rebat}       & 85.25 & 54.78 & 70.02 & 66.70 & RPAT \\
+    ADR \citep{adr}           & 84.67 & 53.25 & 68.96 & 65.38 & RPAT \\
+    CURE \citep{cure}         & 87.05 & 52.10 & 69.58 & 65.19 & RPAT \\
+    RPAT++ \citep{rpat}       & 86.76 & 54.97 & \textbf{70.87} & \textbf{67.30} & RPAT \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1257,7 +1239,7 @@ codebases and architectures rather than as a controlled result, which is what \C
     \toprule
     Method & Clean & AA & Avg & NRR & Source \\
     \midrule
-    \textbf{CFA (ours)}        & \textbf{55.16} & \textbf{20.54} & \textbf{37.85} & \textbf{29.93} & --- \\
+    \textbf{CFA (ours)}        & 55.16 & 20.54 & \textbf{37.85} & \textbf{29.93} & --- \\
     \midrule
     AT + WA + ADR              & 48.55 & 20.23 & 34.39 & 28.56 & ADR \\
     AT + WA + AWP + ADR        & 48.27 & 20.12 & 34.20 & 28.40 & ADR \\
@@ -1270,12 +1252,12 @@ codebases and architectures rather than as a controlled result, which is what \C
     TRADES                     & 48.49 & 17.35 & 32.92 & 25.56 & ADR \\
     \midrule
     \multicolumn{6}{l}{\emph{PreActResNet-18 --- same parameter count, different network}} \\
-    HAT                        & 52.60 & 18.14 & 35.37 & 26.98 & HAT \\
+    HAT                        & 52.60 & 18.14 & \textbf{35.37} & \textbf{26.98} & HAT \\
     TRADES                     & 48.25 & 17.17 & 32.71 & 25.35 & HAT \\
     AT                         & 47.76 & 17.92 & 32.84 & 26.02 & HAT \\
     \midrule
     \multicolumn{6}{l}{\emph{Bottleneck ResNet-18 (14.35M) and an unstated setup --- see caption}} \\
-    Consistency-AT + RPAT      & 49.74 & 18.84 & 34.29 & 27.33 & RPAT \\
+    Consistency-AT + RPAT      & 49.74 & 18.84 & \textbf{34.29} & \textbf{27.33} & RPAT \\
     PGD-AT + RPAT              & 47.68 & 17.77 & 32.73 & 25.89 & RPAT \\
     Consistency-AT             & 46.54 & 17.60 & 32.07 & 25.54 & RPAT \\
     MART                       & 39.70 & 17.18 & 28.44 & 23.98 & RPAT \\
