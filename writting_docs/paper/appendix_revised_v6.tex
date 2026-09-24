@@ -76,12 +76,12 @@ or establish superiority over other regression targets.
 
 \subsection{In the Two-Feature Model, the Non-Robust Coefficient Is Zeroed Rather Than Shrunk}
 
-The setting is the two-feature model of \citet{tsipras2018robustness}, which is where the objection is
-usually posed. One feature $x_1$ agrees with the label with probability $p = 0.95$ and cannot be
+We use a restricted version of the feature model of \citet{tsipras2018robustness}.
+One feature $x_1$ agrees with the label with probability $p = 0.95$; here, we assume it cannot be
 attacked. A further $d$ features $z_j \sim \mathcal{N}(\eta y, 1)$ are individually almost
 uninformative, are jointly close to perfectly informative through their mean $m(z)$, and can all be
-moved by an $\ell_\infty$ adversary. A naturally trained network therefore reads $m(z)$: near-perfect
-clean accuracy, no robustness whatever. That is our teacher's profile, so $\Phi_t = m(z)$.
+moved by an $\ell_\infty$ adversary. We take $\Phi_t = m(z)$ as a natural teacher with near-perfect
+clean accuracy and poor robustness.
 
 Write the student's feature as $\Phi_s = a x_1 + b\, m(z)$. Then $b$ is exactly the quantity the
 objection is about: how much of the teacher's fragile route the student takes over. If the objection
@@ -330,6 +330,8 @@ or AWP.
     KL & 16 & 4.60 & 57.78 & 24.00 & 33.91 \\
     \midrule
     \multicolumn{6}{l}{\emph{Shared-temperature KD}} \\
+    KL & 1  & 0.76 & 58.26 & 20.84 & 30.70 \\
+    KL & 2  & 2.40 & 58.90 & 23.02 & 33.10 \\
     KL & 4  & 4.20 & 60.83 & 25.05 & 35.49 \\
     KL & 8  & 4.56 & 60.99 & 25.25 & 35.71 \\
     KL & 16 & 4.60 & 61.85 & 25.39 & 36.00 \\
@@ -789,9 +791,8 @@ CIFAR-100 ablations use 100 epochs at $8.8/255$, with a 10-epoch AWP warmup.
 \end{tabular}
 \end{center}
 
-The head being frozen is what removes $\tau$ and $\beta$ from the method: with the classifier
-inherited and never updated, the head-KD term of earlier drafts has no parameters to reach and is
-switched off entirely. $p$ is not tuned. The training-radius sweep is reported in
+We keep the inherited classifier fixed and omit the head-KD term, removing its temperature $\tau$
+and weight $\beta$ from the objective. $p$ is not tuned. The training-radius sweep is reported in
 \Cref{tab:radius}; evaluation is at $8/255$ in every cell.
 
 \paragraph{Evaluation.} We report AutoAttack accuracy at $\ell_\infty$ radius $8/255$ on the full
@@ -873,23 +874,6 @@ procedure. These experiments vary the teacher checkpoint, not just the target fe
     150      & 77.68 & 4.495 & 4.262 & 63.37 & 25.49 & 36.36 \\
     200      & 77.90 & 4.542 & 4.129 & 63.02 & \textbf{26.16} & \textbf{36.97} \\
     300      & 78.27 & 4.523 & 3.835 & 62.34 & 25.94 & 36.64 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{table}[!htbp]
-  \centering \small \setlength{\tabcolsep}{4.5pt}
-  \caption{Transfer from accuracy-matched clean self-teachers on CIFAR-100
-  (ResNet-18; 50-epoch students). Feature sensitivity is measured on held-out data.}
-  \label{tab:matchedteacher}
-  \begin{tabular}{lrrcrr}
-    \toprule
-    & \multicolumn{2}{c}{Teacher} && \multicolumn{2}{c}{Student} \\
-    \cmidrule(lr){2-3}\cmidrule(lr){5-6}
-    Natural training & Clean & Sensitivity && Clean & AA \\
-    \midrule
-    Label smoothing $0.1$ & 78.76 & 3.16 && 59.62 & 25.72 \\
-    Mixup & 78.62 & 4.82 && 63.80 & 25.70 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1096,7 +1080,7 @@ PGD-20 is not a faithful reading of this method.
     \toprule
     Dataset & Cell & Clean & FGSM & PGD-20 & CW & AA & NRR \\
     \midrule
-    CIFAR-100 & CFA, head frozen (shipped)   & 62.17 & 36.91 & 32.37 & 30.93 & 28.86 & 39.42 \\
+    CIFAR-100 & CFA, head frozen (100 ep.)   & 62.17 & 36.91 & 32.37 & 30.93 & 28.86 & 39.42 \\
               & \quad the same cell at seed 1 & 62.00 & 36.79 & 32.49 & 30.82 & 28.74 & 39.27 \\
               & \quad $\ell_1$ gradient norm  & 62.16 & 36.48 & 31.97 & 30.56 & 28.57 & 39.15 \\
               & CFA, head-KD term retained   & 62.35 & 38.80 & 36.26 & 30.65 & 28.68 & 39.29 \\
@@ -1108,7 +1092,7 @@ PGD-20 is not a faithful reading of this method.
               & Teacher-only KL, our stack   & 56.97 & 35.82 & 33.68 & 28.94 & 26.96 & 36.60 \\
               & RPAT++ (our reproduction)    & 55.93 & 34.46 & 32.44 & 29.37 & 27.36 & 36.74 \\
     \midrule
-    CIFAR-10  & CFA, $\epsilon_{\mathrm{tr}} = 8.8/255$ (shipped) & 84.96 & 59.58 & 52.98 & 53.94 & 51.74 & 64.31 \\
+    CIFAR-10  & CFA, $\epsilon_{\mathrm{tr}} = 8.8/255$ (100 ep.) & 84.96 & 59.58 & 52.98 & 53.94 & 51.74 & 64.31 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 6/255$  & 89.64 & 59.37 & 49.29 & 50.20 & 47.88 & 62.42 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 7/255$  & 88.30 & 59.59 & 51.43 & 52.64 & 50.27 & 64.07 \\
               & CFA, $\epsilon_{\mathrm{tr}} = 8/255$  & 87.22 & 59.92 & 52.43 & 53.55 & 51.15 & 64.48 \\
@@ -1171,8 +1155,8 @@ be compared within a source rather than across.
     MART                      & --      & 49.83 & 25.00 & 37.41 & 33.30 & RPAT \\
     Consistency-AT            & --      & 58.53 & 25.39 & 41.96 & 35.42 & RPAT \\
     Consistency-AT + RPAT     & --      & 60.33 & 26.31 & 43.32 & 36.64 & RPAT \\
-    F\textsuperscript{2}AT    & --      & 54.19 & 23.24 & 38.71 & 32.53 & F\textsuperscript{2}AT \\
-    Generalist++              & co-tr.  & 62.97 & 23.96 & 43.47 & 34.71 & Generalist++ \\
+    F\textsuperscript{2}AT    & --      & 54.19 & 23.24 & 38.71 & 32.53 & \citet{f2at} \\
+    Generalist++              & co-tr.  & 62.97 & 23.96 & 43.47 & 34.71 & \citet{generalist} \\
     ADR (AT + ADR)            & self    & 56.10 & 26.87 & 41.48 & 36.34 & ADR \\
     ADR (AT + WA + AWP + ADR) & self    & 57.36 & 28.50 & 42.93 & 38.08 & ADR \\
     \midrule
@@ -1183,7 +1167,7 @@ be compared within a source rather than across.
     ST-AT                     & --      & 83.10 & 50.50 & 66.80 & 62.82 & CURE \\
     IAD                       & robust  & 80.63 & 50.17 & 65.40 & 61.85 & CURE \\
     Consistency-AT + RPAT     & --      & 84.12 & 48.98 & 66.55 & 61.91 & RPAT \\
-    Generalist++              & co-tr.  & 89.09 & 46.07 & 67.58 & 60.73 & Generalist++ \\
+    Generalist++              & co-tr.  & 89.09 & 46.07 & 67.58 & 60.73 & \citet{generalist} \\
     ARREST                    & natural & 86.63 & 46.14 & 66.39 & 60.21 & ARREST \\
     CURE                      & self    & 86.76 & 49.69 & 68.23 & 63.19 & CURE \\
     ADR (AT + ADR)            & self    & 82.41 & 50.38 & 66.40 & 62.53 & ADR \\
